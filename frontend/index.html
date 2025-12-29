@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestión VPN</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Login Screen -->
+    <div id="loginScreen" class="login-screen">
+        <div class="login-container">
+            <div class="login-header">
+                <h1>🔐 Sistema de Gestión VPN</h1>
+                <p>Institución Pública - Acceso Seguro</p>
+            </div>
+            <form id="loginForm" class="login-form">
+                <div class="form-group">
+                    <label for="username">Usuario</label>
+                    <input type="text" id="username" required autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="password">Contraseña</label>
+                    <input type="password" id="password" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Iniciar Sesión</button>
+                <div id="loginError" class="error-message"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div id="mainApp" class="main-app" style="display: none;">
+        <!-- Top Navigation -->
+        <nav class="top-nav">
+            <div class="nav-brand">
+                <h2>🔑 Sistema VPN</h2>
+            </div>
+            <div class="nav-user">
+                <span id="userName"></span>
+                <span class="badge" id="userRole"></span>
+                <button id="logoutBtn" class="btn btn-sm btn-outline">Cerrar Sesión</button>
+            </div>
+        </nav>
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <ul class="menu">
+                <li><a href="#" data-view="dashboard" class="menu-item active">📊 Dashboard</a></li>
+                <li><a href="#" data-view="personas" class="menu-item">👥 Personas</a></li>
+                <li><a href="#" data-view="solicitudes" class="menu-item">📄 Solicitudes</a></li>
+                <li><a href="#" data-view="accesos" class="menu-item">🔑 Accesos</a></li>
+            </ul>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="content">
+            <!-- Dashboard View -->
+            <div id="dashboardView" class="view active">
+                <h1>Dashboard</h1>
+                
+                <!-- Stats Cards -->
+                <div class="stats-grid">
+                    <div class="stat-card stat-success">
+                        <div class="stat-icon">✅</div>
+                        <div class="stat-content">
+                            <div class="stat-label">Activos</div>
+                            <div class="stat-value" id="statActivos">0</div>
+                        </div>
+                    </div>
+                    <div class="stat-card stat-warning">
+                        <div class="stat-icon">⚠️</div>
+                        <div class="stat-content">
+                            <div class="stat-label">Por Vencer</div>
+                            <div class="stat-value" id="statPorVencer">0</div>
+                        </div>
+                    </div>
+                    <div class="stat-card stat-danger">
+                        <div class="stat-icon">❌</div>
+                        <div class="stat-content">
+                            <div class="stat-label">Vencidos</div>
+                            <div class="stat-value" id="statVencidos">0</div>
+                        </div>
+                    </div>
+                    <div class="stat-card stat-info">
+                        <div class="stat-icon">🚫</div>
+                        <div class="stat-content">
+                            <div class="stat-label">Bloqueados</div>
+                            <div class="stat-value" id="statBloqueados">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Access Table -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Accesos Recientes</h3>
+                        <button id="refreshDashboard" class="btn btn-sm">🔄 Actualizar</button>
+                    </div>
+                    <div class="card-body">
+                        <table class="table" id="dashboardTable">
+                            <thead>
+                                <tr>
+                                    <th>DPI</th>
+                                    <th>Nombre</th>
+                                    <th>Institución</th>
+                                    <th>Estado</th>
+                                    <th>Días Restantes</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Personas View -->
+            <div id="personasView" class="view">
+                <div class="view-header">
+                    <h1>Gestión de Personas</h1>
+                    <button id="btnNuevaPersona" class="btn btn-primary">➕ Nueva Persona</button>
+                </div>
+
+                <!-- Search Bar -->
+                <div class="search-bar">
+                    <input type="text" id="searchPersonas" placeholder="Buscar por DPI, nombres o apellidos...">
+                </div>
+
+                <!-- Personas Table -->
+                <div class="card">
+                    <table class="table" id="personasTable">
+                        <thead>
+                            <tr>
+                                <th>DPI</th>
+                                <th>Nombres</th>
+                                <th>Apellidos</th>
+                                <th>Institución</th>
+                                <th>Cargo</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Solicitudes View -->
+            <div id="solicitudesView" class="view">
+                <div class="view-header">
+                    <h1>Gestión de Solicitudes</h1>
+                    <button id="btnNuevaSolicitud" class="btn btn-primary">➕ Nueva Solicitud</button>
+                </div>
+
+                <!-- Filters -->
+                <div class="filters">
+                    <select id="filterEstadoSolicitud">
+                        <option value="">Todos los estados</option>
+                        <option value="APROBADA">Aprobada</option>
+                        <option value="RECHAZADA">Rechazada</option>
+                        <option value="CANCELADA">Cancelada</option>
+                    </select>
+                    <select id="filterTipoSolicitud">
+                        <option value="">Todos los tipos</option>
+                        <option value="NUEVA">Nueva</option>
+                        <option value="RENOVACION">Renovación</option>
+                    </select>
+                </div>
+
+                <!-- Solicitudes Table -->
+                <div class="card">
+                    <table class="table" id="solicitudesTable">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>DPI</th>
+                                <th>Nombre</th>
+                                <th>Tipo</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Accesos View -->
+            <div id="accesosView" class="view">
+                <div class="view-header">
+                    <h1>Gestión de Accesos VPN</h1>
+                </div>
+
+                <!-- Accesos Table -->
+                <div class="card">
+                    <table class="table" id="accesosTable">
+                        <thead>
+                            <tr>
+                                <th>DPI</th>
+                                <th>Nombre</th>
+                                <th>Fecha Inicio</th>
+                                <th>Fecha Fin</th>
+                                <th>Estado</th>
+                                <th>Días Restantes</th>
+                                <th>Bloqueo</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal for Forms -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Modal</h2>
+                <span class="modal-close">&times;</span>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- Dynamic content -->
+            </div>
+        </div>
+    </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/dashboard.js"></script>
+    <script src="js/personas.js"></script>
+    <script src="js/solicitudes.js"></script>
+    <script src="js/accesos.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
