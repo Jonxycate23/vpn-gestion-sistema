@@ -27,7 +27,7 @@ class LoginResponse(BaseModel):
     """Response de login"""
     access_token: str = Field(..., description="Token JWT")
     token_type: str = Field(default="bearer", description="Tipo de token")
-    usuario: "UsuarioResponse" = Field(..., description="Datos del usuario")
+    usuario: dict = Field(..., description="Datos del usuario")
 
 
 class ChangePasswordRequest(BaseModel):
