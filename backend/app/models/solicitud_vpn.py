@@ -1,5 +1,6 @@
 """
 Modelo: Solicitud VPN (historial administrativo)
+ACTUALIZADO: Incluye oficio, providencia y fecha de recepción
 """
 from sqlalchemy import (
     Column, Integer, String, Date, DateTime, Text, 
@@ -35,7 +36,13 @@ class SolicitudVPN(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     persona_id = Column(Integer, ForeignKey("personas.id"), nullable=False, index=True)
-    fecha_solicitud = Column(Date, nullable=False, index=True)
+    
+    # Datos administrativos de la solicitud
+    numero_oficio = Column(String(50), index=True)  # Ej: "07-2025"
+    numero_providencia = Column(String(50), index=True)  # Ej: "S/N", "3372-2024"
+    fecha_recepcion = Column(Date, index=True)  # Fecha real de recepción del oficio
+    fecha_solicitud = Column(Date, nullable=False, index=True)  # Fecha del sistema
+    
     tipo_solicitud = Column(String(20), nullable=False, index=True)
     justificacion = Column(Text, nullable=False)
     estado = Column(String(20), nullable=False, index=True)
@@ -87,6 +94,7 @@ class SolicitudVPN(Base):
     def __repr__(self):
         return (
             f"<SolicitudVPN(id={self.id}, "
+            f"oficio='{self.numero_oficio}', "
             f"tipo='{self.tipo_solicitud}', "
             f"estado='{self.estado}')>"
         )

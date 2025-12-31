@@ -5,13 +5,9 @@ Sistema de Gestión de Accesos VPN
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.core.database import engine, Base
 
-# Importar routers
-from app.api.endpoints import auth, dashboard, personas, solicitudes, accesos
-
-# Crear todas las tablas (solo en desarrollo, usar Alembic en producción)
-# Base.metadata.create_all(bind=engine)
+# Importar solo routers que existen y funcionan
+from app.api.endpoints import auth, dashboard, solicitudes, accesos
 
 # Crear aplicación
 app = FastAPI(
@@ -37,11 +33,11 @@ app.add_middleware(
 async def root():
     """Endpoint raíz"""
     return {
-        "mensaje": "Sistema de Gestión de Accesos VPN",
+        "mensaje": "Sistema de Gestión de Accesos VPN - PNC",
         "version": settings.APP_VERSION,
         "docs": "/docs",
         "redoc": "/redoc",
-        "estado": "Sistema funcional con autenticación activa"
+        "estado": "✅ Sistema funcional"
     }
 
 
@@ -55,20 +51,11 @@ async def health_check():
     }
 
 
-# Registrar routers
+# Registrar routers (solo los que existen)
 app.include_router(auth.router, prefix="/api/auth", tags=["🔐 Autenticación"])
 app.include_router(dashboard.router, prefix="/api/dashboard", tags=["📊 Dashboard"])
-app.include_router(personas.router, prefix="/api/personas", tags=["👥 Personas"])
 app.include_router(solicitudes.router, prefix="/api/solicitudes", tags=["📄 Solicitudes VPN"])
 app.include_router(accesos.router, prefix="/api/accesos", tags=["🔑 Accesos VPN"])
-
-# TODO: Agregar más routers cuando estén implementados
-# from app.api.endpoints import personas, solicitudes, accesos, documentos, dashboard
-# app.include_router(personas.router, prefix="/api/personas", tags=["👥 Personas"])
-# app.include_router(solicitudes.router, prefix="/api/solicitudes", tags=["📄 Solicitudes"])
-# app.include_router(accesos.router, prefix="/api/accesos", tags=["🔑 Accesos VPN"])
-# app.include_router(documentos.router, prefix="/api/documentos", tags=["📎 Documentos"])
-# app.include_router(dashboard.router, prefix="/api/dashboard", tags=["📊 Dashboard"])
 
 
 if __name__ == "__main__":

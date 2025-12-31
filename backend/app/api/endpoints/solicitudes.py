@@ -1,25 +1,143 @@
 """
 Endpoints de gestión de Solicitudes VPN
+INCLUYE: Búsqueda por DPI para autocompletado
 """
 from fastapi import APIRouter, Depends, status, Request, Query
 from sqlalchemy.orm import Session
 from typing import Optional
+from datetime import date
 from app.core.database import get_db
 from app.schemas import (
     SolicitudCreate,
     SolicitudAprobar,
     SolicitudRechazar,
     SolicitudResponse,
+    PersonaCreate,
+    PersonaUpdate,
     ResponseBase
 )
 from app.services.solicitudes import SolicitudService
+from app.services.personas import PersonaService
 from app.api.dependencies.auth import get_current_active_user, get_client_ip
 from app.models import UsuarioSistema
 
 router = APIRouter()
 
 
-@router.post("/", response_model=SolicitudResponse, status_code=status.HTTP_201_CREATED)
+# ========================================
+# BÚSQUEDA POR DPI (para nueva solicitud)
+# ========================================
+
+@router.get("/buscar-dpi/{dpi}", response_model=dict)
+async def buscar_persona_por_dpi(
+    dpi: str,
+    current_user: UsuarioSistema = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Buscar persona por DPI - retorna datos completos si existe
+    
+    Usado en el flujo de nueva solicitud para autocompletar datos
+    """
+    persona = PersonaService.obtener_por_dpi(db=db, dpi=dpi)
+    
+    if persona is None:
+        return {"existe": False}
+    
+    # Contar solicitudes
+    from app.models import SolicitudVPN
+    total_solicitudes = db.query(SolicitudVPN).filter(
+        SolicitudVPN.persona_id == persona.id
+    ).count()
+    
+    return {
+        "existe": True,
+        "id": persona.id,
+        "dpi": persona.dpi,
+        "nombres": persona.nombres,
+        "apellidos": persona.apellidos,
+        "institucion": persona.institucion,
+        "cargo": persona.cargo,
+        "telefono": persona.telefono,
+        "email": persona.email,
+        "observaciones": persona.observaciones,
+        "activo": persona.activo,
+        "fecha_creacion": persona.fecha_creacion,
+        "total_solicitudes": total_solicitudes
+    }
+
+
+# ========================================
+# CREAR/ACTUALIZAR PERSONA (desde solicitud)
+# ========================================
+
+@router.post("/persona", response_model=dict, status_code=status.HTTP_200_OK)
+async def crear_o_actualizar_persona(
+    data: PersonaCreate,
+    request: Request,
+    current_user: UsuarioSistema = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Crear nueva persona o actualizar si ya existe
+    
+    Solo actualiza campos editables:
+    - email
+    - cargo
+    - telefono
+    - institucion
+    """
+    ip_origen = get_client_ip(request)
+    
+    # Buscar si existe
+    persona_existente = PersonaService.obtener_por_dpi(db=db, dpi=data.dpi)
+    
+    if persona_existente:
+        # Actualizar solo campos editables
+        update_data = PersonaUpdate(
+            email=data.email,
+            cargo=data.cargo,
+            telefono=data.telefono,
+            institucion=data.institucion,
+            observaciones=data.observaciones
+        )
+        
+        persona = PersonaService.actualizar(
+            db=db,
+            persona_id=persona_existente.id,
+            data=update_data,
+            usuario_id=current_user.id,
+            ip_origen=ip_origen
+        )
+        
+        return {
+            "success": True,
+            "message": "Datos actualizados exitosamente",
+            "persona_id": persona.id,
+            "accion": "actualizar"
+        }
+    else:
+        # Crear nueva persona
+        persona = PersonaService.crear(
+            db=db,
+            data=data,
+            usuario_id=current_user.id,
+            ip_origen=ip_origen
+        )
+        
+        return {
+            "success": True,
+            "message": "Persona creada exitosamente",
+            "persona_id": persona.id,
+            "accion": "crear"
+        }
+
+
+# ========================================
+# SOLICITUDES VPN
+# ========================================
+
+@router.post("/", response_model=dict, status_code=status.HTTP_201_CREATED)
 async def crear_solicitud(
     data: SolicitudCreate,
     request: Request,
@@ -40,13 +158,30 @@ async def crear_solicitud(
         usuario_id=current_user.id,
         ip_origen=ip_origen
     )
-    return solicitud
+    
+    # Obtener datos completos para respuesta
+    from app.models import Persona
+    persona = db.query(Persona).filter(Persona.id == solicitud.persona_id).first()
+    
+    return {
+        "success": True,
+        "message": "Solicitud creada exitosamente",
+        "solicitud": {
+            "id": solicitud.id,
+            "persona_id": solicitud.persona_id,
+            "persona_nombre": f"{persona.nombres} {persona.apellidos}",
+            "persona_dpi": persona.dpi,
+            "tipo_solicitud": solicitud.tipo_solicitud,
+            "fecha_solicitud": solicitud.fecha_solicitud,
+            "estado": solicitud.estado
+        }
+    }
 
 
 @router.get("/", response_model=dict)
 async def listar_solicitudes(
     skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100),
+    limit: int = Query(100, ge=1, le=200),
     estado: Optional[str] = Query(None, description="APROBADA, RECHAZADA, CANCELADA"),
     tipo: Optional[str] = Query(None, description="NUEVA, RENOVACION"),
     persona_id: Optional[int] = Query(None, description="Filtrar por persona"),
@@ -97,7 +232,7 @@ async def listar_solicitudes(
     
     return {
         "total": total,
-        "page": (skip // limit) + 1,
+        "page": (skip // limit) + 1 if limit > 0 else 1,
         "page_size": limit,
         "solicitudes": result
     }
@@ -112,8 +247,6 @@ async def obtener_solicitud(
     """
     Obtener solicitud por ID con todos los detalles
     """
-    from datetime import date
-    
     solicitud = SolicitudService.obtener_por_id(db=db, solicitud_id=solicitud_id)
     if not solicitud:
         from fastapi import HTTPException

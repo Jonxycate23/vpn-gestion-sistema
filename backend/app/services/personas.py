@@ -67,6 +67,7 @@ class PersonaService:
         """Obtener persona por DPI"""
         return db.query(Persona).filter(Persona.dpi == dpi).first()
     
+    
     @staticmethod
     def listar(
         db: Session,

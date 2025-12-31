@@ -1,5 +1,6 @@
 """
 Modelo: Persona (solicitante de acceso VPN)
+ACTUALIZADO: Incluye NIP para personal policial
 """
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text
 from sqlalchemy.orm import relationship
@@ -18,6 +19,7 @@ class Persona(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     dpi = Column(String(20), unique=True, nullable=False, index=True)
+    nip = Column(String(20), index=True)  # Número de Identificación Policial
     nombres = Column(String(150), nullable=False, index=True)
     apellidos = Column(String(150), nullable=False, index=True)
     institucion = Column(String(200))

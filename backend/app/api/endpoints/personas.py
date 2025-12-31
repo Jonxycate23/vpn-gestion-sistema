@@ -1,138 +1,281 @@
 """
-Endpoints de gestión de Personas
+Servicio de gestión de Personas - MEJORADO
+Incluye búsqueda por DPI y edición de datos
 """
-from fastapi import APIRouter, Depends, status, Request, Query
 from sqlalchemy.orm import Session
-from typing import Optional
-from app.core.database import get_db
-from app.schemas import (
-    PersonaCreate,
-    PersonaUpdate,
-    PersonaResponse,
-    ResponseBase
-)
-from app.services.personas import PersonaService
-from app.api.dependencies.auth import get_current_active_user, get_client_ip
-from app.models import UsuarioSistema
-
-router = APIRouter()
+from sqlalchemy import or_, func
+from fastapi import HTTPException, status
+from typing import List, Optional, Tuple
+from app.models import Persona, SolicitudVPN
+from app.schemas import PersonaCreate, PersonaUpdate
+from app.utils.auditoria import AuditoriaService
 
 
-@router.post("/", response_model=PersonaResponse, status_code=status.HTTP_201_CREATED)
-async def crear_persona(
-    data: PersonaCreate,
-    request: Request,
-    current_user: UsuarioSistema = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Crear nueva persona (solicitante VPN)
+class PersonaService:
+    """Servicio para gestión de personas (solicitantes VPN)"""
     
-    - **dpi**: DPI de 13 dígitos (único)
-    - **nombres**: Nombres de la persona
-    - **apellidos**: Apellidos de la persona
-    """
-    ip_origen = get_client_ip(request)
-    persona = PersonaService.crear(
-        db=db,
-        data=data,
-        usuario_id=current_user.id,
-        ip_origen=ip_origen
-    )
-    return persona
-
-
-@router.get("/", response_model=dict)
-async def listar_personas(
-    skip: int = Query(0, ge=0, description="Número de registros a saltar"),
-    limit: int = Query(50, ge=1, le=100, description="Número de registros a retornar"),
-    activo: Optional[bool] = Query(None, description="Filtrar por estado activo"),
-    busqueda: Optional[str] = Query(None, description="Buscar por DPI, nombres o apellidos"),
-    current_user: UsuarioSistema = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Listar personas con filtros y paginación
-    """
-    personas, total = PersonaService.listar(
-        db=db,
-        skip=skip,
-        limit=limit,
-        activo=activo,
-        busqueda=busqueda
-    )
+    @staticmethod
+    def buscar_por_dpi(db: Session, dpi: str) -> Optional[dict]:
+        """
+        Buscar persona por DPI y retornar datos completos
+        
+        Returns:
+            Diccionario con datos de la persona y su historial, o None si no existe
+        """
+        persona = db.query(Persona).filter(Persona.dpi == dpi).first()
+        
+        if not persona:
+            return None
+        
+        # Contar solicitudes
+        total_solicitudes = db.query(SolicitudVPN).filter(
+            SolicitudVPN.persona_id == persona.id
+        ).count()
+        
+        solicitudes_activas = db.query(SolicitudVPN).filter(
+            SolicitudVPN.persona_id == persona.id,
+            SolicitudVPN.estado == 'APROBADA'
+        ).count()
+        
+        return {
+            "id": persona.id,
+            "dpi": persona.dpi,
+            "nombres": persona.nombres,
+            "apellidos": persona.apellidos,
+            "institucion": persona.institucion,
+            "cargo": persona.cargo,
+            "telefono": persona.telefono,
+            "email": persona.email,
+            "observaciones": persona.observaciones,
+            "activo": persona.activo,
+            "fecha_creacion": persona.fecha_creacion,
+            "total_solicitudes": total_solicitudes,
+            "solicitudes_activas": solicitudes_activas,
+            "existe": True  # Flag para indicar que ya existe
+        }
     
-    return {
-        "total": total,
-        "page": (skip // limit) + 1,
-        "page_size": limit,
-        "personas": personas
-    }
-
-
-@router.get("/buscar", response_model=list[PersonaResponse])
-async def buscar_personas(
-    q: str = Query(..., min_length=3, description="Texto a buscar"),
-    current_user: UsuarioSistema = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Búsqueda rápida de personas
+    @staticmethod
+    def crear_o_actualizar(
+        db: Session,
+        dpi: str,
+        data: PersonaCreate,
+        usuario_id: int,
+        ip_origen: str
+    ) -> Persona:
+        """
+        Crear persona nueva o actualizar si ya existe
+        
+        Si la persona existe, actualiza solo los campos editables:
+        - email
+        - cargo
+        - telefono
+        - institucion (procedencia/destino)
+        - observaciones
+        """
+        persona_existente = db.query(Persona).filter(Persona.dpi == dpi).first()
+        
+        if persona_existente:
+            # Actualizar solo campos editables
+            cambios = {}
+            
+            if data.email and data.email != persona_existente.email:
+                cambios['email'] = {'anterior': persona_existente.email, 'nuevo': data.email}
+                persona_existente.email = data.email
+            
+            if data.cargo and data.cargo != persona_existente.cargo:
+                cambios['cargo'] = {'anterior': persona_existente.cargo, 'nuevo': data.cargo}
+                persona_existente.cargo = data.cargo
+            
+            if data.telefono and data.telefono != persona_existente.telefono:
+                cambios['telefono'] = {'anterior': persona_existente.telefono, 'nuevo': data.telefono}
+                persona_existente.telefono = data.telefono
+            
+            if data.institucion and data.institucion != persona_existente.institucion:
+                cambios['institucion'] = {'anterior': persona_existente.institucion, 'nuevo': data.institucion}
+                persona_existente.institucion = data.institucion
+            
+            if data.observaciones and data.observaciones != persona_existente.observaciones:
+                cambios['observaciones'] = {'anterior': persona_existente.observaciones, 'nuevo': data.observaciones}
+                persona_existente.observaciones = data.observaciones
+            
+            if cambios:
+                db.commit()
+                db.refresh(persona_existente)
+                
+                # Auditoría
+                from app.models import UsuarioSistema
+                usuario = db.query(UsuarioSistema).filter(UsuarioSistema.id == usuario_id).first()
+                AuditoriaService.registrar_actualizar(
+                    db=db,
+                    usuario=usuario,
+                    entidad="PERSONA",
+                    entidad_id=persona_existente.id,
+                    cambios=cambios,
+                    ip_origen=ip_origen
+                )
+            
+            return persona_existente
+        else:
+            # Crear nueva persona
+            persona = Persona(**data.model_dump())
+            db.add(persona)
+            db.commit()
+            db.refresh(persona)
+            
+            # Auditoría
+            from app.models import UsuarioSistema
+            usuario = db.query(UsuarioSistema).filter(UsuarioSistema.id == usuario_id).first()
+            AuditoriaService.registrar_crear(
+                db=db,
+                usuario=usuario,
+                entidad="PERSONA",
+                entidad_id=persona.id,
+                detalle={
+                    "dpi": persona.dpi,
+                    "nombre_completo": f"{persona.nombres} {persona.apellidos}"
+                },
+                ip_origen=ip_origen
+            )
+            
+            return persona
     
-    Busca en DPI, nombres y apellidos
-    """
-    return PersonaService.buscar_por_texto(db=db, query_text=q)
+    @staticmethod
+    def crear(
+        db: Session,
+        data: PersonaCreate,
+        usuario_id: int,
+        ip_origen: str
+    ) -> Persona:
+        """
+        Crear nueva persona
+        
+        Raises:
+            HTTPException: Si el DPI ya existe
+        """
+        # Verificar que el DPI no exista
+        existe = db.query(Persona).filter(Persona.dpi == data.dpi).first()
+        if existe:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Ya existe una persona con DPI {data.dpi}"
+            )
+        
+        # Crear persona
+        persona = Persona(**data.model_dump())
+        db.add(persona)
+        db.commit()
+        db.refresh(persona)
+        
+        # Auditoría
+        from app.models import UsuarioSistema
+        usuario = db.query(UsuarioSistema).filter(UsuarioSistema.id == usuario_id).first()
+        AuditoriaService.registrar_crear(
+            db=db,
+            usuario=usuario,
+            entidad="PERSONA",
+            entidad_id=persona.id,
+            detalle={
+                "dpi": persona.dpi,
+                "nombre_completo": f"{persona.nombres} {persona.apellidos}"
+            },
+            ip_origen=ip_origen
+        )
+        
+        return persona
+    
+    @staticmethod
+    def obtener_por_id(db: Session, persona_id: int) -> Optional[Persona]:
+        """Obtener persona por ID"""
+        return db.query(Persona).filter(Persona.id == persona_id).first()
+    
+    @staticmethod
+    def obtener_por_dpi(db: Session, dpi: str) -> Optional[Persona]:
+        """Obtener persona por DPI"""
+        return db.query(Persona).filter(Persona.dpi == dpi).first()
+    
+    @staticmethod
+    def listar(
+        db: Session,
+        skip: int = 0,
+        limit: int = 50,
+        activo: Optional[bool] = None,
+        busqueda: Optional[str] = None
+    ) -> Tuple[List[Persona], int]:
+        """
+        Listar personas con filtros y paginación
+        
+        Returns:
+            Tupla (lista_personas, total_registros)
+        """
+        query = db.query(Persona)
+        
+        # Filtro de activos
+        if activo is not None:
+            query = query.filter(Persona.activo == activo)
+        
+        # Búsqueda por DPI, nombres o apellidos
+        if busqueda:
+            search_term = f"%{busqueda}%"
+            query = query.filter(
+                or_(
+                    Persona.dpi.ilike(search_term),
+                    Persona.nombres.ilike(search_term),
+                    Persona.apellidos.ilike(search_term)
+                )
+            )
+        
+        # Total
+        total = query.count()
+        
+        # Paginación
+        personas = query.order_by(Persona.fecha_creacion.desc()).offset(skip).limit(limit).all()
+        
+        return personas, total
 
-
-@router.get("/{persona_id}", response_model=PersonaResponse)
-async def obtener_persona(
-    persona_id: int,
-    current_user: UsuarioSistema = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Obtener persona por ID
-    """
-    persona = PersonaService.obtener_por_id(db=db, persona_id=persona_id)
-    if not persona:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail="Persona no encontrada")
-    return persona
-
-
-@router.get("/dpi/{dpi}", response_model=PersonaResponse)
-async def obtener_persona_por_dpi(
-    dpi: str,
-    current_user: UsuarioSistema = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Obtener persona por DPI
-    """
-    persona = PersonaService.obtener_por_dpi(db=db, dpi=dpi)
-    if not persona:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail="Persona no encontrada")
-    return persona
-
-
-@router.put("/{persona_id}", response_model=PersonaResponse)
-async def actualizar_persona(
-    persona_id: int,
-    data: PersonaUpdate,
-    request: Request,
-    current_user: UsuarioSistema = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Actualizar datos de persona
-    """
-    ip_origen = get_client_ip(request)
-    persona = PersonaService.actualizar(
-        db=db,
-        persona_id=persona_id,
-        data=data,
-        usuario_id=current_user.id,
-        ip_origen=ip_origen
-    )
-    return persona
+    @staticmethod
+    def actualizar(
+        db: Session,
+        persona_id: int,
+        data: PersonaUpdate,
+        usuario_id: int,
+        ip_origen: str
+    ) -> Persona:
+        """
+        Actualizar persona
+        
+        Raises:
+            HTTPException: Si la persona no existe
+        """
+        persona = PersonaService.obtener_por_id(db, persona_id)
+        if not persona:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Persona no encontrada"
+            )
+        
+        # Registrar cambios para auditoría
+        cambios = {}
+        for field, value in data.model_dump(exclude_unset=True).items():
+            old_value = getattr(persona, field)
+            if old_value != value:
+                cambios[field] = {"anterior": old_value, "nuevo": value}
+                setattr(persona, field, value)
+        
+        if cambios:
+            db.commit()
+            db.refresh(persona)
+            
+            # Auditoría
+            from app.models import UsuarioSistema
+            usuario = db.query(UsuarioSistema).filter(UsuarioSistema.id == usuario_id).first()
+            AuditoriaService.registrar_actualizar(
+                db=db,
+                usuario=usuario,
+                entidad="PERSONA",
+                entidad_id=persona.id,
+                cambios=cambios,
+                ip_origen=ip_origen
+            )
+        
+        return persona
+    

@@ -1,5 +1,7 @@
-// Archivo principal de la aplicación
+// Archivo principal de la aplicación - CORREGIDO
 const App = {
+    currentView: 'dashboard',
+    
     init() {
         // Verificar autenticación al cargar
         Auth.checkAuth();
@@ -35,16 +37,22 @@ const App = {
         const modal = document.getElementById('modal');
         const closeBtn = document.querySelector('.modal-close');
         
-        closeBtn.addEventListener('click', hideModal);
+        if (closeBtn) {
+            closeBtn.addEventListener('click', hideModal);
+        }
         
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                hideModal();
-            }
-        });
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    hideModal();
+                }
+            });
+        }
     },
     
     showView(viewName) {
+        this.currentView = viewName;
+        
         // Ocultar todas las vistas
         document.querySelectorAll('.view').forEach(view => {
             view.classList.remove('active');
@@ -56,20 +64,31 @@ const App = {
             view.classList.add('active');
             
             // Cargar datos de la vista
+            this.loadViewData(viewName);
+        }
+    },
+    
+    loadViewData(viewName) {
+        try {
             switch(viewName) {
                 case 'dashboard':
-                    Dashboard.load();
-                    break;
-                case 'personas':
-                    Personas.load();
+                    if (typeof Dashboard !== 'undefined' && Dashboard.load) {
+                        Dashboard.load();
+                    }
                     break;
                 case 'solicitudes':
-                    Solicitudes.load();
+                    if (typeof Solicitudes !== 'undefined' && Solicitudes.load) {
+                        Solicitudes.load();
+                    }
                     break;
                 case 'accesos':
-                    Accesos.load();
+                    if (typeof Accesos !== 'undefined' && Accesos.load) {
+                        Accesos.load();
+                    }
                     break;
             }
+        } catch (error) {
+            console.error(`Error loading ${viewName}:`, error);
         }
     }
 };
