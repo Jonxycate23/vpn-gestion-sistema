@@ -1,4 +1,5 @@
-// Módulo de Accesos VPN
+// Módulo de Accesos VPN - VERSIÓN MEJORADA
+// Solo muestra accesos que tienen carta de responsabilidad creada
 const Accesos = {
     async load() {
         console.log('Cargando Accesos...');
@@ -15,12 +16,15 @@ const Accesos = {
                 return;
             }
             
-            if (!data.accesos || data.accesos.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No hay accesos registrados</td></tr>';
+            // FILTRAR: Solo mostrar accesos que tienen carta creada
+            const accesosConCarta = data.accesos.filter(acceso => acceso.carta_generada === true);
+            
+            if (!accesosConCarta || accesosConCarta.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No hay accesos con carta firmada</td></tr>';
                 return;
             }
             
-            tbody.innerHTML = data.accesos.map(acceso => {
+            tbody.innerHTML = accesosConCarta.map(acceso => {
                 const diasClass = acceso.dias_restantes <= 0 ? 'status-vencido' : 
                                  acceso.dias_restantes <= 7 ? 'status-por-vencer' : 'status-activo';
                 
@@ -35,17 +39,17 @@ const Accesos = {
                         <td>${getStatusBadge(acceso.estado_bloqueo || 'DESBLOQUEADO')}</td>
                         <td>
                             ${acceso.dias_restantes > 0 && acceso.dias_restantes <= 30 ? `
-                                <button class="btn btn-sm btn-warning" onclick="Accesos.prorrogar(${acceso.acceso_id})">
-                                    ⏰ Prorrogar
+                                <button class="btn btn-sm btn-warning" onclick="Accesos.prorrogar(${acceso.acceso_id})" title="Prorrogar">
+                                    ⏰
                                 </button>
                             ` : ''}
                             ${acceso.estado_bloqueo !== 'BLOQUEADO' ? `
-                                <button class="btn btn-sm btn-danger" onclick="Accesos.bloquear(${acceso.acceso_id})">
-                                    🚫 Bloquear
+                                <button class="btn btn-sm btn-danger" onclick="Accesos.bloquear(${acceso.acceso_id})" title="Bloquear">
+                                    🚫
                                 </button>
                             ` : `
-                                <button class="btn btn-sm btn-success" onclick="Accesos.desbloquear(${acceso.acceso_id})">
-                                    ✅ Desbloquear
+                                <button class="btn btn-sm btn-success" onclick="Accesos.desbloquear(${acceso.acceso_id})" title="Desbloquear">
+                                    ✅
                                 </button>
                             `}
                         </td>
@@ -183,19 +187,6 @@ const Accesos = {
             } catch (error) {
                 hideLoading();
                 showError('Error: ' + error.message);
-            }
-        });
-    },
-    
-    filtrarVencidosHoy() {
-        // Aplicar filtro automático para vencidos hoy
-        const tbody = document.querySelector('#accesosTable tbody');
-        const rows = tbody.querySelectorAll('tr');
-        
-        rows.forEach(row => {
-            const diasText = row.querySelector('.status-badge')?.textContent;
-            if (diasText && diasText.includes('0 días')) {
-                row.style.background = '#fee2e2';
             }
         });
     }

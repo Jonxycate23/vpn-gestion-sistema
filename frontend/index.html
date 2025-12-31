@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Gestión VPN</title>
+    <title>Sistema de Gestión VPN - PNC</title>
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
@@ -63,7 +63,7 @@
             <div id="dashboardView" class="view active">
                 <h1>📊 Dashboard de Vencimientos</h1>
                 
-                <!-- Alertas se insertarán aquí dinámicamente -->
+                <!-- Alertas -->
                 <div id="alertasContainer"></div>
                 
                 <!-- Stats Cards -->
@@ -133,20 +133,23 @@
 
                 <!-- Solicitudes Table -->
                 <div class="card">
-                    <table class="table" id="solicitudesTable">
+                    <table class="table" id="tablaSolicitudes">
                         <thead>
                             <tr>
                                 <th>No.</th>
+                                <th>Oficio</th>
+                                <th>Providencia</th>
                                 <th>Fecha</th>
-                                <th>DPI</th>
-                                <th>Nombre</th>
                                 <th>Tipo</th>
+                                <th>Nombre</th>
+                                <th>DPI</th>
                                 <th>Estado</th>
+                                <th>Vencimiento</th>
                                 <th>Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr><td colspan="7" style="text-align: center;">Cargando...</td></tr>
+                            <tr><td colspan="10" style="text-align: center;">Cargando...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -182,18 +185,8 @@
         </main>
     </div>
 
-    <!-- Modal for Forms -->
-    <div id="modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="modalTitle">Modal</h2>
-                <span class="modal-close">&times;</span>
-            </div>
-            <div class="modal-body" id="modalBody">
-                <!-- Dynamic content -->
-            </div>
-        </div>
-    </div>
+    <!-- Modal Container -->
+    <div id="modalContainer"></div>
 
     <!-- Scripts -->
     <script src="js/config.js"></script>
