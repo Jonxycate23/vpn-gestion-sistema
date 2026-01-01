@@ -1,12 +1,14 @@
 """
-Endpoints de Solicitudes VPN - VERSIÓN COMPLETA CON PDF + ACCESO AUTOMÁTICO
+Endpoints de Solicitudes VPN - VERSIÓN FINAL DEFINITIVA
 📍 Ubicación: backend/app/api/endpoints/solicitudes.py
-REEMPLAZA COMPLETAMENTE EL ARCHIVO ACTUAL
+✅ Subdirección fija + Nombre usuario sistema + Usuario generado
+COPIAR Y PEGAR COMPLETO
 """
 from fastapi import APIRouter, Depends, status, Request, Query, HTTPException
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from typing import Optional
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from app.core.database import get_db
 from app.schemas import (
     SolicitudCreate,
@@ -28,20 +30,53 @@ from app.models import (
 from app.utils.auditoria import AuditoriaService
 
 # Para generar PDF
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import legal
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import cm
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
+from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT
 import os
 
 router = APIRouter()
 
+# ========================================
+# RUTAS DE IMÁGENES
+# ========================================
+IMAGEN_ENCABEZADO = r"C:\Users\HP\Desktop\VPN-PROJECT\vpn-gestion-sistema\vpn-gestion-sistema\frontend\imagenes\encabezado.png"
+IMAGEN_PIE = r"C:\Users\HP\Desktop\VPN-PROJECT\vpn-gestion-sistema\vpn-gestion-sistema\frontend\imagenes\FinPagina.png"
 
-# ========================================
-# BÚSQUEDA POR DPI
-# ========================================
+
+@router.get("/buscar-nip/{nip}", response_model=dict)
+async def buscar_persona_por_nip(
+    nip: str,
+    current_user: UsuarioSistema = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Buscar persona por NIP"""
+    persona = db.query(Persona).filter(Persona.nip == nip).first()
+    
+    if persona is None:
+        return {"existe": False}
+    
+    total_solicitudes = db.query(SolicitudVPN).filter(
+        SolicitudVPN.persona_id == persona.id
+    ).count()
+    
+    return {
+        "existe": True,
+        "id": persona.id,
+        "dpi": persona.dpi,
+        "nip": persona.nip,
+        "nombres": persona.nombres,
+        "apellidos": persona.apellidos,
+        "institucion": persona.institucion,
+        "cargo": persona.cargo,
+        "telefono": persona.telefono,
+        "email": persona.email,
+        "total_solicitudes": total_solicitudes
+    }
+
 
 @router.get("/buscar-dpi/{dpi}", response_model=dict)
 async def buscar_persona_por_dpi(
@@ -63,7 +98,7 @@ async def buscar_persona_por_dpi(
         "existe": True,
         "id": persona.id,
         "dpi": persona.dpi,
-        "nip": getattr(persona, 'nip', None),
+        "nip": persona.nip if hasattr(persona, 'nip') else None,
         "nombres": persona.nombres,
         "apellidos": persona.apellidos,
         "institucion": persona.institucion,
@@ -73,10 +108,6 @@ async def buscar_persona_por_dpi(
         "total_solicitudes": total_solicitudes
     }
 
-
-# ========================================
-# CREAR/ACTUALIZAR PERSONA
-# ========================================
 
 @router.post("/persona", response_model=dict, status_code=status.HTTP_200_OK)
 async def crear_o_actualizar_persona(
@@ -90,7 +121,7 @@ async def crear_o_actualizar_persona(
     persona_existente = PersonaService.obtener_por_dpi(db=db, dpi=data.dpi)
     
     if persona_existente:
-        if hasattr(persona_existente, 'nip') and hasattr(data, 'nip'):
+        if hasattr(persona_existente, 'nip'):
             persona_existente.nip = data.nip
         persona_existente.email = data.email
         persona_existente.cargo = data.cargo
@@ -120,26 +151,20 @@ async def crear_o_actualizar_persona(
         }
 
 
-# ========================================
-# CREAR SOLICITUD
-# ========================================
-
 @router.post("/", response_model=dict, status_code=status.HTTP_201_CREATED)
 async def crear_solicitud(
-    data: dict,  # Cambiado a dict para recibir campos adicionales
+    data: dict,
     request: Request,
     current_user: UsuarioSistema = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Crear nueva solicitud VPN con campos adicionales"""
+    """Crear nueva solicitud VPN"""
     ip_origen = get_client_ip(request)
     
-    # Verificar que la persona exista
     persona = db.query(Persona).filter(Persona.id == data['persona_id']).first()
     if not persona:
         raise HTTPException(status_code=404, detail="Persona no encontrada")
     
-    # Crear solicitud con TODOS los campos
     solicitud = SolicitudVPN(
         persona_id=data['persona_id'],
         numero_oficio=data.get('numero_oficio'),
@@ -148,7 +173,7 @@ async def crear_solicitud(
         fecha_solicitud=date.fromisoformat(data['fecha_solicitud']),
         tipo_solicitud=data['tipo_solicitud'],
         justificacion=data['justificacion'],
-        estado='APROBADA',  # Crear ya aprobada
+        estado='APROBADA',
         usuario_registro_id=current_user.id
     )
     
@@ -156,18 +181,16 @@ async def crear_solicitud(
     db.commit()
     db.refresh(solicitud)
     
-    # Auditoría
     AuditoriaService.registrar_crear(
         db=db,
         usuario=current_user,
         entidad="SOLICITUD",
         entidad_id=solicitud.id,
         detalle={
+            "persona_nip": persona.nip,
             "persona_dpi": persona.dpi,
             "tipo": data['tipo_solicitud'],
-            "estado": solicitud.estado,
-            "numero_oficio": data.get('numero_oficio'),
-            "numero_providencia": data.get('numero_providencia')
+            "estado": solicitud.estado
         },
         ip_origen=ip_origen
     )
@@ -179,10 +202,6 @@ async def crear_solicitud(
     }
 
 
-# ========================================
-# LISTAR SOLICITUDES
-# ========================================
-
 @router.get("/", response_model=dict)
 async def listar_solicitudes(
     skip: int = Query(0, ge=0),
@@ -190,7 +209,7 @@ async def listar_solicitudes(
     current_user: UsuarioSistema = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Listar solicitudes con carta_generada"""
+    """Listar solicitudes"""
     solicitudes, total = SolicitudService.listar(db=db, skip=skip, limit=limit)
     
     result = []
@@ -213,7 +232,10 @@ async def listar_solicitudes(
             "persona_nombres": sol.persona.nombres,
             "persona_apellidos": sol.persona.apellidos,
             "persona_dpi": sol.persona.dpi,
+            "persona_nip": sol.persona.nip if hasattr(sol.persona, 'nip') else None,
             "carta_generada": carta is not None,
+            "carta_id": carta.id if carta else None,
+            "carta_fecha_generacion": carta.fecha_generacion if carta else None,
             "acceso_id": sol.acceso.id if sol.acceso else None
         })
     
@@ -222,10 +244,6 @@ async def listar_solicitudes(
         "solicitudes": result
     }
 
-
-# ========================================
-# DETALLE DE SOLICITUD
-# ========================================
 
 @router.get("/{solicitud_id}", response_model=dict)
 async def obtener_solicitud(
@@ -238,6 +256,10 @@ async def obtener_solicitud(
     if not solicitud:
         raise HTTPException(status_code=404, detail="Solicitud no encontrada")
     
+    carta = db.query(CartaResponsabilidad).filter(
+        CartaResponsabilidad.solicitud_id == solicitud_id
+    ).first()
+    
     return {
         "id": solicitud.id,
         "persona_id": solicitud.persona_id,
@@ -248,10 +270,11 @@ async def obtener_solicitud(
         "justificacion": solicitud.justificacion,
         "estado": solicitud.estado,
         "comentarios_admin": solicitud.comentarios_admin,
+        "carta_fecha_generacion": carta.fecha_generacion if carta else None,
         "persona": {
             "id": solicitud.persona.id,
             "dpi": solicitud.persona.dpi,
-            "nip": getattr(solicitud.persona, 'nip', None),
+            "nip": solicitud.persona.nip if hasattr(solicitud.persona, 'nip') else None,
             "nombres": solicitud.persona.nombres,
             "apellidos": solicitud.persona.apellidos,
             "institucion": solicitud.persona.institucion,
@@ -267,131 +290,197 @@ async def obtener_solicitud(
 
 
 # ========================================
-# GENERAR CARTA DE RESPONSABILIDAD PDF + CREAR ACCESO
+# GENERAR PDF CON FORMATO OFICIAL PNC
 # ========================================
 
-def generar_carta_pdf(solicitud: SolicitudVPN, carta: CartaResponsabilidad, db: Session):
-    """Genera PDF de carta de responsabilidad con formato oficial PNC"""
+def generar_carta_pdf_oficial(solicitud: SolicitudVPN, carta: CartaResponsabilidad, usuario_sistema: UsuarioSistema, db: Session):
+    """
+    Genera PDF con formato OFICIAL PNC
+    ✅ Subdirección fija en primera celda
+    ✅ Nombre usuario sistema en firma
+    """
     
-    # Directorio de salida
     output_dir = "/var/vpn_archivos/cartas"
     os.makedirs(output_dir, exist_ok=True)
     
-    # Nombre del archivo
     persona = solicitud.persona
     filename = f"CARTA_{carta.id}_{persona.dpi}.pdf"
     filepath = os.path.join(output_dir, filename)
     
-    # Crear PDF en A4
-    doc = SimpleDocTemplate(filepath, pagesize=A4,
-                           topMargin=1.5*cm, bottomMargin=1.5*cm,
-                           leftMargin=2*cm, rightMargin=2*cm)
+    doc = SimpleDocTemplate(
+        filepath, 
+        pagesize=legal,
+        topMargin=0.3*inch, 
+        bottomMargin=0.5*inch,
+        leftMargin=0.75*inch, 
+        rightMargin=0.75*inch
+    )
     story = []
     styles = getSampleStyleSheet()
     
-    # Estilo de título centrado
-    title_style = ParagraphStyle(
-        'CustomTitle',
-        parent=styles['Heading1'],
-        fontSize=12,
-        textColor=colors.black,
-        spaceAfter=20,
-        alignment=TA_CENTER,
-        fontName='Helvetica-Bold',
-        leading=14
-    )
+    # Encabezado
+    if os.path.exists(IMAGEN_ENCABEZADO):
+        try:
+            img_encabezado = Image(IMAGEN_ENCABEZADO, width=7*inch, height=1*inch)
+            story.append(img_encabezado)
+            story.append(Spacer(1, 0.15*inch))
+        except Exception as e:
+            print(f"Error cargando encabezado: {e}")
     
-    # Estilo normal justificado
-    normal_justified = ParagraphStyle(
-        'NormalJustified',
+    # Título
+    titulo_style = ParagraphStyle(
+        'Titulo',
         parent=styles['Normal'],
-        fontSize=9,
-        alignment=TA_JUSTIFY,
+        fontSize=10,
+        fontName='Helvetica-Bold',
+        alignment=TA_CENTER,
+        spaceAfter=6,
         leading=12
     )
     
-    # TÍTULO
-    story.append(Paragraph(
-        "<b>CARTA DE RESPONSABILIDAD DE USO Y ACCESO POR VPN<br/>A LA RED INSTITUCIONAL DE LA POLICÍA NACIONAL CIVIL</b>",
-        title_style
-    ))
+    story.append(Paragraph("CARTA DE RESPONSABILIDAD DE USO Y ACCESO POR VPN A LA RED INSTITUCIONAL DE LA POLICÍA NACIONAL CIVIL", titulo_style))
+    story.append(Spacer(1, 0.1*inch))
     
     # Documento No
-    story.append(Paragraph(f"<b>Documento No: {carta.id}-2025</b>", title_style))
-    story.append(Spacer(1, 0.3*cm))
+    doc_no_style = ParagraphStyle(
+        'DocNo', 
+        parent=styles['Normal'], 
+        fontSize=10, 
+        alignment=TA_CENTER, 
+        fontName='Helvetica-Bold',
+        spaceAfter=10
+    )
+    story.append(Paragraph(f"Documento No: {carta.id}-2025", doc_no_style))
+    story.append(Spacer(1, 0.12*inch))
     
-    # Texto introductorio
-    intro = """
-    En las instalaciones que ocupa el Departamento de Operaciones de Seguridad Informática de la 
+    # Texto completo
+    body_style = ParagraphStyle(
+        'Body', 
+        parent=styles['Normal'], 
+        fontSize=8.5, 
+        alignment=TA_JUSTIFY, 
+        leading=10
+    )
+    
+    texto_intro = """En las instalaciones que ocupa el Departamento de Operaciones de Seguridad Informática de la 
     Subdirección General de Tecnologías de la Información y la Comunicación, se suscribe la presente 
-    CARTA DE RESPONSABILIDAD con la que <b>EL USUARIO</b> acepta formalmente las condiciones de uso y acceso 
-    por medio del servicio de VPN, por medio de un "usuario" y "contraseña" con los cuales se le otorga 
-    la facultad de acceder al sistema de Escritorio Policial y Sistema Solvencias de la Policía Nacional Civil.
-    """
-    story.append(Paragraph(intro, normal_justified))
-    story.append(Spacer(1, 0.4*cm))
+    CARTA DE RESPONSABILIDAD con la que EL USUARIO acepta formalmente las condiciones de uso 
+    y acceso por medio del servicio de VPN, por medio de un "usuario" y "contraseña" con los cuales se le 
+    otorga la facultad de acceder al sistema de Escritorio Policial y Sistema Solvencias de la Policía Nacional 
+    Civil, de conformidad con lo antes expuesto, declara su compromiso de cumplir con lo siguiente:"""
     
-    # Obligaciones (1-7) - Texto resumido
+    story.append(Paragraph(texto_intro, body_style))
+    story.append(Spacer(1, 0.12*inch))
+    
+    # Obligaciones completas
     obligaciones = [
-        "EL USUARIO y CONTRASEÑA asignados son datos intransferibles, confidenciales y personales.",
-        "EL USUARIO tiene prohibido compartir información confidencial.",
-        "El USUARIO se compromete a utilizar el servicio VPN únicamente para fines laborales.",
-        "EL USUARIO debe reportar inmediatamente cualquier incidente de seguridad.",
-        "El acceso tiene vigencia de 12 meses y debe renovarse oportunamente.",
-        "EL USUARIO acepta cumplir todos los lineamientos de seguridad.",
-        "La Subdirección se reserva el derecho de bloquear usuarios por uso inapropiado."
+        "EL USUARIO y CONTRASEÑA asignados son datos intransferibles, confidenciales y personales; el titular es responsable directo de su uso.",
+        "EL USUARIO tiene prohibido utilizar cualquier medio digital, impreso y otros para dar a conocer información de carácter confidencial contenido en los accesos obtenidos.",
+        "El USUARIO se compromete a utilizar el servicio de VPN únicamente para fines expresamente laborales, la Subdirección General de Tecnologías de la Información y la Comunicación, se reserva el derecho de registrar y monitorear todas las actividades realizadas, mediante la utilización de mecanismos de auditoría y bitácoras. Los registros se considerarán pruebas fehacientes del uso en cualquier situación administrativa; y, se procederá inmediatamente al bloqueo inmediato del acceso.",
+        "EL USUARIO tiene la obligación de reportar inmediatamente al Departamento de Operaciones de Seguridad Informática de la Subdirección General de Tecnologías de la Información y la Comunicación en caso de pérdida o sustracción del acceso, cuando sea cambiado de destino o haya terminado su relación laboral con la institución policial.",
+        "EL USUARIO se compromete a renovar el acceso en el tiempo estipulado en el presente numeral, para esto gestionará en la unidad a la que pertenece para que envíen la solicitud respectiva. La vigencia del acceso es de 12 meses, siendo el sexto mes de recepción de solicitudes para renovación. La Subdirección General de Tecnologías de la Información y la Comunicación se reserva el derecho de bloquear los usuarios que no aparezcan en los oficios de solicitud recibidos, la presente disposición se encuentra sujeta a cambios sin previo aviso.",
+        'EL USUARIO acepta haber leído y comprendido los lineamientos de seguridad descritos en este documento y se compromete a cumplirlos en su totalidad, sin menoscabo de las obligaciones y prohibiciones establecidas en los artículos 274 "A", 274 "B", 274 "C", 274 "D", 274 "E", 274 "F", ordinal 30 del artículo 369, y 422 del Código Penal, literal F del artículo 34 establecido en el Decreto Numero 11-97 del Congreso de la República, Ley de la Policía Nacional Civil. En el entendido de que el incumplimiento a cualquiera de estos será causa de la aplicación de las sanciones correspondientes.',
+        "La Subdirección General de Tecnologías de la Información y la Comunicación, se reserva el derecho y la facultad para bloquear usuarios, cuando se considere o compruebe el uso inapropiado de los accesos."
     ]
     
     for i, ob in enumerate(obligaciones, 1):
-        story.append(Paragraph(f"<b>{i}.</b> {ob}", normal_justified))
-        story.append(Spacer(1, 0.2*cm))
+        story.append(Paragraph(f"<b>{i}.</b> {ob}", body_style))
+        story.append(Spacer(1, 0.06*inch))
     
-    story.append(Spacer(1, 0.4*cm))
+    story.append(Spacer(1, 0.12*inch))
     
-    # Datos del usuario
-    fecha_expiracion = date.today() + timedelta(days=365)
+    # ===== TABLA DE DATOS =====
+    fecha_expiracion = carta.fecha_generacion + timedelta(days=365)
     
-    datos_usuario = [
-        ['Responsable:', f"{persona.nombres} {persona.apellidos}", 'Usuario:', persona.email or 'N/A'],
-        ['DPI:', persona.dpi, 'Teléfono:', persona.telefono or 'N/A'],
-        ['Destino:', persona.institucion or 'N/A', 'Fecha Expiración:', fecha_expiracion.strftime("%d/%m/%Y")]
+    # ✅ Generar username
+    nombres_split = persona.nombres.lower().split()
+    apellidos_split = persona.apellidos.lower().split()
+    username = f"{nombres_split[0]}.{apellidos_split[0]}" if nombres_split and apellidos_split else "usuario"
+    
+    # ✅ CONSTRUIR TABLA
+    tabla_datos = [
+        # Fila 1
+        ['Responsable:', f"{persona.nombres} {persona.apellidos}", 'Usuario:', username],
+        # Fila 2
+        ['DPI:', persona.dpi, 'Correo:', persona.email or ''],
+        # Fila 3
+        ['NIP:', persona.nip or 'N/A', 'Teléfono:', persona.telefono or ''],
+        # Fila 4: ✅ SUBDIRECCIÓN FIJA (SIEMPRE LA MISMA)
+        ['Subdirección General de Investigación Criminal SGIC', '', 'Fecha de Expiración:', fecha_expiracion.strftime("%d/%m/%Y")],
+        # Fila 5: ✅ DIPANDA (institución de la persona)
+        [persona.institucion, '', 'Privilegios de red:'],
+        # Fila 6: Vacío
+        ['', '', 'Escritorio Policial:', '172.21.68.154']
     ]
     
-    t = Table(datos_usuario, colWidths=[3*cm, 5*cm, 3*cm, 5*cm])
+    t = Table(tabla_datos, colWidths=[1.5*inch, 2*inch, 1.5*inch, 2*inch])
     t.setStyle(TableStyle([
         ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('FONTSIZE', (0, 0), (-1, -1), 8.5),
         ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
         ('FONTNAME', (2, 0), (2, -1), 'Helvetica-Bold'),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+        # Celdas que ocupan 2 espacios
+        ('SPAN', (0, 3), (1, 3)),  # Fila 4: Subdirección
+        ('SPAN', (0, 4), (1, 4)),  # Fila 5: Institución
+        ('SPAN', (0, 5), (1, 5)),  # Fila 6: Vacío
     ]))
     story.append(t)
-    story.append(Spacer(1, 0.8*cm))
+    story.append(Spacer(1, 0.12*inch))
     
-    # Fecha y firmas
-    fecha_hoy = date.today()
-    story.append(Paragraph(f"<b>Guatemala, {fecha_hoy.strftime('%d/%m/%Y')}</b>", normal_justified))
-    story.append(Spacer(1, 1.5*cm))
+    # Finalidad
+    story.append(Paragraph(
+        "<b>Finalidad:</b> Proveer un túnel VPN para permitir el acceso al sistema de Escritorio Policial y Solvencias, de la Policía Nacional Civil.", 
+        body_style
+    ))
+    story.append(Spacer(1, 0.15*inch))
     
-    # Firmas
+    # Fecha de generación
+    meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
+    dias_semana = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo']
+    
+    if isinstance(carta.fecha_generacion, date) and not isinstance(carta.fecha_generacion, datetime):
+        fecha_gen = datetime.combine(carta.fecha_generacion, datetime.min.time())
+    else:
+        fecha_gen = carta.fecha_generacion
+    
+    fecha_texto = f"Ciudad de Guatemala, {dias_semana[fecha_gen.weekday()]}, {fecha_gen.day} de {meses[fecha_gen.month-1]} de {fecha_gen.year}"
+    
+    story.append(Paragraph(fecha_texto, body_style))
+    story.append(Spacer(1, 0.35*inch))
+    
+    # ✅ FIRMAS CON NOMBRE USUARIO SISTEMA
     firmas = [
         ['f. _________________________', 'f. _________________________'],
-        ['Firmo y recibo conforme', 'Firmo y entrego DOSI/SGTIC']
+        ['Firmo y recibo conforme', 'Firmo y entrego DOSI/SGTIC'],
+        [f'{persona.nombres} {persona.apellidos}', usuario_sistema.nombre_completo]  # ✅ NOMBRE USUARIO LOGUEADO
     ]
     
-    t_firmas = Table(firmas, colWidths=[8*cm, 8*cm])
+    t_firmas = Table(firmas, colWidths=[3.5*inch, 3.5*inch])
     t_firmas.setStyle(TableStyle([
         ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('FONTSIZE', (0, 0), (-1, -1), 8.5),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
     ]))
     story.append(t_firmas)
     
-    # Construir PDF
-    doc.build(story)
+    # Pie de página
+    if os.path.exists(IMAGEN_PIE):
+        try:
+            story.append(Spacer(1, 0.25*inch))
+            img_pie = Image(IMAGEN_PIE, width=7*inch, height=0.5*inch)
+            story.append(img_pie)
+        except Exception as e:
+            print(f"Error cargando pie: {e}")
     
-    return filepath
+    # Construir PDF
+    try:
+        doc.build(story)
+        return filepath
+    except Exception as e:
+        raise Exception(f"Error construyendo PDF: {str(e)}")
 
 
 @router.post("/{solicitud_id}/crear-carta", response_model=dict)
@@ -401,10 +490,9 @@ async def crear_carta_responsabilidad(
     current_user: UsuarioSistema = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Crear carta de responsabilidad, PDF y acceso VPN automáticamente"""
+    """Crear carta, generar PDF y crear acceso VPN"""
     ip_origen = get_client_ip(request)
     
-    # Verificar solicitud
     solicitud = db.query(SolicitudVPN).filter(SolicitudVPN.id == solicitud_id).first()
     if not solicitud:
         raise HTTPException(status_code=404, detail="Solicitud no encontrada")
@@ -412,7 +500,6 @@ async def crear_carta_responsabilidad(
     if solicitud.estado != 'APROBADA':
         raise HTTPException(status_code=400, detail="Solo solicitudes APROBADAS")
     
-    # Verificar que no exista carta
     carta_existente = db.query(CartaResponsabilidad).filter(
         CartaResponsabilidad.solicitud_id == solicitud_id
     ).first()
@@ -420,7 +507,6 @@ async def crear_carta_responsabilidad(
     if carta_existente:
         raise HTTPException(status_code=400, detail="Ya existe carta")
     
-    # Crear carta
     carta = CartaResponsabilidad(
         solicitud_id=solicitud_id,
         tipo='RESPONSABILIDAD',
@@ -428,16 +514,16 @@ async def crear_carta_responsabilidad(
         generada_por_usuario_id=current_user.id
     )
     db.add(carta)
-    db.flush()  # Para obtener el ID
+    db.flush()
     
     # Generar PDF
     try:
-        pdf_path = generar_carta_pdf(solicitud, carta, db)
+        pdf_path = generar_carta_pdf_oficial(solicitud, carta, current_user, db)
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error generando PDF: {str(e)}")
     
-    # ✅ CREAR ACCESO VPN AUTOMÁTICAMENTE
+    # Crear acceso VPN
     fecha_inicio = date.today()
     fecha_fin = fecha_inicio + timedelta(days=365)
     
@@ -455,7 +541,6 @@ async def crear_carta_responsabilidad(
     db.refresh(carta)
     db.refresh(acceso)
     
-    # Auditoría
     AuditoriaService.registrar_crear(
         db=db,
         usuario=current_user,
@@ -479,8 +564,40 @@ async def crear_carta_responsabilidad(
     }
 
 
+@router.get("/{solicitud_id}/descargar-carta")
+async def descargar_carta_pdf(
+    solicitud_id: int,
+    current_user: UsuarioSistema = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Descargar PDF de la carta"""
+    solicitud = db.query(SolicitudVPN).filter(SolicitudVPN.id == solicitud_id).first()
+    if not solicitud:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+    
+    carta = db.query(CartaResponsabilidad).filter(
+        CartaResponsabilidad.solicitud_id == solicitud_id
+    ).first()
+    
+    if not carta:
+        raise HTTPException(status_code=404, detail="No existe carta")
+    
+    persona = solicitud.persona
+    filename = f"CARTA_{carta.id}_{persona.dpi}.pdf"
+    filepath = os.path.join("/var/vpn_archivos/cartas", filename)
+    
+    if not os.path.exists(filepath):
+        raise HTTPException(status_code=404, detail=f"Archivo PDF no encontrado: {filepath}")
+    
+    return FileResponse(
+        path=filepath,
+        filename=filename,
+        media_type='application/pdf'
+    )
+
+
 # ========================================
-# MARCAR COMO NO SE PRESENTÓ
+# RESTO DE ENDPOINTS
 # ========================================
 
 @router.post("/{solicitud_id}/no-presentado", response_model=dict)
@@ -491,8 +608,6 @@ async def marcar_no_presentado(
     db: Session = Depends(get_db)
 ):
     """Marcar como 'No se presentó'"""
-    ip_origen = get_client_ip(request)
-    
     try:
         body = await request.json()
         motivo = body.get('motivo', 'No se presentó')
@@ -508,15 +623,8 @@ async def marcar_no_presentado(
     
     db.commit()
     
-    return {
-        "success": True,
-        "message": "Marcado como 'No se presentó'"
-    }
+    return {"success": True, "message": "Marcado como 'No se presentó'"}
 
-
-# ========================================
-# REACTIVAR SOLICITUD
-# ========================================
 
 @router.post("/{solicitud_id}/reactivar", response_model=dict)
 async def reactivar_solicitud(
@@ -525,9 +633,7 @@ async def reactivar_solicitud(
     current_user: UsuarioSistema = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Reactivar solicitud cancelada"""
-    ip_origen = get_client_ip(request)
-    
+    """Reactivar solicitud"""
     solicitud = db.query(SolicitudVPN).filter(SolicitudVPN.id == solicitud_id).first()
     if not solicitud:
         raise HTTPException(status_code=404, detail="Solicitud no encontrada")
@@ -540,15 +646,8 @@ async def reactivar_solicitud(
     
     db.commit()
     
-    return {
-        "success": True,
-        "message": "Solicitud reactivada"
-    }
+    return {"success": True, "message": "Solicitud reactivada"}
 
-
-# ========================================
-# EDITAR SOLICITUD
-# ========================================
 
 @router.put("/{solicitud_id}", response_model=dict)
 async def editar_solicitud(
@@ -563,7 +662,6 @@ async def editar_solicitud(
     if not solicitud:
         raise HTTPException(status_code=404, detail="Solicitud no encontrada")
     
-    # Verificar que no tenga carta
     carta = db.query(CartaResponsabilidad).filter(
         CartaResponsabilidad.solicitud_id == solicitud_id
     ).first()
@@ -579,15 +677,8 @@ async def editar_solicitud(
     
     db.commit()
     
-    return {
-        "success": True,
-        "message": "Solicitud actualizada"
-    }
+    return {"success": True, "message": "Solicitud actualizada"}
 
-
-# ========================================
-# ELIMINAR SOLICITUD
-# ========================================
 
 @router.delete("/{solicitud_id}", response_model=dict)
 async def eliminar_solicitud(
@@ -601,13 +692,12 @@ async def eliminar_solicitud(
     if not solicitud:
         raise HTTPException(status_code=404, detail="Solicitud no encontrada")
     
-    # Verificar que no tenga carta
     carta = db.query(CartaResponsabilidad).filter(
         CartaResponsabilidad.solicitud_id == solicitud_id
     ).first()
     
     if carta:
-        raise HTTPException(status_code=400, detail="No se puede eliminar: ya tiene carta")
+        raise HTTPException(status_code=400, detail="No se puede editar: ya tiene carta")
     
     if solicitud.acceso:
         raise HTTPException(status_code=400, detail="No se puede eliminar: ya tiene acceso VPN")
@@ -615,7 +705,4 @@ async def eliminar_solicitud(
     db.delete(solicitud)
     db.commit()
     
-    return {
-        "success": True,
-        "message": "Solicitud eliminada"
-    }
+    return {"success": True, "message": "Solicitud eliminada"}

@@ -1,6 +1,7 @@
 """
 Endpoints de gestión de Accesos VPN y Bloqueos
 """
+from http.client import HTTPException
 from fastapi import APIRouter, Depends, status, Request
 from sqlalchemy.orm import Session
 from app.core.database import get_db
@@ -113,6 +114,65 @@ async def cambiar_estado_bloqueo(
         message=f"Acceso {accion} exitosamente"
     )
 
+"""
+Endpoint para obtener bloqueos de un acceso VPN
+📍 Agregar a: backend/app/api/endpoints/accesos.py
+
+AGREGAR ESTE ENDPOINT AL ARCHIVO EXISTENTE
+"""
+
+# ========================================
+# OBTENER BLOQUEOS DE UN ACCESO
+# ========================================
+
+@router.get("/{acceso_id}/bloqueos", response_model=dict)
+async def obtener_bloqueos_acceso(
+    acceso_id: int,
+    current_user: UsuarioSistema = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Obtener historial de bloqueos de un acceso VPN
+    """
+    from app.models import BloqueoVPN, AccesoVPN, UsuarioSistema as Usuario
+    
+    # Verificar que el acceso existe
+    acceso = db.query(AccesoVPN).filter(AccesoVPN.id == acceso_id).first()
+    if not acceso:
+        raise HTTPException(status_code=404, detail="Acceso VPN no encontrado")
+    
+    # Obtener bloqueos ordenados por fecha (más reciente primero)
+    bloqueos = db.query(BloqueoVPN).filter(
+        BloqueoVPN.acceso_vpn_id == acceso_id
+    ).order_by(BloqueoVPN.fecha_bloqueo.desc()).all()
+    
+    # Formatear respuesta
+    resultado = []
+    for bloqueo in bloqueos:
+        # Obtener nombre del usuario que realizó el bloqueo
+        usuario_nombre = None
+        if bloqueo.usuario_bloqueo_id:
+            usuario = db.query(Usuario).filter(Usuario.id == bloqueo.usuario_bloqueo_id).first()
+            if usuario:
+                usuario_nombre = usuario.nombre_completo
+        
+        resultado.append({
+            "id": bloqueo.id,
+            "fecha_bloqueo": bloqueo.fecha_bloqueo,
+            "estado": bloqueo.estado,
+            "motivo": bloqueo.motivo,
+            "usuario_bloqueo": usuario_nombre,
+            "usuario_bloqueo_id": bloqueo.usuario_bloqueo_id
+        })
+    
+    return {
+        "success": True,
+        "acceso_id": acceso_id,
+        "total_bloqueos": len(resultado),
+        "bloqueos": resultado
+    }
+
+
 
 @router.get("/{acceso_id}/historial-bloqueos", response_model=list[BloqueoResponse])
 async def obtener_historial_bloqueos(
@@ -140,3 +200,4 @@ async def obtener_historial_bloqueos(
         })
     
     return result
+
