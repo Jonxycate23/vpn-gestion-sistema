@@ -29,7 +29,20 @@ const API = {
             const data = await response.json();
             
             if (!response.ok) {
-                throw new Error(data.detail || 'Error en la petición');
+                // Manejar error 422 correctamente
+                let errorMessage = 'Error en la petición';
+                
+                if (data.detail) {
+                    if (typeof data.detail === 'string') {
+                        errorMessage = data.detail;
+                    } else if (Array.isArray(data.detail)) {
+                        errorMessage = data.detail.map(err => err.msg).join(', ');
+                    } else {
+                        errorMessage = JSON.stringify(data.detail);
+                    }
+                }
+                
+                throw new Error(errorMessage);
             }
             
             return data;
@@ -69,30 +82,46 @@ const API = {
 
 // Utilidades UI
 function showLoading() {
-    document.getElementById('loadingOverlay').classList.add('active');
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) {
+        overlay.classList.add('active');
+    }
 }
 
 function hideLoading() {
-    document.getElementById('loadingOverlay').classList.remove('active');
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) {
+        overlay.classList.remove('active');
+    }
 }
 
 function showError(message) {
-    alert('Error: ' + message);
+    alert('❌ Error: ' + message);
 }
 
 function showSuccess(message) {
-    alert('Éxito: ' + message);
+    alert('✅ ' + message);
 }
 
 function showModal(title, content) {
     const modal = document.getElementById('modal');
-    document.getElementById('modalTitle').textContent = title;
-    document.getElementById('modalBody').innerHTML = content;
-    modal.classList.add('active');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalBody = document.getElementById('modalBody');
+    
+    if (modal && modalTitle && modalBody) {
+        modalTitle.textContent = title;
+        modalBody.innerHTML = content;
+        modal.classList.add('active');
+    } else {
+        console.error('Modal elements not found!');
+    }
 }
 
 function hideModal() {
-    document.getElementById('modal').classList.remove('active');
+    const modal = document.getElementById('modal');
+    if (modal) {
+        modal.classList.remove('active');
+    }
 }
 
 // Formateo de fechas
@@ -111,7 +140,11 @@ function getStatusBadge(status) {
         'BLOQUEADO': '<span class="status-badge status-bloqueado">Bloqueado</span>',
         'DESBLOQUEADO': '<span class="status-badge status-activo">Desbloqueado</span>',
         'APROBADA': '<span class="status-badge status-aprobada">Aprobada</span>',
-        'RECHAZADA': '<span class="status-badge status-rechazada">Rechazada</span>'
+        'PENDIENTE': '<span class="status-badge status-por-vencer">Pendiente</span>',
+        'RECHAZADA': '<span class="status-badge status-rechazada">Rechazada</span>',
+        'CANCELADA': '<span class="status-badge status-vencido">Cancelada</span>',
+        'NUEVA': '<span class="status-badge status-activo">Nueva</span>',
+        'RENOVACION': '<span class="status-badge status-warning">Renovación</span>'
     };
-    return statusMap[status] || status;
+    return statusMap[status] || `<span class="status-badge">${status}</span>`;
 }

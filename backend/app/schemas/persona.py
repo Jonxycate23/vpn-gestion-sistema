@@ -1,5 +1,7 @@
 """
-Schemas de Persona (solicitantes VPN)
+Schemas de Persona (solicitantes VPN) - CON NIP
+📍 Ubicación: backend/app/schemas/persona.py
+REEMPLAZA COMPLETAMENTE EL ARCHIVO ACTUAL
 """
 from pydantic import BaseModel, Field, EmailStr, field_validator
 from typing import Optional
@@ -10,6 +12,7 @@ import re
 class PersonaBase(BaseModel):
     """Base de persona"""
     dpi: str = Field(..., min_length=13, max_length=13, description="DPI de 13 dígitos")
+    nip: Optional[str] = Field(None, max_length=20, description="Número de Identificación Policial")
     nombres: str = Field(..., min_length=2, max_length=150, description="Nombres")
     apellidos: str = Field(..., min_length=2, max_length=150, description="Apellidos")
     institucion: Optional[str] = Field(None, max_length=200, description="Institución")
@@ -38,6 +41,7 @@ class PersonaCreate(PersonaBase):
 
 class PersonaUpdate(BaseModel):
     """Actualizar persona"""
+    nip: Optional[str] = Field(None, max_length=20)
     nombres: Optional[str] = Field(None, min_length=2, max_length=150)
     apellidos: Optional[str] = Field(None, min_length=2, max_length=150)
     institucion: Optional[str] = Field(None, max_length=200)

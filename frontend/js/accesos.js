@@ -1,5 +1,7 @@
-// Módulo de Accesos VPN - VERSIÓN MEJORADA
-// Solo muestra accesos que tienen carta de responsabilidad creada
+// Módulo de Accesos VPN - VERSIÓN CORREGIDA
+// 📍 Ubicación: frontend/js/accesos.js
+// REEMPLAZA COMPLETAMENTE EL ARCHIVO ACTUAL
+
 const Accesos = {
     async load() {
         console.log('Cargando Accesos...');
@@ -16,15 +18,15 @@ const Accesos = {
                 return;
             }
             
-            // FILTRAR: Solo mostrar accesos que tienen carta creada
-            const accesosConCarta = data.accesos.filter(acceso => acceso.carta_generada === true);
+            // ✅ CAMBIO: Mostrar TODOS los accesos (sin filtrar por carta)
+            const accesos = data.accesos || [];
             
-            if (!accesosConCarta || accesosConCarta.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No hay accesos con carta firmada</td></tr>';
+            if (accesos.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No hay accesos VPN registrados</td></tr>';
                 return;
             }
             
-            tbody.innerHTML = accesosConCarta.map(acceso => {
+            tbody.innerHTML = accesos.map(acceso => {
                 const diasClass = acceso.dias_restantes <= 0 ? 'status-vencido' : 
                                  acceso.dias_restantes <= 7 ? 'status-por-vencer' : 'status-activo';
                 

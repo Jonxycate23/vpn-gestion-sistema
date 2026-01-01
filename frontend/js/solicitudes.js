@@ -1,7 +1,7 @@
 /**
- * Módulo de Solicitudes VPN - VERSIÓN DEFINITIVA
- * Crea la estructura HTML si no existe
+ * Módulo de Solicitudes VPN - VERSIÓN DEFINITIVA CON VISTA PREVIA
  * 📍 Ubicación: frontend/js/solicitudes.js
+ * REEMPLAZA COMPLETAMENTE EL ARCHIVO ACTUAL
  */
 
 const Solicitudes = {
@@ -10,35 +10,27 @@ const Solicitudes = {
     async load() {
         console.log('Cargando Solicitudes...');
         
-        // Setup botón Nueva Solicitud
         const btnNueva = document.getElementById('btnNuevaSolicitud');
         if (btnNueva) {
             btnNueva.onclick = () => this.nuevaSolicitud();
         }
         
-        // Verificar y crear estructura de tabla si no existe
         this.verificarEstructuraTabla();
-        
         await this.listarSolicitudes();
     },
     
     verificarEstructuraTabla() {
-        // Buscar contenedor de solicitudes
         let contenedor = document.getElementById('solicitudesView');
         if (!contenedor) {
             console.error('No se encontró solicitudesView');
             return;
         }
         
-        // Verificar si ya existe la tabla
         let tabla = contenedor.querySelector('#solicitudesTable');
         if (tabla) {
-            console.log('✅ Tabla ya existe');
             return;
         }
         
-        // Crear estructura de tabla
-        console.log('🔧 Creando estructura de tabla...');
         contenedor.innerHTML = `
             <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
                 <h1>📄 Gestión de Solicitudes VPN</h1>
@@ -51,23 +43,23 @@ const Solicitudes = {
                         <thead>
                             <tr>
                                 <th>No.</th>
-                                <th>Fecha</th>
+                                <th>Oficio</th>
+                                <th>Providencia</th>
+                                <th>Fecha Recep.</th>
                                 <th>DPI</th>
                                 <th>Nombre</th>
-                                <th>Tipo</th>
                                 <th>Estado</th>
                                 <th>Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr><td colspan="7" style="text-align: center;">Cargando...</td></tr>
+                            <tr><td colspan="8" style="text-align: center;">Cargando...</td></tr>
                         </tbody>
                     </table>
                 </div>
             </div>
         `;
         
-        // Reconectar el botón
         const btnNueva = document.getElementById('btnNuevaSolicitud');
         if (btnNueva) {
             btnNueva.onclick = () => this.nuevaSolicitud();
@@ -78,35 +70,33 @@ const Solicitudes = {
         try {
             const data = await API.get('/solicitudes/?limit=100');
             
-            console.log('Solicitudes cargadas:', data.solicitudes ? data.solicitudes.length : 0);
-            
             const tbody = document.querySelector('#solicitudesTable tbody');
             if (!tbody) {
-                console.error('❌ No se encontró #solicitudesTable tbody');
+                console.error('❌ No se encontró tbody');
                 return;
             }
             
             if (!data || !data.solicitudes || data.solicitudes.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No hay solicitudes registradas</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No hay solicitudes</td></tr>';
                 return;
             }
             
             tbody.innerHTML = data.solicitudes.map(sol => {
                 const tieneCarta = sol.carta_generada === true;
                 const puedeEditar = !tieneCarta && !sol.acceso_id;
-                const puedeEliminar = !tieneCarta && !sol.acceso_id;
                 const esNoPresentado = sol.estado === 'CANCELADA' && sol.comentarios_admin && sol.comentarios_admin.includes('NO_PRESENTADO');
                 
                 return `
                     <tr>
                         <td>${sol.id}</td>
-                        <td>${formatDate(sol.fecha_solicitud)}</td>
+                        <td>${sol.numero_oficio || 'N/A'}</td>
+                        <td>${sol.numero_providencia || 'N/A'}</td>
+                        <td>${formatDate(sol.fecha_recepcion || sol.fecha_solicitud)}</td>
                         <td>${sol.persona_dpi}</td>
                         <td>${sol.persona_nombres} ${sol.persona_apellidos}</td>
-                        <td>${sol.tipo_solicitud}</td>
                         <td>${getStatusBadge(sol.estado)}</td>
                         <td style="white-space: nowrap;">
-                            <button class="btn btn-sm btn-info" onclick="Solicitudes.verDetalle(${sol.id})" title="Ver detalle">
+                            <button class="btn btn-sm btn-info" onclick="Solicitudes.verDetalle(${sol.id})" title="Ver">
                                 👁️
                             </button>
                             
@@ -118,14 +108,15 @@ const Solicitudes = {
                             
                             ${!tieneCarta && sol.estado === 'APROBADA' ? `
                                 <button class="btn btn-sm btn-success" onclick="Solicitudes.crearCarta(${sol.id})" title="Crear carta">
-                                    📄
+                                    📄 Carta
                                 </button>
                             ` : ''}
                             
                             ${tieneCarta ? `
-                                <span style="display: inline-block; background: #10b981; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem;">
-                                    ✅ Carta
-                                </span>
+                                <button class="btn btn-sm" style="background: #10b981; color: white;" 
+                                        onclick="Solicitudes.verVistaPreviaCarta(${sol.id})" title="Ver carta">
+                                    ✅ Ver Carta
+                                </button>
                             ` : ''}
                             
                             ${esNoPresentado ? `
@@ -135,12 +126,12 @@ const Solicitudes = {
                             ` : ''}
                             
                             ${!tieneCarta && sol.estado === 'APROBADA' && !esNoPresentado ? `
-                                <button class="btn btn-sm btn-danger" onclick="Solicitudes.marcarNoPresentado(${sol.id})" title="No se presentó">
+                                <button class="btn btn-sm btn-danger" onclick="Solicitudes.marcarNoPresentado(${sol.id})" title="No presentado">
                                     🚫
                                 </button>
                             ` : ''}
                             
-                            ${puedeEliminar ? `
+                            ${puedeEditar ? `
                                 <button class="btn btn-sm btn-danger" onclick="Solicitudes.eliminar(${sol.id})" title="Eliminar">
                                     🗑️
                                 </button>
@@ -151,35 +142,21 @@ const Solicitudes = {
             }).join('');
             
         } catch (error) {
-            console.error('Error al cargar solicitudes:', error);
-            showError('Error al cargar solicitudes: ' + error.message);
+            console.error('Error:', error);
+            showError('Error al cargar solicitudes');
         }
     },
     
     nuevaSolicitud() {
         showModal('📝 Nueva Solicitud VPN', `
             <h3>Paso 1: Buscar Persona por DPI</h3>
-            <p style="color: #666; margin-bottom: 1rem;">Ingrese el DPI de 13 dígitos</p>
-            
             <form id="formBuscarDPI" style="margin-bottom: 2rem;">
                 <div class="form-group">
                     <label>DPI *</label>
-                    <input 
-                        type="text" 
-                        id="dpi" 
-                        required 
-                        maxlength="13"
-                        pattern="[0-9]{13}"
-                        placeholder="1234567891000"
-                    >
-                    <small>Si no existe, podrás crear la persona</small>
+                    <input type="text" id="dpi" required maxlength="13" pattern="[0-9]{13}">
                 </div>
-                
-                <button type="submit" class="btn btn-primary btn-block">
-                    🔍 Buscar
-                </button>
+                <button type="submit" class="btn btn-primary btn-block">🔍 Buscar</button>
             </form>
-            
             <div id="resultadoBusqueda"></div>
         `);
         
@@ -205,42 +182,40 @@ const Solicitudes = {
             
         } catch (error) {
             hideLoading();
-            showError('Error en búsqueda: ' + error.message);
+            showError('Error en búsqueda');
         }
     },
     
     mostrarFormularioEdicion(persona) {
         const resultadoDiv = document.getElementById('resultadoBusqueda');
         resultadoDiv.innerHTML = `
-            <div style="background: #d1fae5; border-left: 4px solid #10b981; padding: 1rem; margin-bottom: 1rem; border-radius: 4px;">
+            <div style="background: #d1fae5; padding: 1rem; margin-bottom: 1rem; border-radius: 4px;">
                 <strong>✅ Persona encontrada</strong><br>
                 ${persona.nombres} ${persona.apellidos}<br>
                 DPI: ${persona.dpi}
-                ${persona.nip ? `<br>NIP: ${persona.nip}` : ''}
-                ${persona.total_solicitudes > 0 ? `<br><small>Tiene ${persona.total_solicitudes} solicitud(es) previa(s)</small>` : ''}
             </div>
             
             <h4>Verificar/Actualizar Datos</h4>
             <form id="formDatosPersona">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                     <div class="form-group">
-                        <label>Nombres (no editable)</label>
+                        <label>Nombres</label>
                         <input type="text" value="${persona.nombres}" disabled>
                     </div>
                     <div class="form-group">
-                        <label>Apellidos (no editable)</label>
+                        <label>Apellidos</label>
                         <input type="text" value="${persona.apellidos}" disabled>
                     </div>
                 </div>
                 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                     <div class="form-group">
-                        <label>DPI (no editable)</label>
+                        <label>DPI</label>
                         <input type="text" value="${persona.dpi}" disabled>
                     </div>
                     <div class="form-group">
-                        <label>NIP (Número Policial)</label>
-                        <input type="text" id="nip" value="${persona.nip || ''}" placeholder="36250-P">
+                        <label>NIP</label>
+                        <input type="text" id="nip" value="${persona.nip || ''}">
                     </div>
                 </div>
                 
@@ -257,12 +232,12 @@ const Solicitudes = {
                 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                     <div class="form-group">
-                        <label>Cargo / Grado</label>
-                        <input type="text" id="cargo" value="${persona.cargo || ''}" placeholder="Inspector">
+                        <label>Cargo/Grado</label>
+                        <input type="text" id="cargo" value="${persona.cargo || ''}">
                     </div>
                     <div class="form-group">
                         <label>Institución</label>
-                        <input type="text" id="institucion" value="${persona.institucion || ''}" placeholder="DEIC">
+                        <input type="text" id="institucion" value="${persona.institucion || ''}">
                     </div>
                 </div>
                 
@@ -281,10 +256,9 @@ const Solicitudes = {
     mostrarFormularioCreacion(dpi) {
         const resultadoDiv = document.getElementById('resultadoBusqueda');
         resultadoDiv.innerHTML = `
-            <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 1rem; margin-bottom: 1rem; border-radius: 4px;">
+            <div style="background: #fef3c7; padding: 1rem; margin-bottom: 1rem; border-radius: 4px;">
                 <strong>✨ Crear Nueva Persona</strong><br>
-                DPI: ${dpi}<br>
-                <small>Complete todos los datos requeridos</small>
+                DPI: ${dpi}
             </div>
             
             <h4>Datos de la Persona</h4>
@@ -306,8 +280,8 @@ const Solicitudes = {
                         <input type="text" id="dpi" value="${dpi}" readonly>
                     </div>
                     <div class="form-group">
-                        <label>NIP (Opcional)</label>
-                        <input type="text" id="nip" placeholder="36250-P">
+                        <label>NIP</label>
+                        <input type="text" id="nip">
                     </div>
                 </div>
                 
@@ -324,12 +298,12 @@ const Solicitudes = {
                 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                     <div class="form-group">
-                        <label>Cargo / Grado</label>
-                        <input type="text" id="cargo" placeholder="Inspector">
+                        <label>Cargo/Grado</label>
+                        <input type="text" id="cargo">
                     </div>
                     <div class="form-group">
                         <label>Institución</label>
-                        <input type="text" id="institucion" placeholder="DEIC">
+                        <input type="text" id="institucion">
                     </div>
                 </div>
                 
@@ -405,16 +379,32 @@ const Solicitudes = {
     
     mostrarFormularioSolicitud() {
         const resultadoDiv = document.getElementById('resultadoBusqueda');
+        const hoy = new Date().toISOString().split('T')[0];
+        
         resultadoDiv.innerHTML = `
-            <div style="background: #d1fae5; border-left: 4px solid #10b981; padding: 1rem; margin-bottom: 1.5rem; border-radius: 4px;">
+            <div style="background: #d1fae5; padding: 1rem; margin-bottom: 1.5rem; border-radius: 4px;">
                 <strong>✅ Datos guardados</strong><br>
                 <strong>${this.personaActual.nombres} ${this.personaActual.apellidos}</strong><br>
                 DPI: ${this.personaActual.dpi}
-                ${this.personaActual.nip ? ` | NIP: ${this.personaActual.nip}` : ''}
             </div>
             
             <h3>Paso 2: Datos de la Solicitud</h3>
             <form id="formSolicitud">
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+                    <div class="form-group">
+                        <label>Número de Oficio</label>
+                        <input type="text" id="numeroOficio" placeholder="Ej: 07-2025">
+                    </div>
+                    <div class="form-group">
+                        <label>Número de Providencia</label>
+                        <input type="text" id="numeroProvidencia" placeholder="Ej: 3372-2024">
+                    </div>
+                    <div class="form-group">
+                        <label>Fecha de Recepción</label>
+                        <input type="date" id="fechaRecepcion" value="${hoy}">
+                    </div>
+                </div>
+                
                 <div class="form-group">
                     <label>Tipo *</label>
                     <select id="tipoSolicitud" required>
@@ -425,8 +415,7 @@ const Solicitudes = {
                 
                 <div class="form-group">
                     <label>Justificación *</label>
-                    <textarea id="justificacion" required rows="4" 
-                              placeholder="Describa el motivo..."></textarea>
+                    <textarea id="justificacion" required rows="4"></textarea>
                 </div>
                 
                 <button type="submit" class="btn btn-success btn-block">
@@ -447,6 +436,9 @@ const Solicitudes = {
             
             const data = {
                 persona_id: this.personaActual.id,
+                numero_oficio: document.getElementById('numeroOficio').value || null,
+                numero_providencia: document.getElementById('numeroProvidencia').value || null,
+                fecha_recepcion: document.getElementById('fechaRecepcion').value || null,
                 fecha_solicitud: new Date().toISOString().split('T')[0],
                 tipo_solicitud: document.getElementById('tipoSolicitud').value,
                 justificacion: document.getElementById('justificacion').value
@@ -466,14 +458,111 @@ const Solicitudes = {
     },
     
     async crearCarta(solicitudId) {
-        if (!confirm('¿Crear carta de responsabilidad?')) return;
+        if (!confirm('¿Crear carta de responsabilidad?\n\nEsto generará el PDF y creará el acceso VPN automáticamente.')) return;
         
         try {
             showLoading();
-            await API.post(`/solicitudes/${solicitudId}/crear-carta`, {});
+            const response = await API.post(`/solicitudes/${solicitudId}/crear-carta`, {});
             hideLoading();
-            showSuccess('Carta creada');
+            
+            alert(`✅ ¡Carta Creada!\n\nCarta #${response.carta_id}\nAcceso VPN #${response.acceso_id}\nPDF: ${response.pdf_path}\n\nYa puedes ver la vista previa.`);
+            
             await this.load();
+        } catch (error) {
+            hideLoading();
+            showError('Error: ' + error.message);
+        }
+    },
+    
+    async verVistaPreviaCarta(solicitudId) {
+        try {
+            showLoading();
+            const sol = await API.get(`/solicitudes/${solicitudId}`);
+            hideLoading();
+            
+            // Aquí mostramos la vista previa de la carta
+            const hoy = new Date();
+            const fechaExpiracion = new Date(hoy);
+            fechaExpiracion.setFullYear(fechaExpiracion.getFullYear() + 1);
+            
+            showModal('Vista Previa - Carta de Responsabilidad', `
+                <div style="max-height: 70vh; overflow-y: auto; padding: 2rem; background: white; border: 1px solid #ccc;">
+                    <div style="text-align: center; margin-bottom: 2rem;">
+                        <h2 style="font-size: 14px; margin-bottom: 0.5rem;">CARTA DE RESPONSABILIDAD DE USO Y ACCESO POR VPN</h2>
+                        <h3 style="font-size: 13px;">A LA RED INSTITUCIONAL DE LA POLICÍA NACIONAL CIVIL</h3>
+                        <p style="margin-top: 1rem; font-weight: bold;">Documento No: ${sol.id}-2025</p>
+                    </div>
+                    
+                    <div style="text-align: justify; font-size: 11px; line-height: 1.6; margin-bottom: 1.5rem;">
+                        <p>En las instalaciones que ocupa el Departamento de Operaciones de Seguridad Informática de la 
+                        Subdirección General de Tecnologías de la Información y la Comunicación, se suscribe la presente 
+                        CARTA DE RESPONSABILIDAD con la que <strong>EL USUARIO</strong> acepta formalmente las condiciones de uso y acceso 
+                        por medio del servicio de VPN.</p>
+                    </div>
+                    
+                    <div style="font-size: 11px; margin-bottom: 1.5rem;">
+                        <p style="margin-bottom: 0.5rem;"><strong>1.</strong> EL USUARIO y CONTRASEÑA asignados son datos intransferibles, confidenciales y personales.</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>2.</strong> EL USUARIO tiene prohibido compartir información confidencial.</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>3.</strong> El USUARIO se compromete a utilizar el servicio VPN únicamente para fines laborales.</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>4.</strong> EL USUARIO debe reportar inmediatamente cualquier incidente de seguridad.</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>5.</strong> El acceso tiene vigencia de 12 meses y debe renovarse oportunamente.</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>6.</strong> EL USUARIO acepta cumplir todos los lineamientos de seguridad.</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>7.</strong> La Subdirección se reserva el derecho de bloquear usuarios por uso inapropiado.</p>
+                    </div>
+                    
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; font-size: 11px;">
+                        <tr style="border: 1px solid black;">
+                            <td style="padding: 8px; border: 1px solid black; font-weight: bold;">Responsable:</td>
+                            <td style="padding: 8px; border: 1px solid black;">${sol.persona.nombres} ${sol.persona.apellidos}</td>
+                            <td style="padding: 8px; border: 1px solid black; font-weight: bold;">Usuario:</td>
+                            <td style="padding: 8px; border: 1px solid black;">${sol.persona.email || 'N/A'}</td>
+                        </tr>
+                        <tr style="border: 1px solid black;">
+                            <td style="padding: 8px; border: 1px solid black; font-weight: bold;">DPI:</td>
+                            <td style="padding: 8px; border: 1px solid black;">${sol.persona.dpi}</td>
+                            <td style="padding: 8px; border: 1px solid black; font-weight: bold;">Teléfono:</td>
+                            <td style="padding: 8px; border: 1px solid black;">${sol.persona.telefono || 'N/A'}</td>
+                        </tr>
+                        <tr style="border: 1px solid black;">
+                            <td style="padding: 8px; border: 1px solid black; font-weight: bold;">Destino:</td>
+                            <td style="padding: 8px; border: 1px solid black;">${sol.persona.institucion || 'N/A'}</td>
+                            <td style="padding: 8px; border: 1px solid black; font-weight: bold;">Fecha Expiración:</td>
+                            <td style="padding: 8px; border: 1px solid black;">${fechaExpiracion.toLocaleDateString('es-GT')}</td>
+                        </tr>
+                    </table>
+                    
+                    <p style="font-size: 11px; margin-bottom: 2rem;">
+                        <strong>Finalidad:</strong> Proveer un túnel VPN para permitir el acceso al sistema de Escritorio Policial y Solvencias.
+                    </p>
+                    
+                    <p style="font-size: 11px; margin-bottom: 3rem; font-weight: bold;">
+                        Guatemala, ${hoy.toLocaleDateString('es-GT')}
+                    </p>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 3rem;">
+                        <div style="text-align: center;">
+                            <div style="border-top: 1px solid black; padding-top: 0.5rem;">
+                                <p style="font-size: 11px;">Firmo y recibo conforme</p>
+                            </div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="border-top: 1px solid black; padding-top: 0.5rem;">
+                                <p style="font-size: 11px;">Firmo y entrego DOSI/SGTIC</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 1rem; text-align: center;">
+                    <button class="btn btn-primary" onclick="alert('Función de descarga PDF próximamente')">
+                        📥 Descargar PDF
+                    </button>
+                    <button class="btn btn-outline" onclick="hideModal()">
+                        Cerrar
+                    </button>
+                </div>
+            `);
+            
         } catch (error) {
             hideLoading();
             showError('Error: ' + error.message);
@@ -593,15 +682,13 @@ const Solicitudes = {
             const sol = await API.get(`/solicitudes/${solicitudId}`);
             hideLoading();
             
-            const esNoPresentado = sol.estado === 'CANCELADA' && 
-                                  sol.comentarios_admin && 
-                                  sol.comentarios_admin.includes('NO_PRESENTADO');
-            
             showModal(`Solicitud #${sol.id}`, `
                 <div style="margin-bottom: 1rem;">
-                    <h4>Estado</h4>
-                    <p>${getStatusBadge(sol.estado)}</p>
-                    ${esNoPresentado ? `<p style="color: #dc2626;">${sol.comentarios_admin}</p>` : ''}
+                    <h4>Datos Administrativos</h4>
+                    <p><strong>Oficio:</strong> ${sol.numero_oficio || 'N/A'}</p>
+                    <p><strong>Providencia:</strong> ${sol.numero_providencia || 'N/A'}</p>
+                    <p><strong>Fecha Recepción:</strong> ${formatDate(sol.fecha_recepcion)}</p>
+                    <p><strong>Estado:</strong> ${getStatusBadge(sol.estado)}</p>
                 </div>
                 
                 <div style="margin-bottom: 1rem;">
@@ -613,19 +700,11 @@ const Solicitudes = {
                     <p><strong>Institución:</strong> ${sol.persona.institucion || 'N/A'}</p>
                 </div>
                 
-                <div style="margin-bottom: 1rem;">
-                    <h4>Solicitud</h4>
-                    <p><strong>Tipo:</strong> ${sol.tipo_solicitud}</p>
-                    <p><strong>Fecha:</strong> ${formatDate(sol.fecha_solicitud)}</p>
-                    <p><strong>Justificación:</strong> ${sol.justificacion}</p>
-                </div>
-                
                 ${sol.acceso ? `
                     <div style="margin-bottom: 1rem;">
                         <h4>Acceso VPN</h4>
-                        <p><strong>Vigencia:</strong> ${formatDate(sol.acceso.fecha_inicio)} - ${formatDate(sol.acceso.fecha_fin)}</p>
-                        <p><strong>Días Restantes:</strong> ${sol.acceso.dias_restantes}</p>
-                        <p>${getStatusBadge(sol.acceso.estado_vigencia)}</p>
+                        <p><strong>ID:</strong> ${sol.acceso.id}</p>
+                        <p><strong>Vence:</strong> ${formatDate(sol.acceso.fecha_fin)}</p>
                     </div>
                 ` : ''}
             `);
