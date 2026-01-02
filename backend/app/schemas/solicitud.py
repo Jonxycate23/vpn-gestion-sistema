@@ -14,10 +14,13 @@ class TipoSolicitudEnum(str, Enum):
 
 
 class EstadoSolicitudEnum(str, Enum):
-    """Estados de solicitud"""
-    APROBADA = "APROBADA"
-    RECHAZADA = "RECHAZADA"
-    CANCELADA = "CANCELADA"
+    """Estados de solicitud con workflow"""
+    PENDIENTE = "PENDIENTE"      # ⏳ Recién creada, esperando revisión
+    APROBADA = "APROBADA"        # ✅ Aprobada, esperando crear carta
+    TERMINADA = "TERMINADA"      # ✅ Carta creada y acceso VPN activado
+    DENEGADA = "DENEGADA"        # ❌ Rechazada por algún motivo
+    CANCELADA = "CANCELADA"      # 🚫 No se presentó o cancelada
+
 
 
 # ========================================

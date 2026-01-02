@@ -84,7 +84,7 @@ async def prorrogar_acceso(
     db: Session = Depends(get_db)
 ):
     """
-    Prorrogar acceso VPN (agregar días de gracia)
+    Prorrogar acceso VPN (agregar días)
     
     - **dias_adicionales**: Días adicionales a agregar
     - **motivo**: Justificación de la prórroga

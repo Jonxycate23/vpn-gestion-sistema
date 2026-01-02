@@ -77,6 +77,38 @@ async def buscar_persona_por_nip(
         "total_solicitudes": total_solicitudes
     }
 
+
+@router.get("/buscar-dpi/{dpi}", response_model=dict)
+async def buscar_persona_por_dpi(
+    dpi: str,
+    current_user: UsuarioSistema = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Buscar persona por DPI"""
+    persona = PersonaService.obtener_por_dpi(db=db, dpi=dpi)
+    
+    if persona is None:
+        return {"existe": False}
+    
+    total_solicitudes = db.query(SolicitudVPN).filter(
+        SolicitudVPN.persona_id == persona.id
+    ).count()
+    
+    return {
+        "existe": True,
+        "id": persona.id,
+        "dpi": persona.dpi,
+        "nip": persona.nip if hasattr(persona, 'nip') else None,
+        "nombres": persona.nombres,
+        "apellidos": persona.apellidos,
+        "institucion": persona.institucion,
+        "cargo": persona.cargo,
+        "telefono": persona.telefono,
+        "email": persona.email,
+        "total_solicitudes": total_solicitudes
+    }
+
+
 @router.post("/persona", response_model=dict, status_code=status.HTTP_200_OK)
 async def crear_o_actualizar_persona(
     data: PersonaCreate,
