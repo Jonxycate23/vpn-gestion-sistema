@@ -76,7 +76,7 @@ const Personas = {
                 if (resultado.existe) {
                     // Persona existe - autocompletar datos
                     datosExistentes.style.display = 'block';
-                    statusDiv.textContent = '✅ Persona encontrada en el sistema';
+                    statusDiv.textContent = '✅ Datos de la Persona';
                     statusDiv.style.color = 'green';
                     
                     document.getElementById('nombres').value = resultado.nombres;

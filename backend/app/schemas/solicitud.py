@@ -9,8 +9,8 @@ from enum import Enum
 
 class TipoSolicitudEnum(str, Enum):
     """Tipos de solicitud"""
-    NUEVA = "NUEVA"
-    RENOVACION = "RENOVACION"
+    NUEVA = "CREACION"
+    RENOVACION = "ACTUALIZACION"
 
 
 class EstadoSolicitudEnum(str, Enum):

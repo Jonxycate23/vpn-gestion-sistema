@@ -595,41 +595,11 @@ const Solicitudes = {
     },
     
     async descargarPDF(solicitudId) {
-        try {
-            showLoading();
-            
-            const response = await fetch(`${API.BASE_URL}/solicitudes/${solicitudId}/descargar-carta`, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
-            });
-            
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`Error ${response.status}: ${errorText}`);
-            }
-            
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `CARTA_RESPONSABILIDAD_${solicitudId}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-            
-            hideLoading();
-            showSuccess('PDF descargado exitosamente');
-            
-        } catch (error) {
-            hideLoading();
-            showError('Error al descargar PDF: ' + error.message);
-            console.error('Detalle del error:', error);
-        }
+        await API.downloadFile(
+            `/solicitudes/${solicitudId}/descargar-carta`,
+            `CARTA_RESPONSABILIDAD_${solicitudId}.pdf`
+        );
+        showSuccess('📥 PDF descargado exitosamente');
     },
     
     async marcarNoPresentado(solicitudId) {

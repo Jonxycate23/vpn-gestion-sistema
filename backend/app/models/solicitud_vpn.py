@@ -14,8 +14,8 @@ from app.core.database import Base
 
 class TipoSolicitudEnum(str, enum.Enum):
     """Tipos de solicitud"""
-    NUEVA = "NUEVA"
-    RENOVACION = "RENOVACION"
+    NUEVA = "CREACION"
+    RENOVACION = "ACTUALIZACION"
 
 
 class EstadoSolicitudEnum(str, enum.Enum):
@@ -57,7 +57,7 @@ class SolicitudVPN(Base):
     # Constraints
     __table_args__ = (
         CheckConstraint(
-            "tipo_solicitud IN ('NUEVA', 'RENOVACION')",
+            "tipo_solicitud IN ('CREACION', 'ACTUALIZACION')",
             name="check_tipo_solicitud_valido"
         ),
         CheckConstraint(
