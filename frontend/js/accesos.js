@@ -132,8 +132,8 @@ const Accesos = {
             const apellidosArray = acceso.persona.apellidos.toLowerCase().split(' ');
             const username = `${nombresArray[0]}.${apellidosArray[0]}`;
             
-            // Calcular fecha de expiración
-            const fechaExpiracion = new Date(acceso.fecha_fin_con_gracia);
+            // Calcular fecha de expiración 
+            const fechaExpiracion = new Date(acceso.fecha_fin_con_gracia + 'T00:00:00');
             
             showModal('📋 Detalles Completos del Acceso VPN', `
                 <div style="max-height: 70vh; overflow-y: auto;">

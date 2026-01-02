@@ -477,7 +477,11 @@ const Solicitudes = {
             const sol = await API.get(`/solicitudes/${solicitudId}`);
             hideLoading();
             
-            const fechaGeneracion = sol.carta_fecha_generacion ? new Date(sol.carta_fecha_generacion) : new Date();
+            // ✅ CORRECCIÓN: Usar la fecha correcta
+            const fechaGeneracion = sol.carta_fecha_generacion 
+                ? new Date(sol.carta_fecha_generacion + 'T00:00:00')  // ✅ 
+                : new Date();
+            
             const fechaExpiracion = new Date(fechaGeneracion);
             fechaExpiracion.setFullYear(fechaExpiracion.getFullYear() + 1);
             
@@ -487,9 +491,15 @@ const Solicitudes = {
             
             const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
             const dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+            
+            // ✅ CORRECCIÓN: Usar getDate() en lugar de getDay()
             const fechaTexto = `Ciudad de Guatemala, ${dias[fechaGeneracion.getDay()]}, ${fechaGeneracion.getDate()} de ${meses[fechaGeneracion.getMonth()]} de ${fechaGeneracion.getFullYear()}`;
             
             const nombreUsuarioSistema = this.usuarioActual?.nombre_completo || 'Usuario del Sistema';
+            
+            // ✅ CORRECCIÓN: Mostrar fechas correctas
+            console.log('📅 Fecha de generación:', fechaGeneracion);
+            console.log('📅 Fecha de expiración:', fechaExpiracion);
             
             showModal('📄 Carta de Responsabilidad', `
                 <div style="max-height: 70vh; overflow-y: auto; padding: 2rem; background: white; border: 1px solid #ccc;">

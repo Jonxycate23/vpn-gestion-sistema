@@ -179,8 +179,22 @@ function hideModal() {
 // Formateo de fechas
 function formatDate(dateString) {
     if (!dateString) return '-';
+    
+    // Si la fecha viene en formato YYYY-MM-DD (sin hora), agregarle la hora para evitar problemas
+    if (typeof dateString === 'string' && dateString.includes('-') && !dateString.includes('T')) {
+        // Agregar 'T00:00:00' para que se interprete como fecha local
+        dateString = dateString + 'T00:00:00';
+    }
+    
     const date = new Date(dateString);
-    return date.toLocaleDateString('es-GT');
+    
+    // Formatear la fecha en zona horaria local
+    return date.toLocaleDateString('es-GT', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        timeZone: 'America/Guatemala'  // ✅ Forzar zona horaria de Guatemala
+    });
 }
 
 // Formateo de estado
