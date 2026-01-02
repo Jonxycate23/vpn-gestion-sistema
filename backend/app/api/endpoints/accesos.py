@@ -25,9 +25,10 @@ async def obtener_acceso(
     db: Session = Depends(get_db)
 ):
     """
-    Obtener detalles de un acceso VPN
+    Obtener detalles COMPLETOS de un acceso VPN
     """
     from datetime import date
+    from app.models import CartaResponsabilidad
     
     acceso = AccesoService.obtener_por_id(db=db, acceso_id=acceso_id)
     if not acceso:
@@ -36,6 +37,11 @@ async def obtener_acceso(
     
     # Obtener estado de bloqueo
     estado_bloqueo = AccesoService.obtener_estado_bloqueo(db, acceso_id)
+    
+    # Obtener carta
+    carta = db.query(CartaResponsabilidad).filter(
+        CartaResponsabilidad.solicitud_id == acceso.solicitud_id
+    ).first()
     
     return {
         "id": acceso.id,
@@ -47,15 +53,28 @@ async def obtener_acceso(
         "estado_vigencia": acceso.estado_vigencia,
         "dias_restantes": (acceso.fecha_fin_con_gracia - date.today()).days,
         "estado_bloqueo": estado_bloqueo,
+        "carta_id": carta.id if carta else None,
+        "carta_fecha_generacion": carta.fecha_generacion if carta else None,
+        "solicitud": {
+            "id": acceso.solicitud.id,
+            "numero_oficio": acceso.solicitud.numero_oficio,
+            "numero_providencia": acceso.solicitud.numero_providencia,
+            "fecha_recepcion": acceso.solicitud.fecha_recepcion,
+            "tipo_solicitud": acceso.solicitud.tipo_solicitud,
+            "estado": acceso.solicitud.estado
+        },
         "persona": {
             "id": acceso.solicitud.persona.id,
             "dpi": acceso.solicitud.persona.dpi,
+            "nip": acceso.solicitud.persona.nip,
             "nombres": acceso.solicitud.persona.nombres,
-            "apellidos": acceso.solicitud.persona.apellidos
+            "apellidos": acceso.solicitud.persona.apellidos,
+            "institucion": acceso.solicitud.persona.institucion,
+            "cargo": acceso.solicitud.persona.cargo,
+            "email": acceso.solicitud.persona.email,
+            "telefono": acceso.solicitud.persona.telefono
         }
     }
-
-
 @router.post("/{acceso_id}/prorrogar", response_model=ResponseBase)
 async def prorrogar_acceso(
     acceso_id: int,

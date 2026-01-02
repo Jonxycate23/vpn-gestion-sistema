@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from app.core.database import get_db
 from app.api.dependencies.auth import get_current_active_user
-from app.models import UsuarioSistema
+from app.models import UsuarioSistema, Persona
 from app.schemas import DashboardVencimientos
 
 router = APIRouter()
@@ -45,9 +45,9 @@ async def obtener_accesos_actuales(
     limit: int = 50
 ):
     """
-    Obtener lista de accesos actuales
+    Obtener lista de accesos actuales CON NIP
     
-    Usa la vista consolidada de la BD
+    Usa la vista consolidada de la BD y trae el NIP desde la tabla personas
     """
     query = "SELECT * FROM vista_accesos_actuales WHERE 1=1"
     params = {}
@@ -64,31 +64,40 @@ async def obtener_accesos_actuales(
     
     result = db.execute(text(query), params).fetchall()
     
+    # Traer el NIP desde la tabla personas
+    accesos_list = []
+    for row in result:
+        persona_id = row[0]
+        
+        # Obtener el NIP de la tabla personas
+        persona = db.query(Persona).filter(Persona.id == persona_id).first()
+        nip = persona.nip if persona else None
+        
+        accesos_list.append({
+            "persona_id": row[0],
+            "dpi": row[1],
+            "nip": nip,              # ← NIP traído desde la tabla personas
+            "nombres": row[2],
+            "apellidos": row[3],
+            "institucion": row[4],
+            "cargo": row[5],
+            "solicitud_id": row[6],
+            "fecha_solicitud": row[7],
+            "tipo_solicitud": row[8],
+            "acceso_id": row[9],
+            "fecha_inicio": row[10],
+            "fecha_fin": row[11],
+            "dias_gracia": row[12],
+            "fecha_fin_con_gracia": row[13],
+            "estado_vigencia": row[14],
+            "dias_restantes": row[15],
+            "estado_bloqueo": row[16],
+            "usuario_registro": row[17]
+        })
+    
     return {
-        "total": len(result),
-        "accesos": [
-            {
-                "persona_id": row[0],
-                "dpi": row[1],
-                "nombres": row[2],
-                "apellidos": row[3],
-                "institucion": row[4],
-                "cargo": row[5],
-                "solicitud_id": row[6],
-                "fecha_solicitud": row[7],
-                "tipo_solicitud": row[8],
-                "acceso_id": row[9],
-                "fecha_inicio": row[10],
-                "fecha_fin": row[11],
-                "dias_gracia": row[12],
-                "fecha_fin_con_gracia": row[13],
-                "estado_vigencia": row[14],
-                "dias_restantes": row[15],
-                "estado_bloqueo": row[16],
-                "usuario_registro": row[17]
-            }
-            for row in result
-        ]
+        "total": len(accesos_list),
+        "accesos": accesos_list
     }
 
 

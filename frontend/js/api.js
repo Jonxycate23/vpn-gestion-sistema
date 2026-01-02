@@ -1,5 +1,7 @@
 // Cliente de API
 const API = {
+    BASE_URL: CONFIG.API_URL, // ✅ AGREGADO
+    
     async request(endpoint, options = {}) {
         const url = `${CONFIG.API_URL}${endpoint}`;
         const token = TokenStorage.get();
@@ -77,6 +79,56 @@ const API = {
         return this.request(endpoint, {
             method: 'DELETE'
         });
+    },
+    
+    // ✅ NUEVA FUNCIÓN PARA DESCARGAR ARCHIVOS
+    async downloadFile(endpoint, filename) {
+        try {
+            const url = `${CONFIG.API_URL}${endpoint}`;
+            const token = TokenStorage.get();
+            
+            if (!token) {
+                throw new Error('No hay sesión activa');
+            }
+            
+            showLoading();
+            
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            if (response.status === 401) {
+                Auth.logout();
+                throw new Error('Sesión expirada. Por favor inicia sesión nuevamente.');
+            }
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Error ${response.status}: ${errorText}`);
+            }
+            
+            const blob = await response.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            
+            window.URL.revokeObjectURL(blobUrl);
+            document.body.removeChild(a);
+            
+            hideLoading();
+            return true;
+        } catch (error) {
+            hideLoading();
+            console.error('Download error:', error);
+            throw error;
+        }
     }
 };
 

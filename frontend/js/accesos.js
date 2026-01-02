@@ -1,7 +1,6 @@
-// Módulo de Accesos VPN - VERSIÓN CORREGIDA FINAL
-// 📍 Ubicación: frontend/js/accesos.js
-// ✅ Columna NIP funcionando + Ver motivo de bloqueo funcionando
-// COPIAR Y PEGAR COMPLETO
+// Módulo de Accesos VPN - VERSIÓN CON VER DETALLES COMPLETO
+// 📂 Ubicación: frontend/js/accesos.js
+// ✅ Botón "Ver Detalles" en todos los accesos con info completa
 
 const Accesos = {
     async load() {
@@ -73,7 +72,7 @@ const Accesos = {
                 const diasClass = acceso.dias_restantes <= 0 ? 'status-vencido' : 
                                  acceso.dias_restantes <= 7 ? 'status-por-vencer' : 'status-activo';
                 
-                // ✅ Generar username
+                // Generar username
                 const nombresArray = acceso.nombres.toLowerCase().split(' ');
                 const apellidosArray = acceso.apellidos.toLowerCase().split(' ');
                 const username = `${nombresArray[0]}.${apellidosArray[0]}`;
@@ -89,6 +88,10 @@ const Accesos = {
                         <td><span class="status-badge ${diasClass}">${acceso.dias_restantes} días</span></td>
                         <td>${getStatusBadge(acceso.estado_bloqueo || 'DESBLOQUEADO')}</td>
                         <td style="white-space: nowrap;">
+                            <button class="btn btn-sm btn-info" onclick="Accesos.verDetalles(${acceso.acceso_id})" title="Ver detalles completos">
+                                👁️
+                            </button>
+                            
                             ${acceso.dias_restantes > 0 && acceso.dias_restantes <= 30 ? `
                                 <button class="btn btn-sm btn-warning" onclick="Accesos.prorrogar(${acceso.acceso_id})" title="Prorrogar">
                                     ⏰
@@ -96,9 +99,6 @@ const Accesos = {
                             ` : ''}
                             
                             ${acceso.estado_bloqueo === 'BLOQUEADO' ? `
-                                <button class="btn btn-sm btn-info" onclick="Accesos.verMotivoBloqueo(${acceso.acceso_id})" title="Ver motivo">
-                                    👁️
-                                </button>
                                 <button class="btn btn-sm btn-success" onclick="Accesos.desbloquear(${acceso.acceso_id})" title="Desbloquear">
                                     ✅
                                 </button>
@@ -118,97 +118,127 @@ const Accesos = {
         }
     },
     
-    async verMotivoBloqueo(accesoId) {
+    async verDetalles(accesoId) {
         try {
             showLoading();
             
-            // ✅ Obtener información del bloqueo desde la tabla bloqueos_vpn
-            const response = await API.get(`/accesos/${accesoId}/bloqueos`);
+            // Obtener detalles completos del acceso
+            const acceso = await API.get(`/accesos/${accesoId}`);
             
             hideLoading();
             
-            if (!response || !response.bloqueos || response.bloqueos.length === 0) {
-                showModal('📋 Motivo de Bloqueo', `
-                    <div class="alert alert-info">
-                        <strong>ℹ️ No se encontró información de bloqueo</strong><br>
-                        Este acceso puede haber sido bloqueado automáticamente por el sistema.
-                    </div>
-                    <div style="margin-top: 1rem; text-align: center;">
-                        <button class="btn btn-primary" onclick="hideModal()">Cerrar</button>
-                    </div>
-                `);
-                return;
-            }
+            // Generar username
+            const nombresArray = acceso.persona.nombres.toLowerCase().split(' ');
+            const apellidosArray = acceso.persona.apellidos.toLowerCase().split(' ');
+            const username = `${nombresArray[0]}.${apellidosArray[0]}`;
             
-            // Obtener el bloqueo más reciente (estado BLOQUEADO)
-            const bloqueoActual = response.bloqueos.find(b => b.estado === 'BLOQUEADO') || response.bloqueos[0];
+            // Calcular fecha de expiración
+            const fechaExpiracion = new Date(acceso.fecha_fin_con_gracia);
             
-            const fecha_bloqueo = new Date(bloqueoActual.fecha_bloqueo);
-            const fecha_formateada = fecha_bloqueo.toLocaleString('es-GT', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-            
-            showModal('📋 Motivo de Bloqueo', `
-                <div class="alert alert-warning">
-                    <h4 style="margin-bottom: 0.5rem;">⚠️ Acceso Bloqueado</h4>
-                </div>
-                
-                <div style="margin-bottom: 1.5rem;">
-                    <p style="margin-bottom: 0.5rem;"><strong>Fecha de bloqueo:</strong> ${fecha_formateada}</p>
-                    <p style="margin-bottom: 0.5rem;"><strong>Bloqueado por:</strong> ${bloqueoActual.usuario_bloqueo || 'Sistema Automático'}</p>
-                    <p style="margin-bottom: 0.5rem;"><strong>Estado:</strong> ${getStatusBadge(bloqueoActual.estado)}</p>
-                </div>
-                
-                <div style="padding: 1rem; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; margin-bottom: 1rem;">
-                    <strong style="color: #856404;">📝 Motivo del bloqueo:</strong>
-                    <p style="margin-top: 0.75rem; color: #856404; line-height: 1.5;">
-                        ${bloqueoActual.motivo || 'No se especificó motivo de bloqueo'}
-                    </p>
-                </div>
-                
-                ${response.bloqueos.length > 1 ? `
-                    <div style="margin-top: 1.5rem; padding: 1rem; background: #f8f9fa; border-radius: 4px;">
-                        <strong>📋 Historial de bloqueos (${response.bloqueos.length}):</strong>
-                        <ul style="margin-top: 0.75rem; padding-left: 1.5rem;">
-                            ${response.bloqueos.slice(0, 5).map(b => `
-                                <li style="margin-bottom: 0.75rem;">
-                                    <strong>${formatDate(b.fecha_bloqueo)}:</strong> ${b.motivo || 'Sin motivo especificado'}
-                                    <br><small style="color: #6c757d;">
-                                        Por: ${b.usuario_bloqueo || 'Sistema'} | 
-                                        Estado: ${b.estado}
-                                    </small>
-                                </li>
-                            `).join('')}
-                        </ul>
+            showModal('📋 Detalles Completos del Acceso VPN', `
+                <div style="max-height: 70vh; overflow-y: auto;">
+                    
+                    <!-- Datos Administrativos -->
+                    <div style="background: #f8f9fa; padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
+                        <h4 style="margin-bottom: 1rem;">📋 Datos Administrativos</h4>
+                        <p style="margin-bottom: 0.5rem;"><strong>Oficio:</strong> ${acceso.solicitud?.numero_oficio || 'N/A'}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Providencia:</strong> ${acceso.solicitud?.numero_providencia || 'N/A'}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Fecha Recepción:</strong> ${formatDate(acceso.solicitud?.fecha_recepcion)}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Tipo:</strong> ${acceso.solicitud?.tipo_solicitud || 'N/A'}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Estado:</strong> ${getStatusBadge(acceso.solicitud?.estado || 'APROBADA')}</p>
                     </div>
-                ` : ''}
+                    
+                    <!-- Persona -->
+                    <div style="background: #e3f2fd; padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
+                        <h4 style="margin-bottom: 1rem;">👤 Persona</h4>
+                        <p style="margin-bottom: 0.5rem;"><strong>Nombre:</strong> ${acceso.persona.nombres} ${acceso.persona.apellidos}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>NIP:</strong> ${acceso.persona.nip || 'N/A'}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>DPI:</strong> ${acceso.persona.dpi}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Cargo:</strong> ${acceso.persona.cargo || 'N/A'}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Institución:</strong> ${acceso.persona.institucion || 'N/A'}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Email:</strong> ${acceso.persona.email || 'N/A'}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Teléfono:</strong> ${acceso.persona.telefono || 'N/A'}</p>
+                    </div>
+                    
+                    <!-- Acceso VPN -->
+                    <div style="background: #fff3cd; padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
+                        <h4 style="margin-bottom: 1rem;">🔐 Acceso VPN</h4>
+                        <p style="margin-bottom: 0.5rem;"><strong>ID Acceso:</strong> ${acceso.id}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Usuario VPN:</strong> <code>${username}</code></p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Fecha Inicio:</strong> ${formatDate(acceso.fecha_inicio)}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Fecha Fin:</strong> ${formatDate(acceso.fecha_fin)}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Días de Gracia:</strong> ${acceso.dias_gracia} días</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Fecha Fin (con gracia):</strong> ${formatDate(acceso.fecha_fin_con_gracia)}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Estado Vigencia:</strong> ${getStatusBadge(acceso.estado_vigencia)}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Días Restantes:</strong> <span class="status-badge ${acceso.dias_restantes <= 0 ? 'status-vencido' : acceso.dias_restantes <= 7 ? 'status-por-vencer' : 'status-activo'}">${acceso.dias_restantes} días</span></p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Estado Bloqueo:</strong> ${getStatusBadge(acceso.estado_bloqueo)}</p>
+                    </div>
+                    
+                    <!-- Carta de Responsabilidad -->
+                    ${acceso.carta_id ? `
+                        <div style="background: #d1f2eb; padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
+                            <h4 style="margin-bottom: 1rem;">📄 Carta de Responsabilidad</h4>
+                            <p style="margin-bottom: 0.5rem;"><strong>Número de Carta:</strong> ${acceso.carta_id}-2025</p>
+                            <p style="margin-bottom: 0.5rem;"><strong>Fecha Generación:</strong> ${formatDate(acceso.carta_fecha_generacion)}</p>
+                            <p style="margin-bottom: 0.5rem;"><strong>Fecha Expiración:</strong> ${fechaExpiracion.toLocaleDateString('es-GT')}</p>
+                            
+                            <div style="margin-top: 1rem;">
+                                <button class="btn btn-primary btn-block" onclick="Accesos.descargarCarta(${acceso.solicitud_id})">
+                                    📥 Descargar Carta PDF
+                                </button>
+                            </div>
+                        </div>
+                    ` : `
+                        <div style="background: #f8d7da; padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
+                            <h4 style="margin-bottom: 0.5rem;">⚠️ Sin Carta de Responsabilidad</h4>
+                            <p style="margin-bottom: 0;">Este acceso aún no tiene carta generada.</p>
+                        </div>
+                    `}
+                    
+                </div>
                 
                 <div style="margin-top: 1.5rem; text-align: center;">
-                    <button class="btn btn-primary" onclick="hideModal()">Cerrar</button>
+                    ${acceso.estado_bloqueo === 'BLOQUEADO' ? `
+                        <button class="btn btn-success" onclick="Accesos.desbloquear(${accesoId}); hideModal();" style="margin-right: 0.5rem;">
+                            ✅ Desbloquear
+                        </button>
+                    ` : `
+                        <button class="btn btn-danger" onclick="Accesos.bloquear(${accesoId}); hideModal();" style="margin-right: 0.5rem;">
+                            🚫 Bloquear
+                        </button>
+                    `}
+                    
+                    ${acceso.dias_restantes > 0 && acceso.dias_restantes <= 30 ? `
+                        <button class="btn btn-warning" onclick="Accesos.prorrogar(${accesoId}); hideModal();" style="margin-right: 0.5rem;">
+                            ⏰ Prorrogar
+                        </button>
+                    ` : ''}
+                    
+                    <button class="btn btn-outline" onclick="hideModal()">
+                        Cerrar
+                    </button>
                 </div>
             `);
             
         } catch (error) {
             hideLoading();
-            console.error('Error obteniendo motivo:', error);
-            
-            // Mostrar mensaje genérico
-            showModal('📋 Motivo de Bloqueo', `
-                <div class="alert alert-warning">
-                    <h4>⚠️ Acceso Bloqueado</h4>
-                    <p>Este acceso ha sido bloqueado por el administrador del sistema.</p>
-                    <p><small>No se pudo obtener información detallada del bloqueo.</small></p>
-                </div>
-                <div style="margin-top: 1rem; text-align: center;">
-                    <button class="btn btn-primary" onclick="hideModal()">Cerrar</button>
-                </div>
-            `);
+            console.error('Error obteniendo detalles:', error);
+            showError('Error al obtener detalles: ' + error.message);
         }
     },
+    
+      async descargarCarta(solicitudId) {
+    try {
+        await API.downloadFile(
+            `/solicitudes/${solicitudId}/descargar-carta`,
+            `CARTA_RESPONSABILIDAD_${solicitudId}.pdf`
+        );
+        showSuccess('📥 PDF descargado exitosamente');
+    } catch (error) {
+        showError('Error al descargar PDF: ' + error.message);
+        console.error('Detalle del error:', error);
+    }
+},
     
     async prorrogar(accesoId) {
         const form = `
@@ -263,8 +293,8 @@ const Accesos = {
                 <div class="form-group">
                     <label>Motivo del bloqueo *</label>
                     <textarea id="motivo" required rows="4" 
-                              placeholder="Ejemplo: Cambio de destino&#10;Ejemplo: Causo Alta></textarea>
-                    <small class="form-text">Este motivo quedará registrado y será visible al consultar el bloqueo</small>
+                              placeholder="Ejemplo: Cambio de destino&#10;Ejemplo: Causó Alta"></textarea>
+                    <small class="form-text">Este motivo quedará registrado</small>
                 </div>
                 <button type="submit" class="btn btn-danger btn-block">
                     🚫 Confirmar Bloqueo
@@ -288,7 +318,7 @@ const Accesos = {
                 await API.post('/accesos/bloquear', data);
                 hideLoading();
                 hideModal();
-                showSuccess('Acceso bloqueado exitosamente. El motivo ha sido registrado.');
+                showSuccess('Acceso bloqueado exitosamente');
                 this.load();
             } catch (error) {
                 hideLoading();
@@ -308,7 +338,6 @@ const Accesos = {
                     <label>Motivo del desbloqueo *</label>
                     <textarea id="motivo" required rows="4" 
                               placeholder="Ejemplo: Usuario ha regresado a su puesto&#10;Ejemplo: Solicitud de reactivación aprobada"></textarea>
-                    <small class="form-text">Este motivo quedará registrado</small>
                 </div>
                 <button type="submit" class="btn btn-success btn-block">
                     ✅ Confirmar Desbloqueo
