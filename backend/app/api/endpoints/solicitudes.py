@@ -165,6 +165,19 @@ async def crear_solicitud(
     if not persona:
         raise HTTPException(status_code=404, detail="Persona no encontrada")
     
+    nip_persona = persona.nip
+    if data.get('numero_oficio') and nip_persona:
+        existe_nip_oficio = db.query(SolicitudVPN).join(Persona).filter(
+            Persona.nip == nip_persona,
+            SolicitudVPN.numero_oficio == data['numero_oficio']
+        ).first()
+        
+        if existe_nip_oficio:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"❌ YA EXISTE un registro con NIP {nip_persona} y Oficio {data['numero_oficio']} (Solicitud #{existe_nip_oficio.id})"
+            )
+        
     solicitud = SolicitudVPN(
         persona_id=data['persona_id'],
         numero_oficio=data.get('numero_oficio'),
@@ -649,6 +662,104 @@ async def reactivar_solicitud(
     return {"success": True, "message": "Solicitud reactivada"}
 
 
+# ✅ REEMPLAZA la función crear_solicitud en solicitudes.py
+
+@router.post("/", response_model=dict, status_code=status.HTTP_201_CREATED)
+async def crear_solicitud(
+    data: dict,
+    request: Request,
+    current_user: UsuarioSistema = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    ✅ Crear nueva solicitud VPN
+    ✅ VALIDACIÓN CORRECTA: NIP + Oficio/Providencia
+    
+    REGLAS:
+    - Mismo NIP + Mismo Oficio → ❌ DUPLICADO
+    - Mismo NIP + Misma Providencia → ❌ DUPLICADO
+    - Diferente NIP + Mismo Oficio → ✅ PERMITIDO
+    - Diferente NIP + Misma Providencia → ✅ PERMITIDO
+    """
+    ip_origen = get_client_ip(request)
+    
+    # Obtener persona y su NIP
+    persona = db.query(Persona).filter(Persona.id == data['persona_id']).first()
+    if not persona:
+        raise HTTPException(status_code=404, detail="Persona no encontrada")
+    
+    nip_persona = persona.nip
+    
+    # ✅ VALIDACIÓN 1: NIP + Oficio (si se proporciona oficio)
+    if data.get('numero_oficio') and nip_persona:
+        existe_nip_oficio = db.query(SolicitudVPN).join(Persona).filter(
+            Persona.nip == nip_persona,
+            SolicitudVPN.numero_oficio == data['numero_oficio']
+        ).first()
+        
+        if existe_nip_oficio:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"❌ YA EXISTE un registro con NIP {nip_persona} y Oficio {data['numero_oficio']} (Solicitud #{existe_nip_oficio.id})"
+            )
+    
+    # ✅ VALIDACIÓN 2: NIP + Providencia (si se proporciona providencia)
+    if data.get('numero_providencia') and nip_persona:
+        existe_nip_providencia = db.query(SolicitudVPN).join(Persona).filter(
+            Persona.nip == nip_persona,
+            SolicitudVPN.numero_providencia == data['numero_providencia']
+        ).first()
+        
+        if existe_nip_providencia:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"❌ YA EXISTE un registro con NIP {nip_persona} y Providencia {data['numero_providencia']} (Solicitud #{existe_nip_providencia.id})"
+            )
+    
+    # ✅ Crear solicitud
+    solicitud = SolicitudVPN(
+        persona_id=data['persona_id'],
+        numero_oficio=data.get('numero_oficio'),
+        numero_providencia=data.get('numero_providencia'),
+        fecha_recepcion=date.fromisoformat(data['fecha_recepcion']) if data.get('fecha_recepcion') else None,
+        fecha_solicitud=date.fromisoformat(data['fecha_solicitud']),
+        tipo_solicitud=data['tipo_solicitud'],
+        justificacion=data['justificacion'],
+        estado='APROBADA',
+        usuario_registro_id=current_user.id
+    )
+    
+    db.add(solicitud)
+    db.commit()
+    db.refresh(solicitud)
+    
+    AuditoriaService.registrar_crear(
+        db=db,
+        usuario=current_user,
+        entidad="SOLICITUD",
+        entidad_id=solicitud.id,
+        detalle={
+            "persona_nip": nip_persona,
+            "persona_dpi": persona.dpi,
+            "tipo": data['tipo_solicitud'],
+            "estado": solicitud.estado,
+            "oficio": data.get('numero_oficio'),
+            "providencia": data.get('numero_providencia')
+        },
+        ip_origen=ip_origen
+    )
+    
+    return {
+        "success": True,
+        "message": "✅ Solicitud creada exitosamente",
+        "solicitud_id": solicitud.id
+    }
+
+
+# ========================================
+# ✅ TAMBIÉN ACTUALIZA editar_solicitud
+# ========================================
+
 @router.put("/{solicitud_id}", response_model=dict)
 async def editar_solicitud(
     solicitud_id: int,
@@ -657,17 +768,34 @@ async def editar_solicitud(
     current_user: UsuarioSistema = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Editar solicitud"""
+    """
+    Editar solicitud - Permite editar todos los campos
+    ✅ Ahora incluye: oficio, providencia, fecha_recepcion, tipo, justificación
+    """
     solicitud = db.query(SolicitudVPN).filter(SolicitudVPN.id == solicitud_id).first()
     if not solicitud:
         raise HTTPException(status_code=404, detail="Solicitud no encontrada")
     
+    # Verificar que no tenga carta
     carta = db.query(CartaResponsabilidad).filter(
         CartaResponsabilidad.solicitud_id == solicitud_id
     ).first()
     
     if carta:
-        raise HTTPException(status_code=400, detail="No se puede editar: ya tiene carta")
+        raise HTTPException(status_code=400, detail="No se puede editar: ya tiene carta generada")
+    
+    # ✅ ACTUALIZAR TODOS LOS CAMPOS
+    if "numero_oficio" in data:
+        solicitud.numero_oficio = data["numero_oficio"]
+    
+    if "numero_providencia" in data:
+        solicitud.numero_providencia = data["numero_providencia"]
+    
+    if "fecha_recepcion" in data:
+        if data["fecha_recepcion"]:
+            solicitud.fecha_recepcion = date.fromisoformat(data["fecha_recepcion"])
+        else:
+            solicitud.fecha_recepcion = None
     
     if "tipo_solicitud" in data:
         solicitud.tipo_solicitud = data["tipo_solicitud"]
@@ -676,8 +804,36 @@ async def editar_solicitud(
         solicitud.justificacion = data["justificacion"]
     
     db.commit()
+    db.refresh(solicitud)
     
-    return {"success": True, "message": "Solicitud actualizada"}
+    # ✅ AUDITORÍA SIMPLIFICADA (sin registrar_modificar)
+    try:
+        AuditoriaService.registrar_crear(
+            db=db,
+            usuario=current_user,
+            entidad="SOLICITUD_EDICION",
+            entidad_id=solicitud_id,
+            detalle={
+                "accion": "EDITAR",
+                "campos_modificados": list(data.keys())
+            },
+            ip_origen=get_client_ip(request)
+        )
+    except Exception as e:
+        print(f"⚠️ Error en auditoría (no crítico): {e}")
+    
+    return {
+        "success": True, 
+        "message": "Solicitud actualizada exitosamente",
+        "solicitud": {
+            "id": solicitud.id,
+            "numero_oficio": solicitud.numero_oficio,
+            "numero_providencia": solicitud.numero_providencia,
+            "fecha_recepcion": solicitud.fecha_recepcion,
+            "tipo_solicitud": solicitud.tipo_solicitud,
+            "justificacion": solicitud.justificacion
+        }
+    }
 
 
 @router.delete("/{solicitud_id}", response_model=dict)

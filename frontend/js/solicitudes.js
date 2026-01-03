@@ -660,78 +660,171 @@ const Solicitudes = {
         }
     },
     
-    async editar(solicitudId) {
-        try {
-            showLoading();
-            const sol = await API.get(`/solicitudes/${solicitudId}`);
-            hideLoading();
-            
-            showModal('✏️ Editar Solicitud', `
+async editar(solicitudId) {
+    try {
+        showLoading();
+        const sol = await API.get(`/solicitudes/${solicitudId}`);
+        hideLoading();
+        
+        showModal('✏️ Editar Solicitud', `
+            <div style="max-height: 75vh; overflow-y: auto;">
+                
+                <!-- ✅ SECCIÓN 1: DATOS DE LA PERSONA (READ-ONLY) -->
+                <div style="background: #e3f2fd; padding: 1rem; border-radius: 4px; margin-bottom: 1.5rem;">
+                    <h4 style="margin-bottom: 1rem;">👤 Persona Registrada</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.9rem;">
+                        <div><strong>Nombre:</strong> ${sol.persona.nombres} ${sol.persona.apellidos}</div>
+                        <div><strong>NIP:</strong> ${sol.persona.nip || 'N/A'}</div>
+                        <div><strong>DPI:</strong> ${sol.persona.dpi}</div>
+                        <div><strong>Institución:</strong> ${sol.persona.institucion || 'N/A'}</div>
+                    </div>
+                </div>
+                
+                <!-- ✅ SECCIÓN 2: FORMULARIO EDITABLE -->
                 <form id="formEditar">
-                    <div class="form-group">
-                        <label>Número de Oficio</label>
-                        <input type="text" id="numeroOficio" value="${sol.numero_oficio || ''}">
+                    
+                    <h4 style="margin-bottom: 1rem;">📝 Datos de la Solicitud</h4>
+                    
+                    <!-- Números de Oficio y Providencia -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                        <div class="form-group">
+                            <label>Número de Oficio</label>
+                            <input type="text" id="numeroOficio" value="${sol.numero_oficio || ''}" 
+                                   placeholder="Ej: 07-2025">
+                            <small class="form-text" style="color: #6c757d; font-size: 0.85rem;">Opcional</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Número de Providencia</label>
+                            <input type="text" id="numeroProvidencia" value="${sol.numero_providencia || ''}" 
+                                   placeholder="Ej: 3372-2024">
+                            <small class="form-text" style="color: #6c757d; font-size: 0.85rem;">Opcional</small>
+                        </div>
                     </div>
                     
-                    <div class="form-group">
-                        <label>Número de Providencia</label>
-                        <input type="text" id="numeroProvidencia" value="${sol.numero_providencia || ''}">
+                    <!-- Fecha de Recepción -->
+                    <div class="form-group" style="margin-bottom: 1rem;">
+                        <label>Fecha de Recepción</label>
+                        <input type="date" id="fechaRecepcion" value="${sol.fecha_recepcion || ''}">
+                        <small class="form-text" style="color: #6c757d; font-size: 0.85rem;">Fecha en que se recibió la solicitud</small>
                     </div>
                     
-                    <div class="form-group">
-                        <label>Tipo</label>
-                        <select id="tipoSolicitud">
+                    <!-- Tipo de Solicitud -->
+                    <div class="form-group" style="margin-bottom: 1rem;">
+                        <label>Tipo de Solicitud *</label>
+                        <select id="tipoSolicitud" required style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
                             <option value="NUEVA" ${sol.tipo_solicitud === 'NUEVA' ? 'selected' : ''}>Nueva</option>
                             <option value="RENOVACION" ${sol.tipo_solicitud === 'RENOVACION' ? 'selected' : ''}>Renovación</option>
                         </select>
+                        <small class="form-text" style="color: #6c757d; font-size: 0.85rem;">¿Es un acceso nuevo o una renovación?</small>
                     </div>
                     
-                    <div class="form-group">
-                        <label>Justificación</label>
-                        <textarea id="justificacion" rows="4">${sol.justificacion}</textarea>
+                    <!-- Justificación -->
+                    <div class="form-group" style="margin-bottom: 1rem;">
+                        <label>Justificación *</label>
+                        <textarea id="justificacion" required rows="4" 
+                                  style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-family: inherit;"
+                                  placeholder="Describe el motivo de la solicitud...">${sol.justificacion}</textarea>
+                        <small class="form-text" style="color: #6c757d; font-size: 0.85rem;">Mínimo 10 caracteres</small>
                     </div>
                     
-                    <button type="submit" class="btn btn-success btn-block">
-                        💾 Guardar Cambios
+                    <!-- ✅ SECCIÓN 3: DATOS DE LA PERSONA (EDITABLES) -->
+                    <div style="border-top: 2px solid #e0e0e0; padding-top: 1.5rem; margin-top: 1.5rem;">
+                        <h4 style="margin-bottom: 1rem;">👤 Actualizar Datos de la Persona</h4>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                            <div class="form-group">
+                                <label>Email</label>
+                                <input type="email" id="email" value="${sol.persona.email || ''}" 
+                                       placeholder="ejemplo@correo.com">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Teléfono</label>
+                                <input type="text" id="telefono" value="${sol.persona.telefono || ''}" 
+                                       placeholder="12345678">
+                            </div>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                            <div class="form-group">
+                                <label>Cargo/Grado</label>
+                                <input type="text" id="cargo" value="${sol.persona.cargo || ''}" 
+                                       placeholder="Ej: Oficial I">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Institución</label>
+                                <input type="text" id="institucion" value="${sol.persona.institucion || ''}" 
+                                       placeholder="Ej: DIPANDA">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Botón de Guardar -->
+                    <button type="submit" class="btn btn-success btn-block" 
+                            style="margin-top: 1.5rem; padding: 0.75rem; font-size: 1rem;">
+                        💾 Guardar Todos los Cambios
                     </button>
                 </form>
-            `);
-            
-            document.getElementById('formEditar').addEventListener('submit', async (e) => {
-                e.preventDefault();
-                await this.guardarEdicion(solicitudId);
-            });
-            
-        } catch (error) {
-            hideLoading();
-            showError('Error: ' + error.message);
-        }
-    },
-    
-    async guardarEdicion(solicitudId) {
-        try {
-            showLoading();
-            
-            const data = {
-                numero_oficio: document.getElementById('numeroOficio').value || null,
-                numero_providencia: document.getElementById('numeroProvidencia').value || null,
-                tipo_solicitud: document.getElementById('tipoSolicitud').value,
-                justificacion: document.getElementById('justificacion').value
-            };
-            
-            await API.put(`/solicitudes/${solicitudId}`, data);
-            
-            hideLoading();
-            hideModal();
-            showSuccess('Solicitud actualizada exitosamente');
-            await this.load();
-            
-        } catch (error) {
-            hideLoading();
-            showError('Error: ' + error.message);
-        }
-    },
-    
+                
+            </div>
+        `, 'large');
+        
+        document.getElementById('formEditar').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await this.guardarEdicion(solicitudId, sol.persona);
+        });
+        
+    } catch (error) {
+        hideLoading();
+        showError('Error: ' + error.message);
+    }
+},
+
+async guardarEdicion(solicitudId, personaData) {
+    try {
+        showLoading();
+        
+        // ✅ 1. ACTUALIZAR DATOS DE LA SOLICITUD
+        const dataSolicitud = {
+            numero_oficio: document.getElementById('numeroOficio').value || null,
+            numero_providencia: document.getElementById('numeroProvidencia').value || null,
+            fecha_recepcion: document.getElementById('fechaRecepcion').value || null,
+            tipo_solicitud: document.getElementById('tipoSolicitud').value,
+            justificacion: document.getElementById('justificacion').value
+        };
+        
+        console.log('📤 Enviando datos de solicitud:', dataSolicitud);
+        await API.put(`/solicitudes/${solicitudId}`, dataSolicitud);
+        
+        // ✅ 2. ACTUALIZAR DATOS DE LA PERSONA
+        const dataPersonaCompleta = {
+            dpi: personaData.dpi,
+            nip: personaData.nip,
+            nombres: personaData.nombres,
+            apellidos: personaData.apellidos,
+            email: document.getElementById('email').value || null,
+            telefono: document.getElementById('telefono').value || null,
+            cargo: document.getElementById('cargo').value || null,
+            institucion: document.getElementById('institucion').value || null
+        };
+        
+        console.log('📤 Enviando datos de persona:', dataPersonaCompleta);
+        await API.post('/solicitudes/persona', dataPersonaCompleta);
+        
+        hideLoading();
+        hideModal();
+        showSuccess('✅ Solicitud y datos de persona actualizados exitosamente');
+        await this.load();
+        
+    } catch (error) {
+        hideLoading();
+        console.error('❌ Error completo:', error);
+        showError('Error al guardar: ' + error.message);
+    }
+},
+
     async verDetalle(solicitudId) {
         try {
             showLoading();
