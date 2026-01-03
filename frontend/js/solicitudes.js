@@ -405,8 +405,8 @@ const Solicitudes = {
                 <div class="form-group">
                     <label>Tipo *</label>
                     <select id="tipoSolicitud" required>
-                        <option value="NUEVA">Nueva</option>
-                        <option value="RENOVACION">Renovación</option>
+                        <option value="CREACION">Nueva</option>
+                        <option value="ACTUALIZACION">Renovación</option>
                     </select>
                 </div>
                 

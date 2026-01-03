@@ -334,7 +334,7 @@ def generar_carta_pdf_oficial(solicitud: SolicitudVPN, carta: CartaResponsabilid
     # Encabezado
     if os.path.exists(IMAGEN_ENCABEZADO):
         try:
-            img_encabezado = Image(IMAGEN_ENCABEZADO, width=7*inch, height=1*inch)
+            img_encabezado = Image(IMAGEN_ENCABEZADO, width=8*inch, height=1.5*inch)
             story.append(img_encabezado)
             story.append(Spacer(1, 0.15*inch))
         except Exception as e:
@@ -461,7 +461,7 @@ def generar_carta_pdf_oficial(solicitud: SolicitudVPN, carta: CartaResponsabilid
     fecha_texto = f"Ciudad de Guatemala, {dias_semana[fecha_gen.weekday()]}, {fecha_gen.day} de {meses[fecha_gen.month-1]} de {fecha_gen.year}"
     
     story.append(Paragraph(fecha_texto, body_style))
-    story.append(Spacer(1, 0.35*inch))
+    story.append(Spacer(1, 0.40*inch))
     
     # ✅ FIRMAS CON NOMBRE USUARIO SISTEMA
     firmas = [
@@ -482,8 +482,8 @@ def generar_carta_pdf_oficial(solicitud: SolicitudVPN, carta: CartaResponsabilid
     # Pie de página
     if os.path.exists(IMAGEN_PIE):
         try:
-            story.append(Spacer(1, 0.25*inch))
-            img_pie = Image(IMAGEN_PIE, width=7*inch, height=0.5*inch)
+            story.append(Spacer(1, 0.35*inch))
+            img_pie = Image(IMAGEN_PIE, width=7*inch, height=1.2*inch)
             story.append(img_pie)
         except Exception as e:
             print(f"Error cargando pie: {e}")

@@ -119,7 +119,7 @@ const Dashboard = {
                 
                 return `
                     <tr>
-                        <td>${acceso.dpi}</td>
+                        <td>${acceso.nip}</td>
                         <td>${acceso.nombres} ${acceso.apellidos}</td>
                         <td>${acceso.institucion || '-'}</td>
                         <td><span class="status-badge ${badgeClass}">${acceso.dias_restantes} días</span></td>
