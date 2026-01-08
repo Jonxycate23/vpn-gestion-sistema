@@ -1,5 +1,6 @@
 """
 Modelos: Cartas de Responsabilidad y Archivos Adjuntos
+ACTUALIZADO: Incluye numero_carta y anio_carta
 """
 from sqlalchemy import (
     Column, Integer, String, Date, DateTime, Text,
@@ -41,6 +42,9 @@ class CartaResponsabilidad(Base):
         ForeignKey("usuarios_sistema.id"),
         nullable=False
     )
+    # NUEVAS COLUMNAS AGREGADAS
+    numero_carta = Column(Integer, index=True)
+    anio_carta = Column(Integer, index=True)
     
     # Constraints
     __table_args__ = (
@@ -63,7 +67,7 @@ class CartaResponsabilidad(Base):
     )
     
     def __repr__(self):
-        return f"<CartaResponsabilidad(id={self.id}, tipo='{self.tipo}')>"
+        return f"<CartaResponsabilidad(id={self.id}, numero={self.numero_carta}-{self.anio_carta})>"
 
 
 class ArchivoAdjunto(Base):

@@ -1,5 +1,3 @@
-
-
 const Solicitudes = {
     personaActual: null,
     usuarioActual: null,
@@ -77,7 +75,7 @@ const Solicitudes = {
     
     async listarSolicitudes() {
         try {
-            const data = await API.get('/solicitudes/?limit=100');
+            const data = await API.get('/solicitudes/?limit=2000');
             
             const tbody = document.querySelector('#solicitudesTable tbody');
             if (!tbody) {
@@ -95,6 +93,10 @@ const Solicitudes = {
                 const puedeEditar = !tieneCarta && !sol.acceso_id;
                 const esNoPresentado = sol.estado === 'CANCELADA' && sol.comentarios_admin && sol.comentarios_admin.includes('NO_PRESENTADO');
                 
+                // ✅ NUEVA LÓGICA DE ESTADOS
+                const esPendiente = sol.estado === 'PENDIENTE';
+                const esAprobada = sol.estado === 'APROBADA';
+                
                 return `
                     <tr>
                         <td>${sol.id}</td>
@@ -105,30 +107,35 @@ const Solicitudes = {
                         <td>${sol.persona_nombres} ${sol.persona_apellidos}</td>
                         <td>${getStatusBadge(sol.estado)}</td>
                         <td style="white-space: nowrap;">
+                            <!-- 👁️ OJO: Siempre visible -->
                             <button class="btn btn-sm btn-info" onclick="Solicitudes.verDetalle(${sol.id})" title="Ver">
                                 👁️
                             </button>
                             
-                            ${!tieneCarta && sol.estado === 'APROBADA' ? `
+                            <!-- 📄 CREAR CARTA: Solo si está PENDIENTE y no tiene carta -->
+                            ${esPendiente && !tieneCarta ? `
                                 <button class="btn btn-sm btn-success" onclick="Solicitudes.crearCarta(${sol.id})" title="Crear carta">
                                     📄 Carta
                                 </button>
                             ` : ''}
                             
-                            ${tieneCarta ? `
+                            <!-- ✅ VER CARTA: Solo si tiene carta generada (APROBADA) -->
+                            ${tieneCarta && esAprobada ? `
                                 <button class="btn btn-sm" style="background: #10b981; color: white;" 
                                         onclick="Solicitudes.verCarta(${sol.id})" title="Ver carta">
                                     ✅ Ver Carta
                                 </button>
                             ` : ''}
                             
+                            <!-- 🔄 REACTIVAR: Si está cancelada por NO_PRESENTADO -->
                             ${esNoPresentado ? `
                                 <button class="btn btn-sm btn-primary" onclick="Solicitudes.reactivar(${sol.id})" title="Reactivar">
                                     🔄
                                 </button>
                             ` : ''}
                             
-                            ${!tieneCarta && sol.estado === 'APROBADA' && !esNoPresentado ? `
+                            <!-- 🚫 NO PRESENTADO: Solo si está PENDIENTE, sin carta -->
+                            ${esPendiente && !tieneCarta && !esNoPresentado ? `
                                 <button class="btn btn-sm btn-danger" onclick="Solicitudes.marcarNoPresentado(${sol.id})" title="No presentado">
                                     🚫
                                 </button>
@@ -143,7 +150,8 @@ const Solicitudes = {
             showError('Error al cargar solicitudes');
         }
     },
-    
+
+
     nuevaSolicitud() {
         showModal('📝 NUEVO REGISTRO', `
             <h3> INGRESE NIP</h3>
@@ -405,8 +413,8 @@ const Solicitudes = {
                 <div class="form-group">
                     <label>Tipo *</label>
                     <select id="tipoSolicitud" required>
-                        <option value="CREACION">Nueva</option>
-                        <option value="ACTUALIZACION">Renovación</option>
+                        <option value="NUEVA">Creación</option>
+                        <option value="ACTUALIZACION">Actualización</option>
                     </select>
                 </div>
                 
@@ -506,7 +514,7 @@ const Solicitudes = {
                     <div style="text-align: center; margin-bottom: 1.5rem;">
                         <h2 style="font-size: 11px; margin-bottom: 0.3rem; font-weight: bold;">CARTA DE RESPONSABILIDAD DE USO Y ACCESO POR VPN A LA RED INSTITUCIONAL DE LA</h2>
                         <h2 style="font-size: 11px; font-weight: bold;">POLICÍA NACIONAL CIVIL.</h2>
-                        <p style="margin-top: 1rem; font-weight: bold; font-size: 10px;">Documento No: ${sol.id}-2025</p>
+                        <p style="margin-top: 1rem; font-weight: bold; font-size: 10px;">Documento No: ${sol.numero_carta || 'N/A'}-${sol.anio_carta || 'N/A'}</p>
                     </div>
                     
                     <div style="text-align: justify; font-size: 9px; line-height: 1.4; margin-bottom: 1rem;">
@@ -713,8 +721,8 @@ async editar(solicitudId) {
                     <div class="form-group" style="margin-bottom: 1rem;">
                         <label>Tipo de Solicitud *</label>
                         <select id="tipoSolicitud" required style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                            <option value="NUEVA" ${sol.tipo_solicitud === 'NUEVA' ? 'selected' : ''}>Nueva</option>
-                            <option value="RENOVACION" ${sol.tipo_solicitud === 'RENOVACION' ? 'selected' : ''}>Renovación</option>
+                            <option value="NUEVA" ${sol.tipo_solicitud === 'NUEVA' ? 'selected' : ''}>Creación</option>
+                            <option value="RENOVACION" ${sol.tipo_solicitud === 'RENOVACION' ? 'selected' : ''}>Actualización</option>
                         </select>
                         <small class="form-text" style="color: #6c757d; font-size: 0.85rem;">¿Es un acceso nuevo o una renovación?</small>
                     </div>

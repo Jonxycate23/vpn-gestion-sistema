@@ -1,6 +1,8 @@
 """
-Script de Importación Masiva - VERSIÓN FINAL CORREGIDA
-✅ Usa valores correctos: NUEVA, RENOVACION (no CREACION, ACTUALIZACION)
+Script de Importación Masiva - VERSIÓN 3.1 FINAL
+✅ CORRIGE: Nombres aparecen como "Sin Nombre Sin Apellido"
+✅ NUEVO: Sistema automático de numeración de cartas por año
+✅ ARREGLADO: Estados correctos según Excel (Terminado/Pendiente/Bloqueado/Cancelada)
 """
 
 import pandas as pd
@@ -20,8 +22,8 @@ DB_CONFIG = {
     'host': 'localhost',
     'port': 5432,
     'database': 'vpn_gestion',
-    'user': 'postgres',              # ✅ Usuario correcto
-    'password': 'Pantera.25042009'   # ✅ Password correcto
+    'user': 'postgres',
+    'password': 'Pantera.25042009'
 }
 
 EXCEL_FILE = r'C:\Users\HP\Desktop\VPN-PROJECT\datos.xlsx'
@@ -37,23 +39,38 @@ def limpiar_texto(texto) -> Optional[str]:
     if pd.isna(texto) or texto == '' or str(texto).strip() == '':
         return None
     texto_limpio = str(texto).strip()
-    if texto_limpio == '' or texto_limpio.upper() == 'N/A':
+    if texto_limpio == '' or texto_limpio.upper() in ['N/A', 'NAN']:
         return None
     return texto_limpio
 
 def separar_nombre_completo(nombre_completo: str) -> Tuple[str, str]:
-    """Separa nombre completo en nombres y apellidos"""
-    if not nombre_completo:
+    """
+    ✅ CORREGIDO: Maneja diferentes formatos de nombre
+    Separa nombre completo en nombres y apellidos
+    """
+    if not nombre_completo or pd.isna(nombre_completo):
         return "Sin Nombre", "Sin Apellido"
-    partes = nombre_completo.strip().split()
-    if len(partes) == 1:
+    
+    nombre_limpio = str(nombre_completo).strip()
+    
+    if nombre_limpio == '' or nombre_limpio.upper() in ['N/A', 'NAN', 'NINGUNO']:
+        return "Sin Nombre", "Sin Apellido"
+    
+    partes = nombre_limpio.split()
+    
+    if len(partes) == 0:
+        return "Sin Nombre", "Sin Apellido"
+    elif len(partes) == 1:
         return partes[0], "Sin Apellido"
     elif len(partes) == 2:
         return partes[0], partes[1]
     elif len(partes) == 3:
-        return partes[0], " ".join(partes[1:])
+        # Ej: "Juan Carlos Perez" → "Juan Carlos", "Perez"
+        return " ".join(partes[:2]), partes[2]
     else:
-        return " ".join(partes[:2]), " ".join(partes[2:])
+        # Ej: "Juan Carlos Perez Lopez" → "Juan Carlos", "Perez Lopez"
+        mitad = len(partes) // 2
+        return " ".join(partes[:mitad]), " ".join(partes[mitad:])
 
 def validar_dpi(dpi) -> Optional[str]:
     """Valida y normaliza DPI (13 dígitos)"""
@@ -95,153 +112,220 @@ def validar_telefono(telefono) -> Optional[str]:
     return None
 
 def normalizar_tipo_solicitud(tipo: str) -> str:
-    """
-    ✅ CORREGIDO: Usa valores que existen en la BD
-    
-    BD acepta: 'NUEVA', 'RENOVACION'
-    """
-    if pd.isna(tipo) or not tipo:
-        return 'NUEVA'  # ✅ Cambiado de CREACION a NUEVA
-    
-    tipo_upper = str(tipo).upper().strip()
-    
-    # Mapear variaciones a NUEVA
-    if any(x in tipo_upper for x in ['CREACION', 'CREAR', 'NUEVA', 'NUEVO', 'NEW']):
-        return 'NUEVA'
-    
-    # Mapear variaciones a RENOVACION
-    elif any(x in tipo_upper for x in ['ACTUALIZACION', 'RENOVACION', 'RENOV', 'ACTUALIZAR', 'UPDATE']):
-        return 'RENOVACION'
-    
-    # Default
-    return 'NUEVA'
-
-def interpretar_estado(status: str) -> dict:
-    """
-    Interpreta el estado del Excel
-    
-    MAPEO CORRECTO:
-    - "Terminado/Terminada/Aprobada" → APROBADA (con acceso)
-    - "Pendiente" → PENDIENTE (sin acceso)
-    - "Bloqueado/Cancelado/Otro" → CANCELADA (con acceso bloqueado)
-    """
-    if pd.isna(status) or not status or str(status).strip() == '':
-        return {
-            'estado_solicitud': 'CANCELADA',
-            'necesita_acceso': False,
-            'necesita_bloqueo': False,
-            'motivo_bloqueo': 'Importado de Excel sin status definido'
-        }
-    
-    status_upper = str(status).upper().strip()
-    
-    if 'TERMINADO' in status_upper or 'TERMINADA' in status_upper or 'APROBADA' in status_upper or 'APROBADO' in status_upper:
-        return {
-            'estado_solicitud': 'APROBADA',
-            'necesita_acceso': True,
-            'necesita_bloqueo': False,
-            'motivo_bloqueo': None
-        }
-    elif 'PENDIENTE' in status_upper:
-        return {
-            'estado_solicitud': 'PENDIENTE',
-            'necesita_acceso': False,
-            'necesita_bloqueo': False,
-            'motivo_bloqueo': None
-        }
-    else:
-        return {
-            'estado_solicitud': 'CANCELADA',
-            'necesita_acceso': True,
-            'necesita_bloqueo': True,
-            'motivo_bloqueo': f'Importado de Excel con status: {status}'
-        }
+    """Normaliza tipo de solicitud"""
+    if not tipo or pd.isna(tipo):
+        return 'CREACION'
+    tipo_upper = str(tipo).strip().upper()
+    if 'RENOV' in tipo_upper or 'ACTUAL' in tipo_upper:
+        return 'ACTUALIZACION'
+    return 'CREACION'
 
 def parsear_fecha(fecha) -> Optional[datetime]:
     """Parsea fecha en múltiples formatos"""
     if pd.isna(fecha):
         return None
+    
     if isinstance(fecha, datetime):
         return fecha
-    fecha_str = str(fecha).strip()
-    if fecha_str == '' or fecha_str.upper() == 'NAN':
-        return None
     
-    formatos = [
-        '%d/%m/%Y', '%Y-%m-%d', '%d-%m-%Y',
-        '%m/%d/%Y', '%d/%m/%y', '%Y/%m/%d'
-    ]
+    if isinstance(fecha, str):
+        formatos = ['%d/%m/%Y', '%Y-%m-%d', '%d-%m-%Y']
+        for formato in formatos:
+            try:
+                return datetime.strptime(fecha, formato)
+            except:
+                continue
     
-    for formato in formatos:
-        try:
-            return datetime.strptime(fecha_str, formato)
-        except:
-            continue
     return None
 
+def determinar_estado_solicitud(row) -> dict:
+    """
+    ✅ CORREGIDO: Determina estado de solicitud según Excel
+    
+    Returns:
+        dict con:
+        - estado_solicitud: 'APROBADA', 'PENDIENTE', 'CANCELADA'
+        - crear_carta: bool
+        - crear_acceso: bool
+        - necesita_bloqueo: bool
+        - motivo_bloqueo: str o None
+    """
+    estado_excel = limpiar_texto(row.get('Status'))
+    
+    if not estado_excel:
+        # Por defecto, si no hay estado, asumimos TERMINADO (con todo)
+        return {
+            'estado_solicitud': 'APROBADA',
+            'crear_carta': True,
+            'crear_acceso': True,
+            'necesita_bloqueo': False,
+            'motivo_bloqueo': None
+        }
+    
+    estado_upper = estado_excel.upper()
+    
+    # 🟢 TERMINADO → APROBADA + Carta + Acceso ✅
+    if 'TERMINADO' in estado_upper or 'TERMINADA' in estado_upper or 'TERMINO' in estado_upper:
+        return {
+            'estado_solicitud': 'APROBADA',
+            'crear_carta': True,
+            'crear_acceso': True,  # ✅ DEBE CREAR ACCESO
+            'necesita_bloqueo': False,
+            'motivo_bloqueo': None
+        }
+    
+    # 🟡 PENDIENTE → PENDIENTE (sin carta ni acceso)
+    elif 'PENDIENTE' in estado_upper:
+        return {
+            'estado_solicitud': 'PENDIENTE',
+            'crear_carta': False,
+            'crear_acceso': False,
+            'necesita_bloqueo': False,
+            'motivo_bloqueo': None
+        }
+    
+    # 🔴 BLOQUEADO → APROBADA + Carta + Acceso + Bloqueo
+    elif 'BLOQ' in estado_upper:
+        return {
+            'estado_solicitud': 'APROBADA',
+            'crear_carta': True,
+            'crear_acceso': True,
+            'necesita_bloqueo': True,
+            'motivo_bloqueo': f"Importado con estado: {estado_excel}"
+        }
+    
+    # ⚫ CANCELADA → CANCELADA (sin carta ni acceso)
+    elif 'CANCEL' in estado_upper:
+        return {
+            'estado_solicitud': 'CANCELADA',
+            'crear_carta': False,
+            'crear_acceso': False,
+            'necesita_bloqueo': False,
+            'motivo_bloqueo': None
+        }
+    
+    # Por defecto: APROBADA con todo
+    else:
+        return {
+            'estado_solicitud': 'APROBADA',
+            'crear_carta': True,
+            'crear_acceso': True,
+            'necesita_bloqueo': False,
+            'motivo_bloqueo': None
+        }
+
+def extraer_numero_carta(valor) -> Optional[int]:
+    """
+    ✅ CRÍTICO: Extrae número de carta del Excel
+    """
+    if pd.isna(valor):
+        return None
+    
+    texto = str(valor).strip().upper()
+    
+    # Casos especiales donde NO hay carta
+    if texto in ['', 'NAN', 'CURSO', 'CANCELADA', 'NINGUNO']:
+        return None
+    
+    # Buscar números
+    numeros = re.findall(r'\d+', texto)
+    if numeros:
+        try:
+            numero = int(numeros[0])
+            if 1 <= numero <= 9999:  # Rango válido
+                return numero
+        except:
+            pass
+    
+    return None
+
+def extraer_anio_carta(valor) -> Optional[int]:
+    """
+    ✅ CRÍTICO: Extrae año de carta del Excel
+    """
+    if pd.isna(valor):
+        return None
+    
+    texto = str(valor).strip().upper()
+    
+    # Casos especiales
+    if texto in ['', 'NAN', 'CURSO', 'CANCELADA', '5025', 'NINGUNO']:
+        return None
+    
+    try:
+        anio = int(float(texto))
+        
+        # Corregir 5025 a 2025
+        if anio == 5025:
+            return 2025
+        
+        # Validar rango razonable
+        if 2020 <= anio <= 2030:
+            return anio
+        
+        # Si es 24, 25, etc. → convertir a 2024, 2025
+        if 20 <= anio <= 30:
+            return 2000 + anio
+            
+    except:
+        pass
+    
+    return None
+
+
 # ========================================
-# CLASE PRINCIPAL
+# CLASE IMPORTADOR
 # ========================================
 
 class ImportadorVPN:
     def __init__(self):
         self.conn = None
         self.cursor = None
-        self.cache_personas = {}
         self.estadisticas = {
             'total': 0,
             'exitosos': 0,
             'fallidos': 0,
+            'duplicados_omitidos': 0,
             'personas_nuevas': 0,
             'personas_actualizadas': 0,
             'personas_reutilizadas': 0,
             'solicitudes_creadas': 0,
+            'solicitudes_aprobadas': 0,
+            'solicitudes_pendientes': 0,
+            'solicitudes_canceladas': 0,
             'accesos_creados': 0,
             'cartas_creadas': 0,
+            'cartas_omitidas': 0,
+            'sin_carta': 0,
             'bloqueos_creados': 0,
+            'cartas_auto_numeradas': 0,
             'errores': []
         }
+        # Caché para números de carta por año
+        self.contadores_carta = {}
     
     def conectar_bd(self):
         """Conecta a PostgreSQL"""
         try:
-            self.conn = psycopg2.connect(
-                host=DB_CONFIG['host'],
-                port=DB_CONFIG['port'],
-                database=DB_CONFIG['database'],
-                user=DB_CONFIG['user'],
-                password=DB_CONFIG['password'],
-                client_encoding='UTF8'
-            )
+            self.conn = psycopg2.connect(**DB_CONFIG)
             self.cursor = self.conn.cursor()
-            print("✅ Conexión a BD exitosa")
-            
-            # Verificar constraint de tipo_solicitud
-            self.cursor.execute("""
-                SELECT pg_get_constraintdef(oid) 
-                FROM pg_constraint 
-                WHERE conname = 'solicitudes_vpn_tipo_solicitud_check'
-            """)
-            result = self.cursor.fetchone()
-            if result:
-                print(f"📋 Constraint detectado: {result[0]}")
-            
+            print(f"✅ Conectado a {DB_CONFIG['database']}")
         except Exception as e:
-            print(f"❌ Error de conexión: {e}")
+            print(f"❌ Error conectando a BD: {e}")
             raise
     
     def cargar_excel(self):
-        """Carga Excel"""
+        """Carga Excel y valida"""
+        if not os.path.exists(EXCEL_FILE):
+            raise FileNotFoundError(f"❌ Archivo no encontrado: {EXCEL_FILE}")
+        
         try:
-            if not os.path.exists(EXCEL_FILE):
-                raise FileNotFoundError(f"❌ Archivo no encontrado: {EXCEL_FILE}")
+            df = pd.read_excel(EXCEL_FILE)
+            print(f"✅ Excel cargado: {len(df)} filas")
+            print(f"📋 Columnas detectadas: {list(df.columns)}")
             
-            print(f"📂 Cargando: {EXCEL_FILE}")
-            df = pd.read_excel(EXCEL_FILE, engine='openpyxl')
-            print(f"✅ Excel cargado: {len(df)} registros")
-            
-            df.columns = [str(col).strip() for col in df.columns]
-            print(f"📋 Columnas: {', '.join(df.columns[:5])}...")
+            if df.empty:
+                raise ValueError("❌ Excel vacío")
             
             self.estadisticas['total'] = len(df)
             return df
@@ -249,120 +333,279 @@ class ImportadorVPN:
             print(f"❌ Error cargando Excel: {e}")
             raise
     
-    def obtener_o_crear_persona(self, row) -> Optional[int]:
-        """Obtiene o crea persona con cache"""
+    def obtener_proximo_numero_carta(self, anio: int) -> int:
+        """
+        ✅ NUEVO: Obtiene el próximo número de carta para un año
+        
+        - Busca el máximo numero_carta en la BD para ese año
+        - Incrementa en 1
+        - Mantiene caché para eficiencia
+        """
+        # Si ya tenemos el contador en caché, usarlo
+        if anio in self.contadores_carta:
+            self.contadores_carta[anio] += 1
+            return self.contadores_carta[anio]
+        
+        # Buscar el máximo en la BD
+        self.cursor.execute("""
+            SELECT COALESCE(MAX(numero_carta), 0)
+            FROM cartas_responsabilidad
+            WHERE anio_carta = %s
+        """, (anio,))
+        
+        max_actual = self.cursor.fetchone()[0]
+        proximo_numero = max_actual + 1
+        
+        # Guardar en caché
+        self.contadores_carta[anio] = proximo_numero
+        
+        print(f"  📊 Año {anio}: Último número = {max_actual}, Próximo = {proximo_numero}")
+        
+        return proximo_numero
+    
+    def obtener_o_crear_persona(self, row) -> int:
+        """
+        ✅ CORREGIDO: Mejor detección de columna de nombre
+        Obtiene o crea persona
+        Actualiza datos si ya existe
+        """
+        nip = validar_nip(row.get('NIP'))
         dpi = validar_dpi(row.get('DPI'))
-        if not dpi:
-            raise Exception(f"DPI inválido o vacío")
         
-        # Cache
-        if dpi in self.cache_personas:
-            self.estadisticas['personas_reutilizadas'] += 1
-            return self.cache_personas[dpi]
+        # ✅ CORREGIDO: Mapeo exacto de columnas del Excel
+        nombre_completo = None
+        posibles_columnas = [
+            'Nombres y Apellidos',  # ← Nombre exacto de tu Excel
+            'Nombre',
+            'NOMBRE', 
+            'Nombres', 
+            'NombreCompleto', 
+            'Nombre Completo'
+        ]
         
-        nombre_completo = limpiar_texto(row.get('Nombres y Apellidos'))
+        for col in posibles_columnas:
+            if col in row and not pd.isna(row.get(col)):
+                nombre_completo = limpiar_texto(row.get(col))
+                if nombre_completo:
+                    break
+        
         if not nombre_completo:
-            raise Exception(f"Nombre vacío")
+            print(f"  ⚠️ ADVERTENCIA: No se encontró nombre en columnas: {posibles_columnas}")
+            print(f"     Columnas disponibles: {list(row.keys())}")
+            nombre_completo = "Desconocido"
         
         nombres, apellidos = separar_nombre_completo(nombre_completo)
-        nip = validar_nip(row.get('NIP'))
-        telefono = validar_telefono(row.get('Teléfono'))
-        institucion = limpiar_texto(row.get('Procedencia')) or 'INSTITUCIÓN NO ESPECIFICADA'
-        cargo = limpiar_texto(row.get('Grado')) or 'SIN ESPECIFICAR'
         
-        # Buscar en BD
-        self.cursor.execute("SELECT id FROM personas WHERE dpi = %s", (dpi,))
-        result = self.cursor.fetchone()
+        print(f"  👤 Procesando: {nombres} {apellidos} (NIP: {nip or 'N/A'}, DPI: {dpi or 'N/A'})")
         
-        if result:
-            persona_id = result[0]
-            self.cursor.execute("""
-                UPDATE personas 
-                SET nip = COALESCE(%s, nip),
-                    telefono = COALESCE(%s, telefono),
-                    institucion = COALESCE(%s, institucion),
-                    cargo = COALESCE(%s, cargo)
-                WHERE id = %s
-            """, (nip, telefono, institucion, cargo, persona_id))
-            self.cache_personas[dpi] = persona_id
-            self.estadisticas['personas_actualizadas'] += 1
-        else:
-            self.cursor.execute("""
-                INSERT INTO personas 
-                (dpi, nip, nombres, apellidos, institucion, cargo, telefono, activo)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, TRUE)
-                RETURNING id
-            """, (dpi, nip, nombres, apellidos, institucion, cargo, telefono))
-            persona_id = self.cursor.fetchone()[0]
-            self.cache_personas[dpi] = persona_id
-            self.estadisticas['personas_nuevas'] += 1
+        # Buscar por NIP primero
+        if nip:
+            self.cursor.execute("SELECT id FROM personas WHERE nip = %s", (nip,))
+            resultado = self.cursor.fetchone()
+            if resultado:
+                persona_id = resultado[0]
+                
+                # Actualizar datos
+                self.cursor.execute("""
+                    UPDATE personas 
+                    SET 
+                        dpi = COALESCE(%s, dpi),
+                        nombres = COALESCE(%s, nombres),
+                        apellidos = COALESCE(%s, apellidos),
+                        institucion = COALESCE(%s, institucion),
+                        cargo = COALESCE(%s, cargo),
+                        telefono = COALESCE(%s, telefono),
+                        email = COALESCE(%s, email)
+                    WHERE id = %s
+                """, (
+                    dpi,
+                    nombres,
+                    apellidos,
+                    limpiar_texto(row.get('Procedencia')),
+                    limpiar_texto(row.get('Grado')),
+                    validar_telefono(row.get('Teléfono')),
+                    limpiar_texto(row.get('Email')),
+                    persona_id
+                ))
+                
+                self.estadisticas['personas_actualizadas'] += 1
+                return persona_id
         
+        # Buscar por DPI
+        if dpi:
+            self.cursor.execute("SELECT id FROM personas WHERE dpi = %s", (dpi,))
+            resultado = self.cursor.fetchone()
+            if resultado:
+                self.estadisticas['personas_reutilizadas'] += 1
+                return resultado[0]
+        
+        # Crear nueva persona
+        # Generar DPI ficticio si no existe
+        if not dpi:
+            import random
+            dpi = f"9999{random.randint(100000000, 999999999)}"
+        
+        self.cursor.execute("""
+            INSERT INTO personas 
+            (nip, dpi, nombres, apellidos, institucion, cargo, telefono, email)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (
+            nip,
+            dpi,
+            nombres,
+            apellidos,
+            limpiar_texto(row.get('Procedencia')),
+            limpiar_texto(row.get('Grado')),
+            validar_telefono(row.get('Teléfono')),
+            limpiar_texto(row.get('Email'))
+        ))
+        
+        persona_id = self.cursor.fetchone()[0]
+        self.estadisticas['personas_nuevas'] += 1
         return persona_id
     
-    def crear_solicitud(self, row, persona_id: int) -> Optional[int]:
-        """Crea solicitud VPN"""
-        numero_oficio = limpiar_texto(row.get('Oficio')) or 'S/N'
-        numero_providencia = limpiar_texto(row.get('Providencia')) or 'S/N'
+    def crear_solicitud(self, row, persona_id: int, estado_info: dict) -> int:
+        """
+        ✅ ACTUALIZADO: Crea solicitud con el estado correcto según Excel
+        """
+        numero_oficio = limpiar_texto(row.get('Oficio'))
+        numero_providencia = limpiar_texto(row.get('Providencia'))
+        tipo_solicitud = normalizar_tipo_solicitud(row.get('Tipo de requerimiento'))
         
+        # Estado según el Excel
+        estado_solicitud = estado_info['estado_solicitud']
+        
+        # Fecha de recepción
         fecha_recepcion = parsear_fecha(row.get('Fecha de recepción'))
+        if not fecha_recepcion:
+            fecha_recepcion = parsear_fecha(row.get('Fecha de Carta'))
         if not fecha_recepcion:
             fecha_recepcion = FECHA_FICTICIA
         
-        fecha_solicitud = fecha_recepcion
+        self.cursor.execute("""
+            INSERT INTO solicitudes_vpn 
+            (persona_id, numero_oficio, numero_providencia, fecha_recepcion, 
+             fecha_solicitud, tipo_solicitud, justificacion, estado, usuario_registro_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (
+            persona_id,
+            numero_oficio,
+            numero_providencia,
+            fecha_recepcion,
+            fecha_recepcion,
+            tipo_solicitud,
+            'Importado desde Excel',
+            estado_solicitud,  # ✅ Ahora usa el estado correcto
+            USUARIO_IMPORTACION_ID
+        ))
         
-        # ✅ CRÍTICO: Usar normalizar_tipo_solicitud corregido
-        tipo_solicitud = normalizar_tipo_solicitud(row.get('Tipo de requerimiento'))
+        solicitud_id = self.cursor.fetchone()[0]
+        self.estadisticas['solicitudes_creadas'] += 1
         
-        justificacion = 'Registro importado desde archivo Excel - Sistema de migración masiva'
+        # Contador por estado
+        if estado_solicitud == 'APROBADA':
+            self.estadisticas['solicitudes_aprobadas'] += 1
+        elif estado_solicitud == 'PENDIENTE':
+            self.estadisticas['solicitudes_pendientes'] += 1
+        elif estado_solicitud == 'CANCELADA':
+            self.estadisticas['solicitudes_canceladas'] += 1
         
-        estado_info = interpretar_estado(row.get('Status'))
-        estado = estado_info['estado_solicitud']
+        print(f"  📝 Solicitud creada con estado: {estado_solicitud}")
         
-        try:
-            self.cursor.execute("""
-                INSERT INTO solicitudes_vpn 
-                (persona_id, numero_oficio, numero_providencia, fecha_recepcion, 
-                 fecha_solicitud, tipo_solicitud, justificacion, estado, usuario_registro_id)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                RETURNING id
-            """, (
-                persona_id, numero_oficio, numero_providencia, fecha_recepcion,
-                fecha_solicitud, tipo_solicitud, justificacion, estado, USUARIO_IMPORTACION_ID
-            ))
-            
-            solicitud_id = self.cursor.fetchone()[0]
-            self.estadisticas['solicitudes_creadas'] += 1
-            return solicitud_id
-        except Exception as e:
-            raise Exception(f"Error creando solicitud: {e}")
+        return solicitud_id
     
-    def crear_carta(self, row, solicitud_id: int) -> Optional[int]:
-        """Crea carta si existe en Excel"""
-        numero_carta = limpiar_texto(row.get('# Carta'))
-        fecha_carta = parsear_fecha(row.get('Fecha de Carta'))
-        
-        if not numero_carta:
+    def crear_carta_desde_excel(self, row, solicitud_id: int, estado_info: dict) -> Optional[int]:
+        """
+        ✅ ACTUALIZADO: Solo crea carta si el estado lo permite
+        """
+        # Si el estado indica que NO debe crear carta, salir
+        if not estado_info['crear_carta']:
+            print(f"  ℹ️ Estado no requiere carta, omitiendo...")
+            self.estadisticas['sin_carta'] += 1
             return None
         
+        # ✅ Columnas exactas del Excel
+        numero_carta_excel = extraer_numero_carta(row.get('numero_carta'))
+        anio_carta_excel = extraer_anio_carta(row.get('anio_carta'))
+        
+        # Si NO hay datos de carta en el Excel, omitir
+        if not numero_carta_excel and not anio_carta_excel:
+            self.estadisticas['sin_carta'] += 1
+            return None
+        
+        # ✅ CASO 1: Excel tiene AMBOS datos (número y año)
+        if numero_carta_excel and anio_carta_excel:
+            numero_final = numero_carta_excel
+            anio_final = anio_carta_excel
+            print(f"  📄 Carta del Excel: {numero_final}-{anio_final}")
+        
+        # ✅ CASO 2: Excel tiene número pero NO año → usar año actual
+        elif numero_carta_excel and not anio_carta_excel:
+            numero_final = numero_carta_excel
+            anio_final = datetime.now().year
+            print(f"  📄 Carta del Excel (sin año): {numero_final}, usando año actual {anio_final}")
+        
+        # ✅ CASO 3: Excel tiene año pero NO número → auto-generar número
+        elif not numero_carta_excel and anio_carta_excel:
+            numero_final = self.obtener_proximo_numero_carta(anio_carta_excel)
+            anio_final = anio_carta_excel
+            self.estadisticas['cartas_auto_numeradas'] += 1
+            print(f"  📄 Carta AUTO-NUMERADA: {numero_final}-{anio_final}")
+        
+        # Fecha de la carta
+        fecha_carta = parsear_fecha(row.get('Fecha de Carta'))
         if not fecha_carta:
             fecha_carta = FECHA_FICTICIA
         
         try:
+            # Verificar si ya existe esta combinación
+            self.cursor.execute("""
+                SELECT id FROM cartas_responsabilidad
+                WHERE numero_carta = %s AND anio_carta = %s
+            """, (numero_final, anio_final))
+            
+            if self.cursor.fetchone():
+                print(f"  ⚠️ Carta {numero_final}-{anio_final} ya existe, omitiendo...")
+                self.estadisticas['cartas_omitidas'] += 1
+                return None
+            
+            # Insertar carta
             self.cursor.execute("""
                 INSERT INTO cartas_responsabilidad 
-                (solicitud_id, tipo, fecha_generacion, generada_por_usuario_id)
-                VALUES (%s, 'RESPONSABILIDAD', %s, %s)
+                (solicitud_id, tipo, fecha_generacion, generada_por_usuario_id, 
+                 numero_carta, anio_carta)
+                VALUES (%s, 'RESPONSABILIDAD', %s, %s, %s, %s)
                 RETURNING id
-            """, (solicitud_id, fecha_carta, USUARIO_IMPORTACION_ID))
+            """, (
+                solicitud_id,
+                fecha_carta,
+                USUARIO_IMPORTACION_ID,
+                numero_final,
+                anio_final
+            ))
             
             carta_id = self.cursor.fetchone()[0]
             self.estadisticas['cartas_creadas'] += 1
+            print(f"  ✅ Carta creada: ID={carta_id}, Número={numero_final}-{anio_final}")
             return carta_id
-        except:
+            
+        except Exception as e:
+            print(f"  ❌ Error creando carta: {e}")
+            self.estadisticas['sin_carta'] += 1
             return None
     
-    def crear_acceso(self, row, solicitud_id: int) -> Optional[int]:
-        """Crea acceso VPN"""
+    def crear_acceso(self, row, solicitud_id: int, estado_info: dict) -> Optional[int]:
+        """
+        ✅ ACTUALIZADO: Crea acceso VPN si el estado lo permite
+        """
+        # Si el estado indica que NO debe crear acceso, salir
+        if not estado_info['crear_acceso']:
+            print(f"  ℹ️ Estado '{estado_info['estado_solicitud']}' no requiere acceso, omitiendo...")
+            return None
+        
+        # ✅ OBTENER FECHAS DEL EXCEL
         fecha_vencimiento = parsear_fecha(row.get('Fecha de Vencimiento'))
         
         if not fecha_vencimiento:
@@ -374,6 +617,7 @@ class ImportadorVPN:
         
         fecha_inicio = fecha_vencimiento - timedelta(days=365)
         
+        # ✅ CALCULAR ESTADO VIGENCIA CORRECTAMENTE
         hoy = datetime.now().date()
         dias_restantes = (fecha_vencimiento.date() - hoy).days
         
@@ -398,13 +642,17 @@ class ImportadorVPN:
             
             acceso_id = self.cursor.fetchone()[0]
             self.estadisticas['accesos_creados'] += 1
+            print(f"  🔓 Acceso creado: ID={acceso_id}, Estado={estado_vigencia}, Vence={fecha_vencimiento.strftime('%d/%m/%Y')}")
             return acceso_id
         except Exception as e:
+            print(f"  ❌ Error creando acceso: {e}")
             raise Exception(f"Error creando acceso: {e}")
     
     def crear_bloqueo(self, row, acceso_id: int, estado_info: dict):
-        """Crea bloqueo si es necesario"""
-        if not estado_info['necesita_bloqueo']:
+        """
+        ✅ ACTUALIZADO: Crea bloqueo solo si el estado lo requiere
+        """
+        if not estado_info['necesita_bloqueo'] or not acceso_id:
             return
         
         try:
@@ -415,134 +663,148 @@ class ImportadorVPN:
             """, (acceso_id, estado_info['motivo_bloqueo'], USUARIO_IMPORTACION_ID))
             
             self.estadisticas['bloqueos_creados'] += 1
-        except:
-            pass
+            print(f"  🚫 Bloqueo creado: {estado_info['motivo_bloqueo']}")
+        except Exception as e:
+            print(f"  ⚠️ Error creando bloqueo: {e}")
     
     def procesar_fila(self, row):
-        """Procesa una fila"""
+        """
+        ✅ ACTUALIZADO: Procesa fila con lógica de estados
+        """
         fila_num = row.get('No.')
         
         try:
-            persona_id = self.obtener_o_crear_persona(row)
-            solicitud_id = self.crear_solicitud(row, persona_id)
+            # Determinar estado según Excel
+            estado_info = determinar_estado_solicitud(row)
+            print(f"\n🔍 Fila {fila_num} - Estado: {estado_info['estado_solicitud']}")
             
-            estado_info = interpretar_estado(row.get('Status'))
+            nip = validar_nip(row.get('NIP'))
+            numero_oficio = limpiar_texto(row.get('Oficio'))
             
-            if estado_info['necesita_acceso']:
-                self.crear_carta(row, solicitud_id)
-                acceso_id = self.crear_acceso(row, solicitud_id)
+            # ✅ Validar duplicado NIP + Oficio (excepto S/N)
+            if nip and numero_oficio and numero_oficio.upper() != 'S/N':
+                self.cursor.execute("""
+                    SELECT s.id 
+                    FROM solicitudes_vpn s
+                    JOIN personas p ON s.persona_id = p.id
+                    WHERE p.nip = %s AND s.numero_oficio = %s
+                """, (nip, numero_oficio))
                 
-                if acceso_id and estado_info['necesita_bloqueo']:
-                    self.crear_bloqueo(row, acceso_id, estado_info)
+                if self.cursor.fetchone():
+                    print(f"⚠️ Fila {fila_num}: DUPLICADO (NIP={nip}, Oficio={numero_oficio}), omitiendo...")
+                    self.estadisticas['duplicados_omitidos'] += 1
+                    return
+            
+            # Crear/obtener persona
+            persona_id = self.obtener_o_crear_persona(row)
+            
+            # Crear solicitud con estado correcto
+            solicitud_id = self.crear_solicitud(row, persona_id, estado_info)
+            
+            # Crear carta solo si corresponde
+            self.crear_carta_desde_excel(row, solicitud_id, estado_info)
+            
+            # Crear acceso solo si corresponde
+            acceso_id = self.crear_acceso(row, solicitud_id, estado_info)
+            
+            # Crear bloqueo si es necesario
+            self.crear_bloqueo(row, acceso_id, estado_info)
             
             self.estadisticas['exitosos'] += 1
-            
-            if self.estadisticas['exitosos'] % 50 == 0:
-                print(f"  ✅ {self.estadisticas['exitosos']} filas procesadas...")
+            print(f"✅ Fila {fila_num}: PROCESADA")
             
         except Exception as e:
             self.estadisticas['fallidos'] += 1
             error_msg = f"Fila {fila_num}: {str(e)}"
             self.estadisticas['errores'].append(error_msg)
-            if self.estadisticas['fallidos'] <= 10:
-                print(f"  ❌ {error_msg}")
-            
-            # ✅ NO hacer rollback aquí - continuar con siguiente fila
+            print(f"❌ {error_msg}")
+            # Continuar con la siguiente fila
     
     def importar(self):
-        """Proceso principal CON MANEJO DE ERRORES MEJORADO"""
-        print("\n" + "="*60)
-        print("🚀 INICIANDO IMPORTACIÓN MASIVA")
-        print("="*60)
-        
+        """Proceso principal de importación"""
         try:
             self.conectar_bd()
             df = self.cargar_excel()
             
-            print("\n📊 Procesando registros...")
+            print(f"\n{'='*60}")
+            print(f"INICIANDO IMPORTACIÓN")
+            print(f"{'='*60}\n")
             
-            # ✅ Procesar en bloques con commits frecuentes
             for idx, row in df.iterrows():
-                try:
-                    self.procesar_fila(row)
-                    
-                    # Commit cada 10 registros (más frecuente)
-                    if (idx + 1) % 10 == 0:
-                        try:
-                            self.conn.commit()
-                        except Exception as commit_error:
-                            print(f"⚠️  Error en commit: {commit_error}")
-                            self.conn.rollback()
-                    
-                    # Mensaje cada 100
-                    if (idx + 1) % 100 == 0:
-                        print(f"💾 {idx + 1} registros procesados")
-                
-                except Exception as row_error:
-                    # Rollback y continuar
-                    self.conn.rollback()
-                    print(f"⚠️  Error en fila {idx + 1}, continuando...")
+                self.procesar_fila(row)
             
-            # Commit final
-            try:
-                self.conn.commit()
-                print("\n💾 Guardado final completado")
-            except:
-                self.conn.rollback()
-            
-            self.mostrar_estadisticas()
+            self.conn.commit()
+            self.mostrar_resumen()
             
         except Exception as e:
             print(f"\n❌ ERROR CRÍTICO: {e}")
             if self.conn:
                 self.conn.rollback()
+            raise
         finally:
             if self.cursor:
                 self.cursor.close()
             if self.conn:
                 self.conn.close()
-            print("\n🔌 Conexión cerrada")
     
-    def mostrar_estadisticas(self):
-        """Muestra reporte"""
-        print("\n" + "="*60)
-        print("📊 REPORTE FINAL DE IMPORTACIÓN")
-        print("="*60)
-        print(f"Total registros:           {self.estadisticas['total']}")
-        print(f"✅ Exitosos:               {self.estadisticas['exitosos']}")
-        print(f"❌ Fallidos:               {self.estadisticas['fallidos']}")
-        print(f"\n👤 Personas:")
-        print(f"  Nuevas:                  {self.estadisticas['personas_nuevas']}")
-        print(f"  Actualizadas:            {self.estadisticas['personas_actualizadas']}")
-        print(f"  Reutilizadas:            {self.estadisticas['personas_reutilizadas']}")
-        print(f"\n📄 Solicitudes:            {self.estadisticas['solicitudes_creadas']}")
-        print(f"🔐 Accesos:                {self.estadisticas['accesos_creados']}")
-        print(f"📋 Cartas:                 {self.estadisticas['cartas_creadas']}")
-        print(f"🚫 Bloqueos:               {self.estadisticas['bloqueos_creados']}")
+    def mostrar_resumen(self):
+        """Muestra resumen de importación"""
+        print(f"\n{'='*60}")
+        print(f"RESUMEN DE IMPORTACIÓN")
+        print(f"{'='*60}")
+        print(f"Total de filas procesadas: {self.estadisticas['total']}")
+        print(f"✅ Exitosas: {self.estadisticas['exitosos']}")
+        print(f"❌ Fallidas: {self.estadisticas['fallidos']}")
+        print(f"⚠️  Duplicadas (omitidas): {self.estadisticas['duplicados_omitidos']}")
+        print(f"\n📊 PERSONAS:")
+        print(f"  - Nuevas: {self.estadisticas['personas_nuevas']}")
+        print(f"  - Actualizadas: {self.estadisticas['personas_actualizadas']}")
+        print(f"  - Reutilizadas: {self.estadisticas['personas_reutilizadas']}")
+        print(f"\n📋 SOLICITUDES:")
+        print(f"  - Total creadas: {self.estadisticas['solicitudes_creadas']}")
+        print(f"  - 🟢 Aprobadas: {self.estadisticas['solicitudes_aprobadas']}")
+        print(f"  - 🟡 Pendientes: {self.estadisticas['solicitudes_pendientes']}")
+        print(f"  - ⚫ Canceladas: {self.estadisticas['solicitudes_canceladas']}")
+        print(f"\n📄 CARTAS:")
+        print(f"  - Creadas: {self.estadisticas['cartas_creadas']}")
+        print(f"  - Auto-numeradas: {self.estadisticas['cartas_auto_numeradas']}")
+        print(f"  - Omitidas (duplicadas): {self.estadisticas['cartas_omitidas']}")
+        print(f"  - Sin carta (no aplica): {self.estadisticas['sin_carta']}")
+        print(f"\n🔓 ACCESOS:")
+        print(f"  - Creados: {self.estadisticas['accesos_creados']}")
+        print(f"\n🚫 BLOQUEOS:")
+        print(f"  - Creados: {self.estadisticas['bloqueos_creados']}")
         
         if self.estadisticas['errores']:
-            print(f"\n⚠️  ERRORES ({len(self.estadisticas['errores'])}):")
-            for i, error in enumerate(self.estadisticas['errores'][:20], 1):
-                print(f"  {i}. {error}")
-            if len(self.estadisticas['errores']) > 20:
-                print(f"  ... y {len(self.estadisticas['errores']) - 20} errores más")
+            print(f"\n⚠️ ERRORES ENCONTRADOS:")
+            for error in self.estadisticas['errores'][:10]:  # Mostrar primeros 10
+                print(f"  - {error}")
+            if len(self.estadisticas['errores']) > 10:
+                print(f"  ... y {len(self.estadisticas['errores']) - 10} errores más")
         
-        print("="*60)
+        print(f"\n{'='*60}\n")
+
 
 # ========================================
 # EJECUCIÓN
 # ========================================
 
 if __name__ == '__main__':
-    print("\n⚙️  Configuración:")
-    print(f"  📁 Excel: {EXCEL_FILE}")
-    print(f"  🗄️  DB: {DB_CONFIG['database']}")
-    print(f"  👤 User: {DB_CONFIG['user']}\n")
-    
-    respuesta = input("¿Continuar? (SI/NO): ")
-    if respuesta.upper() not in ['SI', 'S']:
-        print("❌ Cancelado")
-        exit()
+    print("""
+    ╔═══════════════════════════════════════════════════════════╗
+    ║   IMPORTADOR VPN - VERSIÓN 3.1 FINAL                     ║
+    ║   ✅ CORRIGE: Nombres "Sin Nombre Sin Apellido"          ║
+    ║   ✅ NUEVO: Auto-numeración de cartas por año            ║
+    ║   ✅ ARREGLADO: Estados según Excel                      ║
+    ║      🟢 Terminado → APROBADA + Carta + Acceso            ║
+    ║      🟡 Pendiente → PENDIENTE (sin carta ni acceso)      ║
+    ║      🔴 Bloqueado → APROBADA + Carta + Acceso + Bloqueo  ║
+    ║      ⚫ Cancelada → CANCELADA (sin carta ni acceso)      ║
+    ╚═══════════════════════════════════════════════════════════╝
+    """)
     
     importador = ImportadorVPN()
     importador.importar()
+    
+    print("\n✅ Importación completada!")
+    input("\nPresiona ENTER para salir...")

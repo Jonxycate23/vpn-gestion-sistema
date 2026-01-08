@@ -53,7 +53,7 @@ const Accesos = {
     
     async loadAccesos() {
         try {
-            const data = await API.get('/dashboard/accesos-actuales?limit=200');
+            const data = await API.get('/dashboard/accesos-actuales?limit=2000');
             const tbody = document.querySelector('#accesosTable tbody');
             
             if (!tbody) {
@@ -178,7 +178,7 @@ const Accesos = {
                     ${acceso.carta_id ? `
                         <div style="background: #d1f2eb; padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
                             <h4 style="margin-bottom: 1rem;">📄 Carta de Responsabilidad</h4>
-                            <p style="margin-bottom: 0.5rem;"><strong>Número de Carta:</strong> ${acceso.carta_id}-2025</p>
+                            <p style="margin-bottom: 0.5rem;"><strong>Número de Carta:</strong> ${acceso.numero_carta || 'N/A'}-${acceso.anio_carta || 'N/A'}</p>
                             <p style="margin-bottom: 0.5rem;"><strong>Fecha Generación:</strong> ${formatDate(acceso.carta_fecha_generacion)}</p>
                             <p style="margin-bottom: 0.5rem;"><strong>Fecha Expiración:</strong> ${fechaExpiracion.toLocaleDateString('es-GT')}</p>
                             

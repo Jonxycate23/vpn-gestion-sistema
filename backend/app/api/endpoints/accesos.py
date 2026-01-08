@@ -1,5 +1,5 @@
 """
-Endpoints de gestión de Accesos VPN y Bloqueos
+Endpoints de gestion de Accesos VPN y Bloqueos
 """
 from http.client import HTTPException
 from fastapi import APIRouter, Depends, status, Request
@@ -55,13 +55,17 @@ async def obtener_acceso(
         "estado_bloqueo": estado_bloqueo,
         "carta_id": carta.id if carta else None,
         "carta_fecha_generacion": carta.fecha_generacion if carta else None,
+        "numero_carta": carta.numero_carta if carta else None,
+        "anio_carta": carta.anio_carta if carta else None,
         "solicitud": {
             "id": acceso.solicitud.id,
             "numero_oficio": acceso.solicitud.numero_oficio,
             "numero_providencia": acceso.solicitud.numero_providencia,
             "fecha_recepcion": acceso.solicitud.fecha_recepcion,
             "tipo_solicitud": acceso.solicitud.tipo_solicitud,
-            "estado": acceso.solicitud.estado
+            "estado": acceso.solicitud.estado,
+            "numero_carta": carta.numero_carta if carta else None,
+            "anio_carta": carta.anio_carta if carta else None
         },
         "persona": {
             "id": acceso.solicitud.persona.id,
@@ -75,6 +79,7 @@ async def obtener_acceso(
             "telefono": acceso.solicitud.persona.telefono
         }
     }
+
 @router.post("/{acceso_id}/prorrogar", response_model=ResponseBase)
 async def prorrogar_acceso(
     acceso_id: int,
@@ -84,10 +89,10 @@ async def prorrogar_acceso(
     db: Session = Depends(get_db)
 ):
     """
-    Prorrogar acceso VPN (agregar días)
+    Prorrogar acceso VPN (agregar dias)
     
-    - **dias_adicionales**: Días adicionales a agregar
-    - **motivo**: Justificación de la prórroga
+    - **dias_adicionales**: Dias adicionales a agregar
+    - **motivo**: Justificacion de la prorroga
     """
     ip_origen = get_client_ip(request)
     acceso = AccesoService.prorrogar(
@@ -100,7 +105,7 @@ async def prorrogar_acceso(
     
     return ResponseBase(
         success=True,
-        message=f"Prórroga de {data.dias_adicionales} días agregada. Nueva fecha fin: {acceso.fecha_fin_con_gracia}"
+        message=f"Prorroga de {data.dias_adicionales} dias agregada. Nueva fecha fin: {acceso.fecha_fin_con_gracia}"
     )
 
 
@@ -116,7 +121,7 @@ async def cambiar_estado_bloqueo(
     
     - **acceso_vpn_id**: ID del acceso a modificar
     - **estado**: BLOQUEADO o DESBLOQUEADO
-    - **motivo**: Justificación del cambio (OBLIGATORIO)
+    - **motivo**: Justificacion del cambio (OBLIGATORIO)
     """
     ip_origen = get_client_ip(request)
     bloqueo = BloqueoService.cambiar_estado(
@@ -135,9 +140,6 @@ async def cambiar_estado_bloqueo(
 
 """
 Endpoint para obtener bloqueos de un acceso VPN
-📍 Agregar a: backend/app/api/endpoints/accesos.py
-
-AGREGAR ESTE ENDPOINT AL ARCHIVO EXISTENTE
 """
 
 # ========================================
@@ -160,7 +162,7 @@ async def obtener_bloqueos_acceso(
     if not acceso:
         raise HTTPException(status_code=404, detail="Acceso VPN no encontrado")
     
-    # Obtener bloqueos ordenados por fecha (más reciente primero)
+    # Obtener bloqueos ordenados por fecha (mas reciente primero)
     bloqueos = db.query(BloqueoVPN).filter(
         BloqueoVPN.acceso_vpn_id == acceso_id
     ).order_by(BloqueoVPN.fecha_bloqueo.desc()).all()
@@ -168,7 +170,7 @@ async def obtener_bloqueos_acceso(
     # Formatear respuesta
     resultado = []
     for bloqueo in bloqueos:
-        # Obtener nombre del usuario que realizó el bloqueo
+        # Obtener nombre del usuario que realizo el bloqueo
         usuario_nombre = None
         if bloqueo.usuario_bloqueo_id:
             usuario = db.query(Usuario).filter(Usuario.id == bloqueo.usuario_bloqueo_id).first()
@@ -219,4 +221,3 @@ async def obtener_historial_bloqueos(
         })
     
     return result
-

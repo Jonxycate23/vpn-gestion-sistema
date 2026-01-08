@@ -186,7 +186,7 @@ async def crear_solicitud(
         fecha_solicitud=date.fromisoformat(data['fecha_solicitud']),
         tipo_solicitud=data['tipo_solicitud'],
         justificacion=data['justificacion'],
-        estado='APROBADA',
+        estado='PENDIENTE',
         usuario_registro_id=current_user.id
     )
     
@@ -218,7 +218,7 @@ async def crear_solicitud(
 @router.get("/", response_model=dict)
 async def listar_solicitudes(
     skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=200),
+    limit: int = Query(2000, ge=1, le=3000),
     current_user: UsuarioSistema = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
@@ -284,6 +284,9 @@ async def obtener_solicitud(
         "estado": solicitud.estado,
         "comentarios_admin": solicitud.comentarios_admin,
         "carta_fecha_generacion": carta.fecha_generacion if carta else None,
+        # ✅ AGREGADO: numero_carta y anio_carta
+        "numero_carta": carta.numero_carta if carta else None,
+        "anio_carta": carta.anio_carta if carta else None,
         "persona": {
             "id": solicitud.persona.id,
             "dpi": solicitud.persona.dpi,
@@ -363,7 +366,7 @@ def generar_carta_pdf_oficial(solicitud: SolicitudVPN, carta: CartaResponsabilid
         fontName='Helvetica-Bold',
         spaceAfter=10
     )
-    story.append(Paragraph(f"Documento No: {carta.id}-2025", doc_no_style))
+    story.append(Paragraph(f"Documento No: {carta.numero_carta}-{carta.anio_carta}", doc_no_style))
     story.append(Spacer(1, 0.12*inch))
     
     # Texto completo
@@ -510,8 +513,8 @@ async def crear_carta_responsabilidad(
     if not solicitud:
         raise HTTPException(status_code=404, detail="Solicitud no encontrada")
     
-    if solicitud.estado != 'APROBADA':
-        raise HTTPException(status_code=400, detail="Solo solicitudes APROBADAS")
+    if solicitud.estado != 'PENDIENTE':
+        raise HTTPException(status_code=400, detail="Solo solicitudes PENDIENTES")
     
     carta_existente = db.query(CartaResponsabilidad).filter(
         CartaResponsabilidad.solicitud_id == solicitud_id
@@ -550,6 +553,7 @@ async def crear_carta_responsabilidad(
         usuario_creacion_id=current_user.id
     )
     db.add(acceso)
+    solicitud.estado = 'APROBADA'
     db.commit()
     db.refresh(carta)
     db.refresh(acceso)
