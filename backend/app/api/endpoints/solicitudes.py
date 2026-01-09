@@ -1,12 +1,13 @@
 """
-Endpoints de Solicitudes VPN - VERSIÓN FINAL DEFINITIVA
+Endpoints de Solicitudes VPN - VERSIÓN CON AUTO-NUMERACIÓN DE CARTAS
 📍 Ubicación: backend/app/api/endpoints/solicitudes.py
 ✅ Subdirección fija + Nombre usuario sistema + Usuario generado
-COPIAR Y PEGAR COMPLETO
+✅ AUTO-NUMERACIÓN: Genera número de carta automático según el año actual
 """
 from fastapi import APIRouter, Depends, status, Request, Query, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
+from sqlalchemy import func  # ✅ AGREGADO para MAX()
 from typing import Optional
 from datetime import date, timedelta, datetime
 from app.core.database import get_db
@@ -284,7 +285,6 @@ async def obtener_solicitud(
         "estado": solicitud.estado,
         "comentarios_admin": solicitud.comentarios_admin,
         "carta_fecha_generacion": carta.fecha_generacion if carta else None,
-        # ✅ AGREGADO: numero_carta y anio_carta
         "numero_carta": carta.numero_carta if carta else None,
         "anio_carta": carta.anio_carta if carta else None,
         "persona": {
@@ -506,7 +506,10 @@ async def crear_carta_responsabilidad(
     current_user: UsuarioSistema = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Crear carta, generar PDF y crear acceso VPN"""
+    """
+    Crear carta, generar PDF y crear acceso VPN
+    ✅ AUTO-NUMERACIÓN: Genera número de carta automático
+    """
     ip_origen = get_client_ip(request)
     
     solicitud = db.query(SolicitudVPN).filter(SolicitudVPN.id == solicitud_id).first()
@@ -523,11 +526,36 @@ async def crear_carta_responsabilidad(
     if carta_existente:
         raise HTTPException(status_code=400, detail="Ya existe carta")
     
+    # ========================================
+    # ✅ AUTO-NUMERACIÓN DE CARTAS
+    # ========================================
+    anio_actual = date.today().year
+    
+    # Buscar el máximo numero_carta del año actual (excluyendo NULLs)
+    resultado = db.query(
+        func.max(CartaResponsabilidad.numero_carta)
+    ).filter(
+        CartaResponsabilidad.anio_carta == anio_actual,
+        CartaResponsabilidad.numero_carta.isnot(None)  # ✅ EXCLUIR NULLs
+    ).scalar()
+    
+    # Si existe, incrementar en 1; si no, empezar en 1
+    proximo_numero = (resultado + 1) if resultado is not None else 1
+    
+    print(f"📊 AUTO-NUMERACIÓN:")
+    print(f"   Año actual: {anio_actual}")
+    print(f"   Último número encontrado: {resultado if resultado is not None else 'N/A'}")
+    print(f"   Próximo número a asignar: {proximo_numero}")
+    print(f"   Carta generada: {proximo_numero}-{anio_actual}")
+    
+    # Crear carta con número automático
     carta = CartaResponsabilidad(
         solicitud_id=solicitud_id,
         tipo='RESPONSABILIDAD',
         fecha_generacion=date.today(),
-        generada_por_usuario_id=current_user.id
+        generada_por_usuario_id=current_user.id,
+        numero_carta=proximo_numero,  # ✅ NÚMERO AUTOMÁTICO
+        anio_carta=anio_actual         # ✅ AÑO ACTUAL
     )
     db.add(carta)
     db.flush()
@@ -567,15 +595,19 @@ async def crear_carta_responsabilidad(
             "solicitud_id": solicitud_id,
             "acceso_id": acceso.id,
             "pdf_generado": True,
-            "pdf_path": pdf_path
+            "pdf_path": pdf_path,
+            "numero_carta": proximo_numero,  # ✅ REGISTRAR EN AUDITORÍA
+            "anio_carta": anio_actual
         },
         ip_origen=ip_origen
     )
     
     return {
         "success": True,
-        "message": "Carta creada, PDF generado y acceso VPN activado",
+        "message": f"Carta {proximo_numero}-{anio_actual} creada, PDF generado y acceso VPN activado",
         "carta_id": carta.id,
+        "numero_carta": proximo_numero,  # ✅ DEVOLVER AL FRONTEND
+        "anio_carta": anio_actual,
         "acceso_id": acceso.id,
         "pdf_path": pdf_path
     }
@@ -666,104 +698,6 @@ async def reactivar_solicitud(
     return {"success": True, "message": "Solicitud reactivada"}
 
 
-# ✅ REEMPLAZA la función crear_solicitud en solicitudes.py
-
-@router.post("/", response_model=dict, status_code=status.HTTP_201_CREATED)
-async def crear_solicitud(
-    data: dict,
-    request: Request,
-    current_user: UsuarioSistema = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    """
-    ✅ Crear nueva solicitud VPN
-    ✅ VALIDACIÓN CORRECTA: NIP + Oficio/Providencia
-    
-    REGLAS:
-    - Mismo NIP + Mismo Oficio → ❌ DUPLICADO
-    - Mismo NIP + Misma Providencia → ❌ DUPLICADO
-    - Diferente NIP + Mismo Oficio → ✅ PERMITIDO
-    - Diferente NIP + Misma Providencia → ✅ PERMITIDO
-    """
-    ip_origen = get_client_ip(request)
-    
-    # Obtener persona y su NIP
-    persona = db.query(Persona).filter(Persona.id == data['persona_id']).first()
-    if not persona:
-        raise HTTPException(status_code=404, detail="Persona no encontrada")
-    
-    nip_persona = persona.nip
-    
-    # ✅ VALIDACIÓN 1: NIP + Oficio (si se proporciona oficio)
-    if data.get('numero_oficio') and nip_persona:
-        existe_nip_oficio = db.query(SolicitudVPN).join(Persona).filter(
-            Persona.nip == nip_persona,
-            SolicitudVPN.numero_oficio == data['numero_oficio']
-        ).first()
-        
-        if existe_nip_oficio:
-            raise HTTPException(
-                status_code=400, 
-                detail=f"❌ YA EXISTE un registro con NIP {nip_persona} y Oficio {data['numero_oficio']} (Solicitud #{existe_nip_oficio.id})"
-            )
-    
-    # ✅ VALIDACIÓN 2: NIP + Providencia (si se proporciona providencia)
-    if data.get('numero_providencia') and nip_persona:
-        existe_nip_providencia = db.query(SolicitudVPN).join(Persona).filter(
-            Persona.nip == nip_persona,
-            SolicitudVPN.numero_providencia == data['numero_providencia']
-        ).first()
-        
-        if existe_nip_providencia:
-            raise HTTPException(
-                status_code=400, 
-                detail=f"❌ YA EXISTE un registro con NIP {nip_persona} y Providencia {data['numero_providencia']} (Solicitud #{existe_nip_providencia.id})"
-            )
-    
-    # ✅ Crear solicitud
-    solicitud = SolicitudVPN(
-        persona_id=data['persona_id'],
-        numero_oficio=data.get('numero_oficio'),
-        numero_providencia=data.get('numero_providencia'),
-        fecha_recepcion=date.fromisoformat(data['fecha_recepcion']) if data.get('fecha_recepcion') else None,
-        fecha_solicitud=date.fromisoformat(data['fecha_solicitud']),
-        tipo_solicitud=data['tipo_solicitud'],
-        justificacion=data['justificacion'],
-        estado='APROBADA',
-        usuario_registro_id=current_user.id
-    )
-    
-    db.add(solicitud)
-    db.commit()
-    db.refresh(solicitud)
-    
-    AuditoriaService.registrar_crear(
-        db=db,
-        usuario=current_user,
-        entidad="SOLICITUD",
-        entidad_id=solicitud.id,
-        detalle={
-            "persona_nip": nip_persona,
-            "persona_dpi": persona.dpi,
-            "tipo": data['tipo_solicitud'],
-            "estado": solicitud.estado,
-            "oficio": data.get('numero_oficio'),
-            "providencia": data.get('numero_providencia')
-        },
-        ip_origen=ip_origen
-    )
-    
-    return {
-        "success": True,
-        "message": "✅ Solicitud creada exitosamente",
-        "solicitud_id": solicitud.id
-    }
-
-
-# ========================================
-# ✅ TAMBIÉN ACTUALIZA editar_solicitud
-# ========================================
-
 @router.put("/{solicitud_id}", response_model=dict)
 async def editar_solicitud(
     solicitud_id: int,
@@ -772,15 +706,11 @@ async def editar_solicitud(
     current_user: UsuarioSistema = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Editar solicitud - Permite editar todos los campos
-    ✅ Ahora incluye: oficio, providencia, fecha_recepcion, tipo, justificación
-    """
+    """Editar solicitud"""
     solicitud = db.query(SolicitudVPN).filter(SolicitudVPN.id == solicitud_id).first()
     if not solicitud:
         raise HTTPException(status_code=404, detail="Solicitud no encontrada")
     
-    # Verificar que no tenga carta
     carta = db.query(CartaResponsabilidad).filter(
         CartaResponsabilidad.solicitud_id == solicitud_id
     ).first()
@@ -788,7 +718,6 @@ async def editar_solicitud(
     if carta:
         raise HTTPException(status_code=400, detail="No se puede editar: ya tiene carta generada")
     
-    # ✅ ACTUALIZAR TODOS LOS CAMPOS
     if "numero_oficio" in data:
         solicitud.numero_oficio = data["numero_oficio"]
     
@@ -810,7 +739,6 @@ async def editar_solicitud(
     db.commit()
     db.refresh(solicitud)
     
-    # ✅ AUDITORÍA SIMPLIFICADA (sin registrar_modificar)
     try:
         AuditoriaService.registrar_crear(
             db=db,
