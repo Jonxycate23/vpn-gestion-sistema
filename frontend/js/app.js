@@ -86,6 +86,11 @@ const App = {
                         Accesos.load();
                     }
                     break;
+                case 'usuarios':
+                    if (typeof Usuarios !== 'undefined' && Usuarios.load) {
+                        Usuarios.load();
+                    }
+                    break;
             }
         } catch (error) {
             console.error(`Error loading ${viewName}:`, error);

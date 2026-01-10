@@ -6,8 +6,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 
-# Importar solo routers que existen y funcionan
-from app.api.endpoints import auth, dashboard, solicitudes, accesos
+# Importar todos los routers necesarios
+from app.api.endpoints import auth, dashboard, solicitudes, accesos, usuarios
 
 # Crear aplicación
 app = FastAPI(
@@ -18,14 +18,23 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# Configurar CORS - PERMISIVO PARA DESARROLLO
+# ========================================
+# CONFIGURAR CORS - MÁS EXPLÍCITO
+# ========================================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Permitir todos los orígenes en desarrollo
+    allow_origins=[
+        "http://localhost:5500",
+        "http://127.0.0.1:5500",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "*"  # Permitir todos durante desarrollo
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
-    expose_headers=["*"]
+    expose_headers=["*"],
+    max_age=3600,
 )
 
 
@@ -37,7 +46,8 @@ async def root():
         "version": settings.APP_VERSION,
         "docs": "/docs",
         "redoc": "/redoc",
-        "estado": "✅ Sistema funcional"
+        "estado": "✅ Sistema funcional",
+        "nota": "⚠️ IMPORTANTE: Usuarios del SISTEMA (ADMIN/SUPERADMIN) son diferentes a usuarios de acceso VPN"
     }
 
 
@@ -51,11 +61,16 @@ async def health_check():
     }
 
 
-# Registrar routers (solo los que existen)
+# ========================================
+# REGISTRAR TODOS LOS ROUTERS
+# ========================================
+# ⚠️ NOTA: Los endpoints de /api/usuarios son para gestionar usuarios del SISTEMA
+#          Los usuarios de ACCESO VPN están en las tablas Persona y AccesoVPN
 app.include_router(auth.router, prefix="/api/auth", tags=["🔐 Autenticación"])
 app.include_router(dashboard.router, prefix="/api/dashboard", tags=["📊 Dashboard"])
 app.include_router(solicitudes.router, prefix="/api/solicitudes", tags=["📄 Solicitudes VPN"])
 app.include_router(accesos.router, prefix="/api/accesos", tags=["🔑 Accesos VPN"])
+app.include_router(usuarios.router, prefix="/api/usuarios", tags=["👥 Usuarios del Sistema (ADMIN/SUPERADMIN)"])
 
 
 if __name__ == "__main__":
