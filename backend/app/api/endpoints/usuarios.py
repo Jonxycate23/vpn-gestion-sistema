@@ -1,8 +1,7 @@
 """
-Endpoints de Gestión de Usuarios del Sistema - VERSIÓN CORREGIDA
+Endpoints de Gestión de Usuarios del Sistema - VERSIÓN FINAL
 📍 Ubicación: backend/app/api/endpoints/usuarios.py
-✅ Username: primera letra + apellido
-✅ Contraseña personalizada
+✅ Compatible con el servicio
 """
 from fastapi import APIRouter, Depends, status, Request
 from sqlalchemy.orm import Session
@@ -22,15 +21,15 @@ router = APIRouter()
 
 
 # ========================================
-# SCHEMA PARA CREAR USUARIO
+# SCHEMAS
 # ========================================
 
 class UsuarioCreateRequest(BaseModel):
     """Request para crear usuario"""
     nombres: str
     apellidos: str
-    email: EmailStr
-    password: str  # ✅ Contraseña personalizada
+    email: Optional[EmailStr] = None
+    password: str
     rol: str
 
 
@@ -92,13 +91,13 @@ async def crear_usuario(
     
     - **nombres**: Nombres del usuario
     - **apellidos**: Apellidos del usuario
-    - **email**: Email del usuario
+    - **email**: Email del usuario (opcional)
     - **password**: Contraseña inicial
     - **rol**: ADMIN o SUPERADMIN
     
     El username se genera automáticamente:
-    - Primera letra del nombre + apellido
-    - Ejemplo: "Juan Carlos García" → jgarcia
+    - Primera letra del nombre + primer apellido
+    - Ejemplo: "Juan García" → jgarcia
     
     **Requiere rol SUPERADMIN**
     """
@@ -120,28 +119,35 @@ async def crear_usuario(
             detail="La contraseña debe tener al menos 6 caracteres"
         )
     
-    usuario, username = UsuarioService.crear_usuario(
-        db=db,
-        nombres=data.nombres,
-        apellidos=data.apellidos,
-        email=data.email,
-        password=data.password,
-        rol=data.rol,
-        usuario_creador_id=current_user.id,
-        ip_origen=ip_origen
-    )
-    
-    return {
-        "success": True,
-        "message": "Usuario creado exitosamente",
-        "usuario": {
-            "id": usuario.id,
-            "username": username,
-            "nombre_completo": usuario.nombre_completo,
-            "email": usuario.email,
-            "rol": usuario.rol
+    try:
+        usuario, username = UsuarioService.crear_usuario(
+            db=db,
+            nombres=data.nombres,
+            apellidos=data.apellidos,
+            email=data.email,
+            password=data.password,
+            rol=data.rol,
+            usuario_creador_id=current_user.id,
+            ip_origen=ip_origen
+        )
+        
+        return {
+            "success": True,
+            "message": "Usuario creado exitosamente",
+            "usuario": {
+                "id": usuario.id,
+                "username": username,
+                "nombre_completo": usuario.nombre_completo,
+                "email": usuario.email,
+                "rol": usuario.rol
+            }
         }
-    }
+    except Exception as e:
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al crear usuario: {str(e)}"
+        )
 
 
 # ========================================
@@ -215,3 +221,67 @@ async def obtener_usuario(
         "fecha_creacion": usuario.fecha_creacion,
         "fecha_ultimo_login": usuario.fecha_ultimo_login
     }
+
+
+# ========================================
+# CAMBIAR CONTRASEÑA (Usuario mismo)
+# ========================================
+
+@router.put("/me/cambiar-password", response_model=ResponseBase)
+async def cambiar_mi_password(
+    password_actual: str,
+    password_nueva: str,
+    request: Request,
+    current_user: UsuarioSistema = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Cambiar mi propia contraseña
+    """
+    ip_origen = get_client_ip(request)
+    
+    UsuarioService.cambiar_password(
+        db=db,
+        usuario_id=current_user.id,
+        password_actual=password_actual,
+        password_nueva=password_nueva,
+        ip_origen=ip_origen
+    )
+    
+    return ResponseBase(
+        success=True,
+        message="Contraseña cambiada exitosamente"
+    )
+
+
+# ========================================
+# RESETEAR CONTRASEÑA (SUPERADMIN)
+# ========================================
+
+@router.put("/{usuario_id}/resetear-password", response_model=ResponseBase)
+async def resetear_password_usuario(
+    usuario_id: int,
+    password_nueva: str,
+    request: Request,
+    current_user: UsuarioSistema = Depends(require_superadmin),
+    db: Session = Depends(get_db)
+):
+    """
+    Resetear contraseña de un usuario
+    
+    **Requiere rol SUPERADMIN**
+    """
+    ip_origen = get_client_ip(request)
+    
+    UsuarioService.resetear_password(
+        db=db,
+        usuario_id=usuario_id,
+        password_nueva=password_nueva,
+        usuario_admin_id=current_user.id,
+        ip_origen=ip_origen
+    )
+    
+    return ResponseBase(
+        success=True,
+        message="Contraseña reseteada exitosamente"
+    )
