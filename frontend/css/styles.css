@@ -640,16 +640,19 @@ body {
     border-bottom: 1px solid var(--gray-200);
 }
 
-/* 11. Search container también sticky */
-.search-container {
-    margin-bottom: 1rem;
-    padding: 0 1.5rem;
+/* ========================================
+   BUSCADOR Y FILTROS
+   ======================================== */
+.search-filters-container {
+    padding: 1.5rem;
     background: white;
-    position: sticky;
-    top: 70px; /* ✅ Debajo del view-header */
-    z-index: 8;
-    padding-bottom: 1rem;
     border-bottom: 1px solid var(--gray-200);
+}
+
+/* El input de búsqueda debe estar dentro del card */
+.card .search-filters-container {
+    margin: 0;
+    padding: 1.5rem;
 }
 
 /* 12. Ajustes para la paginación (siempre visible abajo) */
@@ -695,4 +698,80 @@ body {
     background: var(--gray-50);
     padding: 1rem 0;
     margin-bottom: 1rem;
+}
+
+/* Estilos para el sistema integrado */
+.pagination-btn {
+    padding: 0.5rem 1rem;
+    border: 1px solid #ddd;
+    background: white;
+    color: #374151;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.pagination-btn:hover:not(.disabled):not(.active) {
+    background: #f3f4f6;
+    border-color: #2563eb;
+    color: #2563eb;
+}
+
+.pagination-btn.active {
+    background: #2563eb;
+    color: white;
+    border-color: #2563eb;
+    font-weight: 600;
+}
+
+.pagination-btn.disabled {
+    background: #f9fafb;
+    color: #9ca3af;
+    cursor: not-allowed;
+    border-color: #e5e7eb;
+}
+
+.sort-indicator {
+    margin-left: 0.5rem;
+    font-size: 0.8rem;
+    opacity: 0.3;
+    transition: opacity 0.2s;
+}
+
+/* Card body debe tener padding 0 para mejor control */
+.card-body {
+    padding: 0;
+    overflow: hidden;
+}
+
+/* Tabla dentro de card-body */
+.card-body .table-wrapper {
+    max-height: calc(100vh - 350px); /* Ajustado para dejar espacio al buscador */
+    overflow-y: auto;
+    overflow-x: auto;
+}
+
+/* ========================================
+   FIX: BUSCADOR NO DEBE FLOTAR
+   ======================================== */
+.search-filters-container {
+    position: relative !important; /* ❌ No sticky */
+    padding: 1.5rem;
+    background: white;
+    border-bottom: 1px solid var(--gray-200);
+    margin-bottom: 0 !important;
+}
+
+/* El view-header no debe ser sticky tampoco */
+.view-header {
+    position: relative !important;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding: 1rem 1.5rem;
+    background: white;
+    border-bottom: 1px solid var(--gray-200);
 }
