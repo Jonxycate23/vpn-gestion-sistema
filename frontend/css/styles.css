@@ -493,3 +493,206 @@ body {
         grid-template-columns: 1fr;
     }
 }
+
+.content {
+    grid-area: content;
+    padding: 1.5rem;
+    overflow-y: auto; /* ✅ Scroll solo en el contenido */
+    max-height: calc(100vh - 60px); /* ✅ Altura = pantalla completa - header */
+}
+
+/* 2. Contenedor de la tabla con scroll interno */
+.card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    overflow: hidden; /* ✅ Importante para que funcione el sticky */
+    margin-bottom: 1rem;
+}
+
+.card-body {
+    padding: 0; /* ✅ Quitar padding para mejor control */
+    overflow: hidden;
+}
+
+/* 3. Wrapper para la tabla con scroll */
+.table-wrapper {
+    max-height: calc(100vh - 300px); /* ✅ Altura disponible para la tabla */
+    overflow-y: auto; /* ✅ Scroll vertical solo aquí */
+    overflow-x: auto; /* ✅ Scroll horizontal si es necesario */
+    position: relative;
+}
+
+/* 4. Hacer que los headers sean sticky (fijos) */
+.table {
+    width: 100%;
+    border-collapse: separate; /* ✅ Necesario para sticky */
+    border-spacing: 0;
+}
+
+.table thead {
+    position: sticky; /* ✅ Headers fijos */
+    top: 0;
+    z-index: 10; /* ✅ Por encima del tbody */
+    background: var(--gray-50);
+}
+
+.table thead th {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--gray-700);
+    border-bottom: 2px solid var(--gray-200);
+    background: var(--gray-50); /* ✅ Fondo sólido para cubrir el scroll */
+    position: sticky;
+    top: 0;
+}
+
+/* 5. tbody con scroll suave */
+.table tbody {
+    display: table-row-group; /* ✅ Comportamiento normal */
+}
+
+.table tbody tr {
+    background: white;
+    transition: background 0.2s;
+}
+
+.table tbody tr:hover {
+    background: var(--gray-50);
+}
+
+.table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--gray-200);
+    font-size: 0.875rem;
+}
+
+/* 6. Estilos para el scrollbar (opcional - más elegante) */
+.table-wrapper::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.table-wrapper::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.table-wrapper::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.table-wrapper::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* 7. Asegurar que el layout principal no tenga scroll */
+.main-app {
+    display: grid;
+    grid-template-areas:
+        "nav nav"
+        "sidebar content";
+    grid-template-columns: 250px 1fr;
+    grid-template-rows: 60px 1fr;
+    min-height: 100vh;
+    max-height: 100vh; /* ✅ Limitar altura a la ventana */
+    overflow: hidden; /* ✅ Sin scroll en el layout principal */
+}
+
+/* 8. Sidebar sin scroll propio */
+.sidebar {
+    grid-area: sidebar;
+    background: white;
+    border-right: 1px solid var(--gray-200);
+    padding: 1rem 0;
+    overflow-y: auto; /* ✅ Scroll solo si el menú es muy largo */
+    max-height: calc(100vh - 60px);
+}
+
+/* 9. Top nav fijo */
+.top-nav {
+    grid-area: nav;
+    background: white;
+    border-bottom: 1px solid var(--gray-200);
+    padding: 0 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky; /* ✅ Fijo en la parte superior */
+    top: 0;
+    z-index: 100;
+}
+
+/* 10. View header también sticky (opcional) */
+.view-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding: 1rem 1.5rem;
+    background: white;
+    position: sticky;
+    top: 0;
+    z-index: 9;
+    border-bottom: 1px solid var(--gray-200);
+}
+
+/* 11. Search container también sticky */
+.search-container {
+    margin-bottom: 1rem;
+    padding: 0 1.5rem;
+    background: white;
+    position: sticky;
+    top: 70px; /* ✅ Debajo del view-header */
+    z-index: 8;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--gray-200);
+}
+
+/* 12. Ajustes para la paginación (siempre visible abajo) */
+.pagination-container {
+    position: sticky;
+    bottom: 0;
+    z-index: 9;
+    background: white;
+    border-top: 1px solid var(--gray-200);
+}
+
+/* ========================================
+   RESPONSIVE - MÓVILES
+   ======================================== */
+@media (max-width: 768px) {
+    .main-app {
+        grid-template-areas:
+            "nav"
+            "content";
+        grid-template-columns: 1fr;
+    }
+
+    .sidebar {
+        display: none;
+    }
+
+    .content {
+        max-height: calc(100vh - 60px);
+    }
+
+    .table-wrapper {
+        max-height: calc(100vh - 250px);
+    }
+}
+
+/* ========================================
+   FIX PARA STATS CARDS (DASHBOARD)
+   ======================================== */
+.stats-grid {
+    position: sticky;
+    top: 0;
+    z-index: 7;
+    background: var(--gray-50);
+    padding: 1rem 0;
+    margin-bottom: 1rem;
+}

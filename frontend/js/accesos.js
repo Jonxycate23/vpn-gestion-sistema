@@ -3,6 +3,9 @@
 // ✅ Botón "Ver Detalles" en todos los accesos con info completa
 
 const Accesos = {
+    ordenActual: 'prioridad',
+    datosOriginales: [],
+
     async load() {
         console.log('Cargando Accesos...');
         this.verificarEstructuraTabla();
@@ -22,35 +25,56 @@ const Accesos = {
         }
         
         contenedor.innerHTML = `
-            <div class="view-header">
-                <h1>🔐 Gestión de Accesos VPN</h1>
+            <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <h1>🔐 Gestión de Accesos VPN</h1>
+                    
+                    <!-- ✅ SELECTOR DE ORDENAMIENTO -->
+                    <select id="selectOrdenAccesos" class="btn btn-sm btn-outline" 
+                            onchange="Accesos.cambiarOrden(this.value)"
+                            style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
+                        <option value="prioridad">⚡ Por Prioridad (Vencen Pronto)</option>
+                        <option value="dias_asc">📅 Días Restantes (Menor a Mayor)</option>
+                        <option value="dias_desc">📅 Días Restantes (Mayor a Menor)</option>
+                        <option value="nombre_asc">👤 Nombre (A-Z)</option>
+                        <option value="nombre_desc">👤 Nombre (Z-A)</option>
+                    </select>
+                </div>
             </div>
             
             <div class="card">
                 <div class="card-body">
-                    <table class="table" id="accesosTable">
-                        <thead>
-                            <tr>
-                                <th>NIP</th>
-                                <th>Nombre</th>
-                                <th>Usuario</th>
-                                <th>F. Inicio</th>
-                                <th>F. Fin</th>
-                                <th>Estado</th>
-                                <th>Días Restantes</th>
-                                <th>Bloqueo</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr><td colspan="9" style="text-align: center;">Cargando...</td></tr>
-                        </tbody>
-                    </table>
+                    <div class="table-wrapper">
+                        <table class="table" id="accesosTable">
+                            <thead>
+                                <tr>
+                                    <th>NIP</th>
+                                    <th>Nombre</th>
+                                    <th>Usuario</th>
+                                    <th>F. Inicio</th>
+                                    <th>F. Fin</th>
+                                    <th>Estado</th>
+                                    <th>Días Restantes</th>
+                                    <th>Bloqueo</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td colspan="9" style="text-align: center;">Cargando...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         `;
     },
     
+    cambiarOrden(nuevoOrden) {
+        this.ordenActual = nuevoOrden;
+        console.log(`🔄 Orden cambiado a: ${nuevoOrden}`);
+        this.renderizarAccesos();
+    },
+
     async loadAccesos() {
         try {
             const data = await API.get('/dashboard/accesos-actuales?limit=2000');
@@ -68,53 +92,114 @@ const Accesos = {
                 return;
             }
             
-            tbody.innerHTML = accesos.map(acceso => {
-                const diasClass = acceso.dias_restantes <= 0 ? 'status-vencido' : 
-                                 acceso.dias_restantes <= 7 ? 'status-por-vencer' : 'status-activo';
-                
-                // Generar username
-                const nombresArray = acceso.nombres.toLowerCase().split(' ');
-                const apellidosArray = acceso.apellidos.toLowerCase().split(' ');
-                const username = `${nombresArray[0]}.${apellidosArray[0]}`;
-                
-                return `
-                    <tr>
-                        <td><strong>${acceso.nip || 'N/A'}</strong></td>
-                        <td>${acceso.nombres} ${acceso.apellidos}</td>
-                        <td><code>${username}</code></td>
-                        <td>${formatDate(acceso.fecha_inicio)}</td>
-                        <td>${formatDate(acceso.fecha_fin_con_gracia)}</td>
-                        <td>${getStatusBadge(acceso.estado_vigencia)}</td>
-                        <td><span class="status-badge ${diasClass}">${acceso.dias_restantes} días</span></td>
-                        <td>${getStatusBadge(acceso.estado_bloqueo || 'DESBLOQUEADO')}</td>
-                        <td style="white-space: nowrap;">
-                            <button class="btn btn-sm btn-info" onclick="Accesos.verDetalles(${acceso.acceso_id})" title="Ver detalles completos">
-                                👁️
-                            </button>
-                            
-                            ${acceso.dias_restantes > 0 && acceso.dias_restantes <= 30 ? `
-                                <button class="btn btn-sm btn-warning" onclick="Accesos.prorrogar(${acceso.acceso_id})" title="Prorrogar">
-                                    ⏰
-                                </button>
-                            ` : ''}
-                            
-                            ${acceso.estado_bloqueo === 'BLOQUEADO' ? `
-                                <button class="btn btn-sm btn-success" onclick="Accesos.desbloquear(${acceso.acceso_id})" title="Desbloquear">
-                                    ✅
-                                </button>
-                            ` : `
-                                <button class="btn btn-sm btn-danger" onclick="Accesos.bloquear(${acceso.acceso_id})" title="Bloquear">
-                                    🚫
-                                </button>
-                            `}
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+            // ✅ Guardar datos originales
+            this.datosOriginales = accesos;
+            
+            // ✅ Renderizar con el orden actual
+            this.renderizarAccesos();
             
         } catch (error) {
             console.error('Error loading accesos:', error);
             showError('Error al cargar accesos: ' + error.message);
+        }
+    },
+    
+    // ✅ NUEVA FUNCIÓN: Renderizar con orden actual
+    renderizarAccesos() {
+        const tbody = document.querySelector('#accesosTable tbody');
+        if (!tbody) return;
+        
+        // ✅ Ordenar según la opción seleccionada
+        let accesosOrdenados = [...this.datosOriginales];
+        
+        switch(this.ordenActual) {
+            case 'prioridad':
+                // Prioridad: Vencidos y por vencer primero
+                accesosOrdenados.sort((a, b) => {
+                    if (a.dias_restantes <= 30 && b.dias_restantes > 30) return -1;
+                    if (a.dias_restantes > 30 && b.dias_restantes <= 30) return 1;
+                    return a.dias_restantes - b.dias_restantes;
+                });
+                break;
+                
+            case 'dias_asc':
+                // Días restantes: menor a mayor
+                accesosOrdenados.sort((a, b) => a.dias_restantes - b.dias_restantes);
+                break;
+                
+            case 'dias_desc':
+                // Días restantes: mayor a menor
+                accesosOrdenados.sort((a, b) => b.dias_restantes - a.dias_restantes);
+                break;
+                
+            case 'nombre_asc':
+                // Nombre: A-Z
+                accesosOrdenados.sort((a, b) => {
+                    const nombreA = `${a.nombres} ${a.apellidos}`.toLowerCase();
+                    const nombreB = `${b.nombres} ${b.apellidos}`.toLowerCase();
+                    return nombreA.localeCompare(nombreB);
+                });
+                break;
+                
+            case 'nombre_desc':
+                // Nombre: Z-A
+                accesosOrdenados.sort((a, b) => {
+                    const nombreA = `${a.nombres} ${a.apellidos}`.toLowerCase();
+                    const nombreB = `${b.nombres} ${b.apellidos}`.toLowerCase();
+                    return nombreB.localeCompare(nombreA);
+                });
+                break;
+        }
+        
+        tbody.innerHTML = accesosOrdenados.map(acceso => {
+            const diasClass = acceso.dias_restantes <= 0 ? 'status-vencido' : 
+                             acceso.dias_restantes <= 7 ? 'status-por-vencer' : 'status-activo';
+            
+            // Generar username
+            const nombresArray = acceso.nombres.toLowerCase().split(' ');
+            const apellidosArray = acceso.apellidos.toLowerCase().split(' ');
+            const username = `${nombresArray[0]}.${apellidosArray[0]}`;
+            
+            return `
+                <tr>
+                    <td><strong>${acceso.nip || 'N/A'}</strong></td>
+                    <td>${acceso.nombres} ${acceso.apellidos}</td>
+                    <td><code>${username}</code></td>
+                    <td>${formatDate(acceso.fecha_inicio)}</td>
+                    <td>${formatDate(acceso.fecha_fin_con_gracia)}</td>
+                    <td>${getStatusBadge(acceso.estado_vigencia)}</td>
+                    <td><span class="status-badge ${diasClass}">${acceso.dias_restantes} días</span></td>
+                    <td>${getStatusBadge(acceso.estado_bloqueo || 'DESBLOQUEADO')}</td>
+                    <td style="white-space: nowrap;">
+                        <button class="btn btn-sm btn-info" onclick="Accesos.verDetalles(${acceso.acceso_id})" title="Ver detalles completos">
+                            👁️
+                        </button>
+                        
+                        ${acceso.dias_restantes > 0 && acceso.dias_restantes <= 30 ? `
+                            <button class="btn btn-sm btn-warning" onclick="Accesos.prorrogar(${acceso.acceso_id})" title="Prorrogar">
+                                ⏰
+                            </button>
+                        ` : ''}
+                        
+                        ${acceso.estado_bloqueo === 'BLOQUEADO' ? `
+                            <button class="btn btn-sm btn-success" onclick="Accesos.desbloquear(${acceso.acceso_id})" title="Desbloquear">
+                                ✅
+                            </button>
+                        ` : `
+                            <button class="btn btn-sm btn-danger" onclick="Accesos.bloquear(${acceso.acceso_id})" title="Bloquear">
+                                🚫
+                            </button>
+                        `}
+                    </td>
+                </tr>
+            `;
+        }).join('');
+        
+        console.log(`✅ ${accesosOrdenados.length} accesos ordenados (${this.ordenActual})`);
+        
+        // ✅ Refrescar paginación si existe
+        if (typeof Paginator !== 'undefined' && Paginator.configs['accesosTable']) {
+            Paginator.refresh('accesosTable');
         }
     },
     

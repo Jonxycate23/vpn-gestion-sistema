@@ -102,7 +102,7 @@ const Dashboard = {
             // Filtrar solo los que están por vencer (próximos 30 días)
             const proximosVencer = data.accesos.filter(acceso => {
                 return acceso.dias_restantes <= 30 && acceso.dias_restantes >= 0;
-            }).sort((a, b) => a.dias_restantes - b.dias_restantes);
+            }).sort((a, b) => a.dias_restantes - b.dias_restantes); // ✅ Ordenar ascendente
             
             if (proximosVencer.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #10b981;">✅ No hay usuarios próximos a vencer</td></tr>';
@@ -132,6 +132,8 @@ const Dashboard = {
                     </tr>
                 `;
             }).join('');
+            
+            console.log(`✅ Dashboard: ${proximosVencer.length} accesos próximos a vencer (ordenados)`);
             
         } catch (error) {
             console.error('Error loading próximos a vencer:', error);

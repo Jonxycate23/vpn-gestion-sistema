@@ -1,6 +1,8 @@
 const Solicitudes = {
     personaActual: null,
     usuarioActual: null,
+    ordenActual: 'desc',
+    datosOriginales: [],
     
     async load() {
         console.log('Cargando Solicitudes...');
@@ -40,29 +42,40 @@ const Solicitudes = {
         
         contenedor.innerHTML = `
             <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-                <h1>📄 Gestión de Solicitudes VPN</h1>
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <h1>📄 Gestión de Solicitudes VPN</h1>
+                    
+                    <!-- ✅ BOTÓN DE ORDENAMIENTO -->
+                    <button id="btnOrdenarSolicitudes" class="btn btn-sm btn-outline" 
+                            onclick="Solicitudes.toggleOrden()" 
+                            title="Cambiar orden">
+                        🔢 <span id="labelOrden">Más Recientes Primero</span> ⬇️
+                    </button>
+                </div>
                 <button id="btnNuevaSolicitud" class="btn btn-primary">➕ Ingresar</button>
             </div>
             
             <div class="card">
                 <div class="card-body">
-                    <table class="table" id="solicitudesTable">
-                        <thead>
-                            <tr>
-                                <th>No.</th>
-                                <th>NIP</th>
-                                <th>Oficio</th>
-                                <th>Providencia</th>
-                                <th>Fecha Recep.</th>
-                                <th>Nombre</th>
-                                <th>Estado</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr><td colspan="8" style="text-align: center;">Cargando...</td></tr>
-                        </tbody>
-                    </table>
+                    <div class="table-wrapper">
+                        <table class="table" id="solicitudesTable">
+                            <thead>
+                                <tr>
+                                    <th>No.</th>
+                                    <th>NIP</th>
+                                    <th>Oficio</th>
+                                    <th>Providencia</th>
+                                    <th>Fecha Recep.</th>
+                                    <th>Nombre</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td colspan="8" style="text-align: center;">Cargando...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         `;
@@ -72,7 +85,29 @@ const Solicitudes = {
             btnNueva.onclick = () => this.nuevaSolicitud();
         }
     },
-    
+
+    toggleOrden() {
+        // Cambiar estado
+        this.ordenActual = this.ordenActual === 'desc' ? 'asc' : 'desc';
+        
+        // Actualizar label del botón
+        const label = document.getElementById('labelOrden');
+        const btn = document.getElementById('btnOrdenarSolicitudes');
+        
+        if (this.ordenActual === 'desc') {
+            label.textContent = 'Más Recientes Primero';
+            btn.innerHTML = '🔢 <span id="labelOrden">Más Recientes Primero</span> ⬇️';
+        } else {
+            label.textContent = 'Más Antiguos Primero';
+            btn.innerHTML = '🔢 <span id="labelOrden">Más Antiguos Primero</span> ⬆️';
+        }
+        
+        console.log(`🔄 Orden cambiado a: ${this.ordenActual.toUpperCase()}`);
+        
+        // Renderizar nuevamente con el nuevo orden
+        this.renderizarSolicitudes();
+    },
+
     async listarSolicitudes() {
         try {
             const data = await API.get('/solicitudes/?limit=2000');
@@ -88,69 +123,90 @@ const Solicitudes = {
                 return;
             }
             
-            tbody.innerHTML = data.solicitudes.map(sol => {
-                const tieneCarta = sol.carta_generada === true;
-                const puedeEditar = !tieneCarta && !sol.acceso_id;
-                const esNoPresentado = sol.estado === 'CANCELADA' && sol.comentarios_admin && sol.comentarios_admin.includes('NO_PRESENTADO');
-                
-                // ✅ NUEVA LÓGICA DE ESTADOS
-                const esPendiente = sol.estado === 'PENDIENTE';
-                const esAprobada = sol.estado === 'APROBADA';
-                
-                return `
-                    <tr>
-                        <td>${sol.id}</td>
-                        <td><strong>${sol.persona_nip || 'N/A'}</strong></td>
-                        <td>${sol.numero_oficio || 'N/A'}</td>
-                        <td>${sol.numero_providencia || 'N/A'}</td>
-                        <td>${formatDate(sol.fecha_recepcion || sol.fecha_solicitud)}</td>
-                        <td>${sol.persona_nombres} ${sol.persona_apellidos}</td>
-                        <td>${getStatusBadge(sol.estado)}</td>
-                        <td style="white-space: nowrap;">
-                            <!-- 👁️ OJO: Siempre visible -->
-                            <button class="btn btn-sm btn-info" onclick="Solicitudes.verDetalle(${sol.id})" title="Ver">
-                                👁️
-                            </button>
-                            
-                            <!-- 📄 CREAR CARTA: Solo si está PENDIENTE y no tiene carta -->
-                            ${esPendiente && !tieneCarta ? `
-                                <button class="btn btn-sm btn-success" onclick="Solicitudes.crearCarta(${sol.id})" title="Crear carta">
-                                    📄 Carta
-                                </button>
-                            ` : ''}
-                            
-                            <!-- ✅ VER CARTA: Solo si tiene carta generada (APROBADA) -->
-                            ${tieneCarta && esAprobada ? `
-                                <button class="btn btn-sm" style="background: #10b981; color: white;" 
-                                        onclick="Solicitudes.verCarta(${sol.id})" title="Ver carta">
-                                    ✅ Ver Carta
-                                </button>
-                            ` : ''}
-                            
-                            <!-- 🔄 REACTIVAR: Si está cancelada por NO_PRESENTADO -->
-                            ${esNoPresentado ? `
-                                <button class="btn btn-sm btn-primary" onclick="Solicitudes.reactivar(${sol.id})" title="Reactivar">
-                                    🔄
-                                </button>
-                            ` : ''}
-                            
-                            <!-- 🚫 NO PRESENTADO: Solo si está PENDIENTE, sin carta -->
-                            ${esPendiente && !tieneCarta && !esNoPresentado ? `
-                                <button class="btn btn-sm btn-danger" onclick="Solicitudes.marcarNoPresentado(${sol.id})" title="No presentado">
-                                    🚫
-                                </button>
-                            ` : ''}
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+            // ✅ Guardar datos originales
+            this.datosOriginales = data.solicitudes;
+            
+            // ✅ Renderizar con el orden actual
+            this.renderizarSolicitudes();
             
         } catch (error) {
             console.error('Error:', error);
             showError('Error al cargar solicitudes');
         }
     },
-
+    
+    // ✅ NUEVA FUNCIÓN: Renderizar tabla con orden actual
+    renderizarSolicitudes() {
+        const tbody = document.querySelector('#solicitudesTable tbody');
+        if (!tbody) return;
+        
+        // ✅ Ordenar según el estado actual
+        const solicitudesOrdenadas = [...this.datosOriginales].sort((a, b) => {
+            if (this.ordenActual === 'desc') {
+                return b.id - a.id; // Descendente: 1107, 1106, 1105...
+            } else {
+                return a.id - b.id; // Ascendente: 1, 2, 3...
+            }
+        });
+        
+        tbody.innerHTML = solicitudesOrdenadas.map(sol => {
+            const tieneCarta = sol.carta_generada === true;
+            const puedeEditar = !tieneCarta && !sol.acceso_id;
+            const esNoPresentado = sol.estado === 'CANCELADA' && sol.comentarios_admin && sol.comentarios_admin.includes('NO_PRESENTADO');
+            
+            const esPendiente = sol.estado === 'PENDIENTE';
+            const esAprobada = sol.estado === 'APROBADA';
+            
+            return `
+                <tr>
+                    <td><strong>${sol.id}</strong></td>
+                    <td><strong>${sol.persona_nip || 'N/A'}</strong></td>
+                    <td>${sol.numero_oficio || 'N/A'}</td>
+                    <td>${sol.numero_providencia || 'N/A'}</td>
+                    <td>${formatDate(sol.fecha_recepcion || sol.fecha_solicitud)}</td>
+                    <td>${sol.persona_nombres} ${sol.persona_apellidos}</td>
+                    <td>${getStatusBadge(sol.estado)}</td>
+                    <td style="white-space: nowrap;">
+                        <button class="btn btn-sm btn-info" onclick="Solicitudes.verDetalle(${sol.id})" title="Ver">
+                            👁️
+                        </button>
+                        
+                        ${esPendiente && !tieneCarta ? `
+                            <button class="btn btn-sm btn-success" onclick="Solicitudes.crearCarta(${sol.id})" title="Crear carta">
+                                📄 Carta
+                            </button>
+                        ` : ''}
+                        
+                        ${tieneCarta && esAprobada ? `
+                            <button class="btn btn-sm" style="background: #10b981; color: white;" 
+                                    onclick="Solicitudes.verCarta(${sol.id})" title="Ver carta">
+                                ✅ Ver Carta
+                            </button>
+                        ` : ''}
+                        
+                        ${esNoPresentado ? `
+                            <button class="btn btn-sm btn-primary" onclick="Solicitudes.reactivar(${sol.id})" title="Reactivar">
+                                🔄
+                            </button>
+                        ` : ''}
+                        
+                        ${esPendiente && !tieneCarta && !esNoPresentado ? `
+                            <button class="btn btn-sm btn-danger" onclick="Solicitudes.marcarNoPresentado(${sol.id})" title="No presentado">
+                                🚫
+                            </button>
+                        ` : ''}
+                    </td>
+                </tr>
+            `;
+        }).join('');
+        
+        console.log(`✅ ${solicitudesOrdenadas.length} solicitudes ordenadas (${this.ordenActual.toUpperCase()})`);
+        
+        // ✅ Refrescar paginación si existe
+        if (typeof Paginator !== 'undefined' && Paginator.configs['solicitudesTable']) {
+            Paginator.refresh('solicitudesTable');
+        }
+    },
 
     nuevaSolicitud() {
         showModal('📝 NUEVO REGISTRO', `
