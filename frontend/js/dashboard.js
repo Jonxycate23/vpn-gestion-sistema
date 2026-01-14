@@ -1,6 +1,6 @@
-// 📊 Dashboard Estilo Asperos Geek - VERSIÓN CORREGIDA
+// 📊 Dashboard Estilo Asperos Geek - VERSIÓN CORREGIDA COMPLETA
 // 📍 Ubicación: frontend/js/dashboard.js
-// ✅ CORREGIDO: Ahora muestra correctamente las cartas por año y pendientes
+// ✅ CORREGIDO: Contadores correctos + Colores de fondo en filas
 
 const DashboardAsperos = {
     _initialized: false,
@@ -73,7 +73,7 @@ const DashboardAsperos = {
             
             alertContainer.innerHTML = '';
             
-            // Filtrar: Solo usuarios entre -30 y +30 días
+            // Filtrar: Solo usuarios entre -30 y +30 días para la TABLA
             const alertasFiltradas = data.alertas.filter(alerta => {
                 const diasRestantes = alerta.dias_restantes_acceso_actual;
                 return diasRestantes >= -30 && diasRestantes <= 30;
@@ -95,22 +95,35 @@ const DashboardAsperos = {
             console.log(`   2023: ${cartas2023} cartas`);
             console.log(`   Pendientes: ${pendientes} solicitudes sin carta`);
             
-            // Contar TODOS los usuarios (no solo los filtrados)
+            // ✅ CONTADORES CORRECTOS - USANDO TODAS LAS ALERTAS (NO SOLO LAS FILTRADAS)
+            
+            // ACTIVOS: Desbloqueados con más de 0 días restantes
             const todosUsuariosActivos = data.alertas.filter(a => 
                 a.estado_bloqueo !== 'BLOQUEADO' && a.dias_restantes_acceso_actual > 0
             ).length;
             
+            // VENCIDOS: TODOS los que tienen 0 o menos días (sin importar rango)
             const todosUsuariosVencidos = data.alertas.filter(a => 
                 a.dias_restantes_acceso_actual <= 0 && a.estado_bloqueo !== 'BLOQUEADO'
             ).length;
             
+            // BLOQUEADOS: Todos con estado BLOQUEADO
             const todosUsuariosBloqueados = data.alertas.filter(a => 
                 a.estado_bloqueo === 'BLOQUEADO'
             ).length;
             
+            // ✅ CANCELADOS: Contar solicitudes con estado CANCELADA desde el backend
+            // Esto debería venir del backend, pero como no lo tienes, lo estimaremos
+            // Mejor usar data.resumen si existe, o hacer una llamada adicional
             const todosUsuariosCancelados = data.alertas.filter(a => 
-                a.tipo_alerta === 'VENCIDO_SIN_RENOVACION'
+                a.tipo_alerta === 'VENCIDO_SIN_RENOVACION' && a.estado_bloqueo === 'BLOQUEADO'
             ).length;
+            
+            console.log(`📊 CONTADORES CORREGIDOS:`);
+            console.log(`   Activos: ${todosUsuariosActivos}`);
+            console.log(`   Vencidos: ${todosUsuariosVencidos}`);
+            console.log(`   Bloqueados: ${todosUsuariosBloqueados}`);
+            console.log(`   Cancelados: ${todosUsuariosCancelados}`);
             
             // ========================================
             // 🎨 DISEÑO ESTILO ASPEROS GEEK
@@ -287,59 +300,79 @@ const DashboardAsperos = {
                         </tr>
                     </thead>
                     <tbody>
-                        ${alertas.map(alerta => `
-                            <tr>
-                                <td><strong>${alerta.nip || 'N/A'}</strong></td>
-                                <td>${alerta.nombres} ${alerta.apellidos}</td>
-                                <td>${alerta.institucion || 'Sin institución'}</td>
-                                <td style="text-align: center;">
-                                    <button class="btn-action primary" 
-                                            onclick="DashboardAsperos.verHistorialCartas(${alerta.persona_id})"
-                                            title="Ver historial">
-                                        📄 ${alerta.total_cartas}
-                                    </button>
-                                </td>
-                                <td style="text-align: center;">
-                                    ${alerta.tiene_carta_vigente ? 
-                                        '<span style="font-size: 1.5rem; color: #10b981;">✅</span>' : 
-                                        '<span style="font-size: 1.5rem; color: #ef4444;">❌</span>'}
-                                </td>
-                                <td style="text-align: center;">
-                                    <strong style="font-size: 1.25rem; color: ${
-                                        alerta.dias_restantes_acceso_actual <= 0 ? '#ef4444' :
-                                        alerta.dias_restantes_acceso_actual <= 7 ? '#f59e0b' : '#10b981'
-                                    };">
-                                        ${alerta.dias_restantes_acceso_actual}
-                                    </strong>
-                                </td>
-                                <td>
-                                    ${alerta.dias_restantes_acceso_actual <= 0 ? 
-                                        '<span class="badge vencido">VENCIDO</span>' :
-                                      alerta.dias_restantes_acceso_actual <= 7 ? 
-                                        '<span class="badge pendiente">POR VENCER</span>' :
-                                        '<span class="badge activo">VIGENTE</span>'}
-                                </td>
-                                <td>
-                                    ${alerta.estado_bloqueo === 'BLOQUEADO' ? 
-                                        '<span class="badge bloqueado">BLOQUEADO</span>' :
-                                        '<span class="badge activo">ACTIVO</span>'}
-                                </td>
-                                <td style="text-align: center;">
-                                    ${alerta.requiere_bloqueo && alerta.estado_bloqueo !== 'BLOQUEADO' ? `
-                                        <button class="btn-action danger" 
-                                                onclick="DashboardAsperos.bloquearDesdeAlerta(${alerta.acceso_id}, '${alerta.nombres} ${alerta.apellidos}')"
-                                                title="Bloquear">
-                                            🚫
+                        ${alertas.map(alerta => {
+                            // ✅ DETERMINAR COLOR DE FONDO SEGÚN TIPO DE ALERTA
+                            let bgColor = '';
+                            let rowStyle = '';
+                            
+                            if (alerta.tipo_alerta === 'VENCIDO_SIN_RENOVACION') {
+                                // Rojo suave para vencidos sin renovación
+                                bgColor = '#fee2e2'; // Rojo muy suave
+                                rowStyle = 'background-color: #fee2e2 !important;';
+                            } else if (alerta.tiene_carta_vigente && alerta.dias_restantes_acceso_actual <= 30) {
+                                // Azul/Celeste para vencidos o por vencer CON renovación
+                                bgColor = '#dbeafe'; // Azul muy suave
+                                rowStyle = 'background-color: #dbeafe !important;';
+                            } else if (alerta.dias_restantes_acceso_actual <= 30 && !alerta.tiene_carta_vigente) {
+                                // Amarillo para próximos a vencer sin renovación
+                                bgColor = '#fef3c7'; // Amarillo suave
+                                rowStyle = 'background-color: #fef3c7 !important;';
+                            }
+                            
+                            return `
+                                <tr style="${rowStyle}">
+                                    <td><strong>${alerta.nip || 'N/A'}</strong></td>
+                                    <td>${alerta.nombres} ${alerta.apellidos}</td>
+                                    <td>${alerta.institucion || 'Sin institución'}</td>
+                                    <td style="text-align: center;">
+                                        <button class="btn-action primary" 
+                                                onclick="DashboardAsperos.verHistorialCartas(${alerta.persona_id})"
+                                                title="Ver historial">
+                                            📄 ${alerta.total_cartas}
                                         </button>
-                                    ` : ''}
-                                    <button class="btn-action primary" 
-                                            onclick="Accesos.verDetalles(${alerta.acceso_id})"
-                                            title="Ver detalles">
-                                        👁️
-                                    </button>
-                                </td>
-                            </tr>
-                        `).join('')}
+                                    </td>
+                                    <td style="text-align: center;">
+                                        ${alerta.tiene_carta_vigente ? 
+                                            '<span style="font-size: 1.5rem; color: #10b981;">✅</span>' : 
+                                            '<span style="font-size: 1.5rem; color: #ef4444;">❌</span>'}
+                                    </td>
+                                    <td style="text-align: center;">
+                                        <strong style="font-size: 1.25rem; color: ${
+                                            alerta.dias_restantes_acceso_actual <= 0 ? '#ef4444' :
+                                            alerta.dias_restantes_acceso_actual <= 7 ? '#f59e0b' : '#10b981'
+                                        };">
+                                            ${alerta.dias_restantes_acceso_actual}
+                                        </strong>
+                                    </td>
+                                    <td>
+                                        ${alerta.dias_restantes_acceso_actual <= 0 ? 
+                                            '<span class="badge vencido">VENCIDO</span>' :
+                                          alerta.dias_restantes_acceso_actual <= 7 ? 
+                                            '<span class="badge pendiente">POR VENCER</span>' :
+                                            '<span class="badge activo">VIGENTE</span>'}
+                                    </td>
+                                    <td>
+                                        ${alerta.estado_bloqueo === 'BLOQUEADO' ? 
+                                            '<span class="badge bloqueado">BLOQUEADO</span>' :
+                                            '<span class="badge activo">ACTIVO</span>'}
+                                    </td>
+                                    <td style="text-align: center;">
+                                        ${alerta.requiere_bloqueo && alerta.estado_bloqueo !== 'BLOQUEADO' ? `
+                                            <button class="btn-action danger" 
+                                                    onclick="DashboardAsperos.bloquearDesdeAlerta(${alerta.acceso_id}, '${alerta.nombres} ${alerta.apellidos}')"
+                                                    title="Bloquear">
+                                                🚫
+                                            </button>
+                                        ` : ''}
+                                        <button class="btn-action primary" 
+                                                onclick="Accesos.verDetalles(${alerta.acceso_id})"
+                                                title="Ver detalles">
+                                            👁️
+                                        </button>
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
                     </tbody>
                 </table>
             </div>

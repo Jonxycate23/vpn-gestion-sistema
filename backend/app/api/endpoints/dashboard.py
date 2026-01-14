@@ -1,9 +1,9 @@
 """
 Endpoints de Dashboard MEJORADO - VERSIÓN CORREGIDA
 📍 Ubicación: backend/app/api/endpoints/dashboard.py
-✅ CORREGIDO: Ahora cuenta correctamente las cartas por año desde cartas_responsabilidad
+✅ CORREGIDO: Ahora cuenta correctamente las cartas por año y cancelados
 """
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import text, func, and_
 from app.core.database import get_db
@@ -96,7 +96,7 @@ async def obtener_accesos_actuales(
 
 
 # ========================================
-# ✅ CORREGIDO: ALERTAS INTELIGENTES CON CONTEO DE CARTAS CORRECTO
+# ✅ CORREGIDO: ALERTAS INTELIGENTES CON CONTEO DE CARTAS Y CANCELADOS
 # ========================================
 
 @router.get("/alertas-vencimientos-inteligentes")
@@ -105,7 +105,7 @@ async def obtener_alertas_inteligentes(
     db: Session = Depends(get_db)
 ):
     """
-    ✅ CORREGIDO: Cuenta correctamente las cartas por año desde la tabla cartas_responsabilidad
+    ✅ CORREGIDO: Cuenta correctamente las cartas por año y cancelados
     """
     hoy = date.today()
     
@@ -133,6 +133,36 @@ async def obtener_alertas_inteligentes(
     print(f"   2025: {cartas_2025} cartas")
     print(f"   2024: {cartas_2024} cartas")
     print(f"   2023: {cartas_2023} cartas")
+    
+    # ========================================
+    # ✅ CONTAR CANCELADOS 
+    # ========================================
+    # IMPORTANTE: Ajusta esto según cómo identificas los cancelados en tu sistema
+    
+    # OPCIÓN 1: Si usas estado CANCELADO en SolicitudVPN
+    cancelados = db.query(SolicitudVPN).filter(
+        SolicitudVPN.estado == 'CANCELADO'
+    ).count()
+    
+    # OPCIÓN 2: Si usas estado RECHAZADO
+    # cancelados = db.query(SolicitudVPN).filter(
+    #     SolicitudVPN.estado == 'RECHAZADO'
+    # ).count()
+    
+    # OPCIÓN 3: Si tienes un campo específico en AccesoVPN
+    # cancelados = db.query(AccesoVPN).filter(
+    #     AccesoVPN.estado_cancelacion == 'CANCELADO'
+    # ).count()
+    
+    # OPCIÓN 4: Si es una combinación de condiciones
+    # cancelados = db.query(SolicitudVPN).filter(
+    #     and_(
+    #         SolicitudVPN.estado.in_(['RECHAZADO', 'CANCELADO']),
+    #         SolicitudVPN.activo == False
+    #     )
+    # ).count()
+    
+    print(f"📊 Usuarios cancelados: {cancelados}")
     
     # ========================================
     # OBTENER TODOS LOS ACCESOS PARA ANÁLISIS
@@ -194,7 +224,7 @@ async def obtener_alertas_inteligentes(
                     tiene_carta_vigente = True
                     if carta_mas_reciente is None or carta.fecha_generacion > carta_mas_reciente:
                         carta_mas_reciente = carta.fecha_generacion
-                        anio_carta_actual = carta.anio_carta  # ✅ Guardar el año de la carta actual
+                        anio_carta_actual = carta.anio_carta
                 elif dias_rest > 0:
                     estado_carta = "POR_VENCER"
                 
@@ -206,7 +236,7 @@ async def obtener_alertas_inteligentes(
                     "dias_restantes": dias_rest,
                     "estado": estado_carta,
                     "acceso_id": acceso_carta.id,
-                    "anio_carta": carta.anio_carta  # ✅ Incluir año de la carta
+                    "anio_carta": carta.anio_carta
                 })
         
         # Obtener estado de bloqueo
@@ -252,7 +282,7 @@ async def obtener_alertas_inteligentes(
             "tipo_alerta": tipo_alerta,
             "prioridad": prioridad,
             "requiere_bloqueo": not tiene_carta_vigente and dias_restantes <= 0,
-            "anio_carta": anio_carta_actual  # ✅ Incluir el año de la carta más reciente
+            "anio_carta": anio_carta_actual
         }
     
     alertas = list(personas_procesadas.values())
@@ -270,14 +300,19 @@ async def obtener_alertas_inteligentes(
     return {
         "total_alertas": len(alertas),
         "alertas": alertas,
-        "cartas_por_anio": {  # ✅ NUEVO: Enviar conteo de cartas
+        "cartas_por_anio": {
             "2026": cartas_2026,
             "2025": cartas_2025,
             "2024": cartas_2024,
             "2023": cartas_2023
         },
-        "pendientes_sin_carta": pendientes,  # ✅ NUEVO: Enviar pendientes
+        "pendientes_sin_carta": pendientes,
+        "total_cancelados": cancelados,  # ✅ NUEVO: Enviar cancelados
         "resumen": {
+            "activos": sum(1 for a in alertas if a["estado_bloqueo"] != "BLOQUEADO" and a["dias_restantes_acceso_actual"] > 0),
+            "vencidos": sum(1 for a in alertas if a["dias_restantes_acceso_actual"] <= 0 and a["estado_bloqueo"] != "BLOQUEADO"),
+            "bloqueados": sum(1 for a in alertas if a["estado_bloqueo"] == "BLOQUEADO"),
+            "cancelados": cancelados,
             "vencidos_sin_renovacion": sum(1 for a in alertas if a["tipo_alerta"] == "VENCIDO_SIN_RENOVACION"),
             "por_vencer_urgente": sum(1 for a in alertas if a["tipo_alerta"] == "POR_VENCER_URGENTE"),
             "por_vencer": sum(1 for a in alertas if a["tipo_alerta"] == "POR_VENCER"),
@@ -298,7 +333,6 @@ async def obtener_historial_cartas_persona(
     """
     persona = db.query(Persona).filter(Persona.id == persona_id).first()
     if not persona:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Persona no encontrada")
     
     cartas = db.query(CartaResponsabilidad).join(

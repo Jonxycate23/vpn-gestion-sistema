@@ -1,4 +1,7 @@
-// Archivo principal de la aplicación - CORREGIDO
+// Archivo principal de la aplicación - VERSIÓN CORREGIDA
+// ✅ Verifica permisos antes de cambiar de vista
+// ✅ Redirige si el usuario no tiene acceso
+
 const App = {
     currentView: 'dashboard',
     
@@ -20,6 +23,15 @@ const App = {
             item.addEventListener('click', (e) => {
                 e.preventDefault();
                 
+                const viewName = item.dataset.view;
+                
+                // ✅ VERIFICAR PERMISOS ANTES DE CAMBIAR DE VISTA
+                if (!Auth.tienePermisoParaVista(viewName)) {
+                    showError('⛔ No tienes permiso para acceder a esta sección');
+                    console.log(`🚫 Acceso denegado a vista: ${viewName}`);
+                    return;
+                }
+                
                 // Remover active de todos
                 menuItems.forEach(mi => mi.classList.remove('active'));
                 
@@ -27,7 +39,6 @@ const App = {
                 item.classList.add('active');
                 
                 // Mostrar vista correspondiente
-                const viewName = item.dataset.view;
                 this.showView(viewName);
             });
         });
@@ -51,12 +62,28 @@ const App = {
     },
     
     showView(viewName) {
+        // ✅ VERIFICAR PERMISOS
+        if (!Auth.tienePermisoParaVista(viewName)) {
+            console.log(`🚫 Redirigiendo a dashboard (sin permiso para ${viewName})`);
+            viewName = 'dashboard';
+        }
+        
         this.currentView = viewName;
         
         // Ocultar todas las vistas
         document.querySelectorAll('.view').forEach(view => {
             view.classList.remove('active');
         });
+        
+        // Actualizar menú activo
+        document.querySelectorAll('.menu-item').forEach(item => {
+            item.classList.remove('active');
+        });
+        
+        const activeMenuItem = document.querySelector(`[data-view="${viewName}"]`);
+        if (activeMenuItem) {
+            activeMenuItem.classList.add('active');
+        }
         
         // Mostrar vista seleccionada
         const view = document.getElementById(`${viewName}View`);
@@ -65,6 +92,8 @@ const App = {
             
             // Cargar datos de la vista
             this.loadViewData(viewName);
+        } else {
+            console.error(`❌ Vista ${viewName}View no encontrada`);
         }
     },
     
@@ -87,8 +116,15 @@ const App = {
                     }
                     break;
                 case 'usuarios':
-                    if (typeof Usuarios !== 'undefined' && Usuarios.load) {
-                        Usuarios.load();
+                    // ✅ VERIFICACIÓN ADICIONAL para usuarios
+                    const user = UserStorage.get();
+                    if (user && user.rol === 'SUPERADMIN') {
+                        if (typeof Usuarios !== 'undefined' && Usuarios.load) {
+                            Usuarios.load();
+                        }
+                    } else {
+                        console.log('🚫 Acceso denegado a módulo de usuarios');
+                        this.showView('dashboard');
                     }
                     break;
             }

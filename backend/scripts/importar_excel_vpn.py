@@ -1,7 +1,7 @@
 """
-Script de Importación Masiva - VERSIÓN 3.2 CORREGIDA
-✅ CORRIGE: Auto-numeración usando MAX() correctamente
-✅ NUEVO: Excluye NULLs al buscar el máximo número de carta
+Script de Importación Masiva - VERSIÓN CORREGIDA
+✅ CORRIGE: Ahora detecta correctamente el estado CANCELADA
+✅ Estados soportados: TERMINADO, PENDIENTE, CANCELADA, BLOQUEADO
 """
 
 import pandas as pd
@@ -30,7 +30,7 @@ USUARIO_IMPORTACION_ID = 1
 FECHA_FICTICIA = datetime(2024, 1, 1)
 
 # ========================================
-# FUNCIONES AUXILIARES
+# FUNCIONES AUXILIARES (sin cambios)
 # ========================================
 
 def limpiar_texto(texto) -> Optional[str]:
@@ -43,10 +43,7 @@ def limpiar_texto(texto) -> Optional[str]:
     return texto_limpio
 
 def separar_nombre_completo(nombre_completo: str) -> Tuple[str, str]:
-    """
-    ✅ CORREGIDO: Maneja diferentes formatos de nombre
-    Separa nombre completo en nombres y apellidos
-    """
+    """Separa nombre completo en nombres y apellidos"""
     if not nombre_completo or pd.isna(nombre_completo):
         return "Sin Nombre", "Sin Apellido"
     
@@ -135,11 +132,19 @@ def parsear_fecha(fecha) -> Optional[datetime]:
     
     return None
 
+# ========================================
+# ✅ FUNCIÓN CORREGIDA: determinar_estado_solicitud
+# ========================================
+
 def determinar_estado_solicitud(row) -> dict:
-    """Determina estado de solicitud según Excel"""
+    """
+    ✅ CORREGIDO: Detecta correctamente CANCELADA
+    Determina estado de solicitud según Excel
+    """
     estado_excel = limpiar_texto(row.get('Status'))
     
     if not estado_excel:
+        # Sin estado en Excel = APROBADA con carta
         return {
             'estado_solicitud': 'APROBADA',
             'crear_carta': True,
@@ -150,34 +155,11 @@ def determinar_estado_solicitud(row) -> dict:
     
     estado_upper = estado_excel.upper()
     
-    if 'TERMINADO' in estado_upper or 'TERMINADA' in estado_upper or 'TERMINO' in estado_upper:
-        return {
-            'estado_solicitud': 'APROBADA',
-            'crear_carta': True,
-            'crear_acceso': True,
-            'necesita_bloqueo': False,
-            'motivo_bloqueo': None
-        }
+    print(f"  🔍 Analizando estado Excel: '{estado_excel}' → '{estado_upper}'")
     
-    elif 'PENDIENTE' in estado_upper:
-        return {
-            'estado_solicitud': 'PENDIENTE',
-            'crear_carta': False,
-            'crear_acceso': False,
-            'necesita_bloqueo': False,
-            'motivo_bloqueo': None
-        }
-    
-    elif 'BLOQ' in estado_upper:
-        return {
-            'estado_solicitud': 'APROBADA',
-            'crear_carta': True,
-            'crear_acceso': True,
-            'necesita_bloqueo': True,
-            'motivo_bloqueo': f"Importado con estado: {estado_excel}"
-        }
-    
-    elif 'CANCEL' in estado_upper:
+    # ✅ 1. CANCELADA (debe ir PRIMERO para detectarlo antes que otros)
+    if 'CANCEL' in estado_upper:
+        print(f"  🚫 DETECTADO: CANCELADA")
         return {
             'estado_solicitud': 'CANCELADA',
             'crear_carta': False,
@@ -186,7 +168,20 @@ def determinar_estado_solicitud(row) -> dict:
             'motivo_bloqueo': None
         }
     
-    else:
+    # ✅ 2. BLOQUEADO
+    if 'BLOQ' in estado_upper:
+        print(f"  🔒 DETECTADO: BLOQUEADO")
+        return {
+            'estado_solicitud': 'APROBADA',
+            'crear_carta': True,
+            'crear_acceso': True,
+            'necesita_bloqueo': True,
+            'motivo_bloqueo': f"Importado con estado: {estado_excel}"
+        }
+    
+    # ✅ 3. TERMINADO (APROBADA con carta)
+    if 'TERMINADO' in estado_upper or 'TERMINADA' in estado_upper or 'TERMINO' in estado_upper:
+        print(f"  ✅ DETECTADO: TERMINADO (APROBADA)")
         return {
             'estado_solicitud': 'APROBADA',
             'crear_carta': True,
@@ -194,6 +189,27 @@ def determinar_estado_solicitud(row) -> dict:
             'necesita_bloqueo': False,
             'motivo_bloqueo': None
         }
+    
+    # ✅ 4. PENDIENTE
+    if 'PENDIENTE' in estado_upper:
+        print(f"  ⏳ DETECTADO: PENDIENTE")
+        return {
+            'estado_solicitud': 'PENDIENTE',
+            'crear_carta': False,
+            'crear_acceso': False,
+            'necesita_bloqueo': False,
+            'motivo_bloqueo': None
+        }
+    
+    # ✅ 5. DEFAULT: APROBADA
+    print(f"  ℹ️ Estado no reconocido, asignando APROBADA por defecto")
+    return {
+        'estado_solicitud': 'APROBADA',
+        'crear_carta': True,
+        'crear_acceso': True,
+        'necesita_bloqueo': False,
+        'motivo_bloqueo': None
+    }
 
 def extraer_numero_carta(valor) -> Optional[int]:
     """Extrae número de carta del Excel"""
@@ -243,9 +259,8 @@ def extraer_anio_carta(valor) -> Optional[int]:
     
     return None
 
-
 # ========================================
-# CLASE IMPORTADOR
+# CLASE IMPORTADOR (resto igual)
 # ========================================
 
 class ImportadorVPN:
@@ -272,7 +287,6 @@ class ImportadorVPN:
             'cartas_auto_numeradas': 0,
             'errores': []
         }
-        # Caché para números de carta por año
         self.contadores_carta = {}
     
     def conectar_bd(self):
@@ -305,16 +319,11 @@ class ImportadorVPN:
             raise
     
     def obtener_proximo_numero_carta(self, anio: int) -> int:
-        """
-        ✅ CORREGIDO: Obtiene el próximo número de carta para un año
-        ✅ Excluye NULLs correctamente usando MAX() en SQL
-        """
-        # Si ya tenemos el contador en caché, usarlo
+        """Obtiene el próximo número de carta para un año"""
         if anio in self.contadores_carta:
             self.contadores_carta[anio] += 1
             return self.contadores_carta[anio]
         
-        # ✅ CORRECCIÓN: Buscar el máximo excluyendo NULLs
         self.cursor.execute("""
             SELECT MAX(numero_carta)
             FROM cartas_responsabilidad
@@ -326,7 +335,6 @@ class ImportadorVPN:
         max_actual = resultado if resultado is not None else 0
         proximo_numero = max_actual + 1
         
-        # Guardar en caché
         self.contadores_carta[anio] = proximo_numero
         
         print(f"  📊 Año {anio}: Último número = {max_actual}, Próximo = {proximo_numero}")
@@ -486,7 +494,6 @@ class ImportadorVPN:
             self.estadisticas['sin_carta'] += 1
             return None
         
-        # Determinar número y año final
         if numero_carta_excel and anio_carta_excel:
             numero_final = numero_carta_excel
             anio_final = anio_carta_excel
@@ -498,7 +505,6 @@ class ImportadorVPN:
             print(f"  📄 Carta del Excel (sin año): {numero_final}, usando año actual {anio_final}")
         
         elif not numero_carta_excel and anio_carta_excel:
-            # ✅ AUTO-GENERAR usando la función corregida
             numero_final = self.obtener_proximo_numero_carta(anio_carta_excel)
             anio_final = anio_carta_excel
             self.estadisticas['cartas_auto_numeradas'] += 1
@@ -509,7 +515,6 @@ class ImportadorVPN:
             fecha_carta = FECHA_FICTICIA
         
         try:
-            # Verificar si ya existe
             self.cursor.execute("""
                 SELECT id FROM cartas_responsabilidad
                 WHERE numero_carta = %s AND anio_carta = %s
@@ -520,7 +525,6 @@ class ImportadorVPN:
                 self.estadisticas['cartas_omitidas'] += 1
                 return None
             
-            # Insertar carta
             self.cursor.execute("""
                 INSERT INTO cartas_responsabilidad 
                 (solicitud_id, tipo, fecha_generacion, generada_por_usuario_id, 
@@ -615,7 +619,7 @@ class ImportadorVPN:
         
         try:
             estado_info = determinar_estado_solicitud(row)
-            print(f"\n🔍 Fila {fila_num} - Estado: {estado_info['estado_solicitud']}")
+            print(f"\n🔍 Fila {fila_num} - Estado detectado: {estado_info['estado_solicitud']}")
             
             nip = validar_nip(row.get('NIP'))
             numero_oficio = limpiar_texto(row.get('Oficio'))
@@ -641,7 +645,7 @@ class ImportadorVPN:
             self.crear_bloqueo(row, acceso_id, estado_info)
             
             self.estadisticas['exitosos'] += 1
-            print(f"✅ Fila {fila_num}: PROCESADA")
+            print(f"✅ Fila {fila_num}: PROCESADA - Estado: {estado_info['estado_solicitud']}")
             
         except Exception as e:
             self.estadisticas['fallidos'] += 1

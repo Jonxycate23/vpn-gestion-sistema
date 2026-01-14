@@ -1,4 +1,4 @@
-// 👥 Módulo de Gestión de Usuarios del Sistema
+// 👥 Módulo de Gestión de Usuarios del Sistema - MEJORADO CON CAMBIO DE CONTRASEÑA
 // 📂 Ubicación: frontend/js/usuarios.js
 // ✅ Solo SUPERADMIN puede acceder
 
@@ -122,27 +122,31 @@ const Usuarios = {
                         </td>
                         <td>${ultimoLogin}</td>
                         <td style="white-space: nowrap;">
-                            ${!esUsuarioActual && usuario.activo ? `
-                                <button class="btn btn-sm btn-danger" 
-                                        onclick="Usuarios.desactivar(${usuario.id})" 
-                                        title="Desactivar">
-                                    🚫
+                            ${!esUsuarioActual ? `
+                                <button class="btn btn-sm btn-warning" 
+                                        onclick="Usuarios.mostrarCambiarPassword(${usuario.id}, '${usuario.nombre_completo}')" 
+                                        title="Cambiar Contraseña">
+                                    🔑
                                 </button>
-                            ` : ''}
-                            
-                            ${!esUsuarioActual && !usuario.activo ? `
-                                <button class="btn btn-sm btn-success" 
-                                        onclick="Usuarios.activar(${usuario.id})" 
-                                        title="Activar">
-                                    ✅
-                                </button>
-                            ` : ''}
-                            
-                            ${esUsuarioActual ? `
+                                
+                                ${usuario.activo ? `
+                                    <button class="btn btn-sm btn-danger" 
+                                            onclick="Usuarios.desactivar(${usuario.id})" 
+                                            title="Desactivar">
+                                        🚫
+                                    </button>
+                                ` : `
+                                    <button class="btn btn-sm btn-success" 
+                                            onclick="Usuarios.activar(${usuario.id})" 
+                                            title="Activar">
+                                        ✅
+                                    </button>
+                                `}
+                            ` : `
                                 <span style="color: #666; font-size: 0.85rem;">
                                     (Tú)
                                 </span>
-                            ` : ''}
+                            `}
                         </td>
                     </tr>
                 `;
@@ -181,7 +185,7 @@ const Usuarios = {
                     <label>Rol *</label>
                     <select id="rol" required>
                         <option value="">Seleccione un rol</option>
-                        <option value="ADMIN">ADMIN - Usuario normal del sistema</option>
+                        <option value="ADMIN">ADMIN</option>
                         <option value="SUPERADMIN">SUPERADMIN - Acceso completo</option>
                     </select>
                     <small class="form-text">
@@ -192,7 +196,7 @@ const Usuarios = {
                 
                 <div style="background: #fef3c7; padding: 1rem; border-radius: 4px; margin: 1rem 0;">
                     <strong>ℹ️ Información importante:</strong><br>
-                    • El <strong>username</strong> se generará automáticamente (ej: juan.perez)<br>
+                    • El <strong>username</strong> se generará automáticamente<br>
                     • La <strong>contraseña inicial</strong> será: <code>Usuario.2025!</code><br>
                     • El usuario debe cambiarla en su primer login
                 </div>
@@ -277,6 +281,119 @@ const Usuarios = {
         }
     },
     
+    // ========================================
+    // NUEVA FUNCIÓN: CAMBIAR CONTRASEÑA (SUPERADMIN)
+    // ========================================
+    
+    mostrarCambiarPassword(usuarioId, nombreCompleto) {
+        showModal('🔑 Cambiar Contraseña de Usuario', `
+            <form id="formCambiarPassword">
+                <div style="background: #e0f2fe; padding: 1rem; border-radius: 4px; margin-bottom: 1.5rem;">
+                    <strong>Usuario:</strong> ${nombreCompleto}
+                </div>
+                
+                <div class="form-group">
+                    <label>Nueva Contraseña *</label>
+                    <input type="password" id="password_nueva" required 
+                           minlength="6"
+                           placeholder="Mínimo 6 caracteres">
+                    <small class="form-text">
+                        La contraseña debe tener al menos 6 caracteres
+                    </small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Confirmar Contraseña *</label>
+                    <input type="password" id="password_confirmar" required 
+                           minlength="6"
+                           placeholder="Repite la contraseña">
+                </div>
+                
+                <div style="background: #fef3c7; padding: 1rem; border-radius: 4px; margin: 1rem 0;">
+                    <strong>⚠️ Nota:</strong><br>
+                    Esta acción cambiará la contraseña del usuario inmediatamente.
+                    Asegúrate de informarle la nueva contraseña.
+                </div>
+                
+                <div style="display: flex; gap: 0.5rem;">
+                    <button type="button" class="btn btn-secondary" onclick="hideModal()">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-warning" style="flex: 1;">
+                        🔑 Cambiar Contraseña
+                    </button>
+                </div>
+            </form>
+        `);
+        
+        document.getElementById('formCambiarPassword').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await this.cambiarPasswordUsuario(usuarioId, nombreCompleto);
+        });
+    },
+    
+    async cambiarPasswordUsuario(usuarioId, nombreCompleto) {
+        try {
+            const passwordNueva = document.getElementById('password_nueva').value;
+            const passwordConfirmar = document.getElementById('password_confirmar').value;
+            
+            // Validaciones
+            if (!passwordNueva || !passwordConfirmar) {
+                throw new Error('Debes completar ambos campos');
+            }
+            
+            if (passwordNueva.length < 6) {
+                throw new Error('La contraseña debe tener al menos 6 caracteres');
+            }
+            
+            if (passwordNueva !== passwordConfirmar) {
+                throw new Error('Las contraseñas no coinciden');
+            }
+            
+            showLoading();
+            
+            // Llamar al endpoint de resetear contraseña
+            await API.put(`/usuarios/${usuarioId}/resetear-password?password_nueva=${encodeURIComponent(passwordNueva)}`, {});
+            
+            hideLoading();
+            hideModal();
+            
+            // Mostrar confirmación con la nueva contraseña
+            showModal('✅ Contraseña Cambiada', `
+                <div style="background: #d1fae5; padding: 1.5rem; border-radius: 4px; margin-bottom: 1rem;">
+                    <h3 style="margin-bottom: 1rem; color: #065f46;">
+                        ✅ Contraseña actualizada exitosamente
+                    </h3>
+                    
+                    <div style="background: white; padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
+                        <p style="margin-bottom: 0.5rem;"><strong>Usuario:</strong></p>
+                        <p style="margin: 0;">${nombreCompleto}</p>
+                    </div>
+                    
+                    <div style="background: white; padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
+                        <p style="margin-bottom: 0.5rem;"><strong>Nueva Contraseña:</strong></p>
+                        <code style="font-size: 1.1rem; background: #f3f4f6; padding: 0.5rem; display: block;">
+                            ${passwordNueva}
+                        </code>
+                    </div>
+                    
+                    <div style="background: #fef3c7; padding: 1rem; border-radius: 4px;">
+                        <strong>📝 Recuerda:</strong><br>
+                        Entrega esta contraseña al usuario de forma segura.
+                    </div>
+                </div>
+                
+                <button class="btn btn-primary btn-block" onclick="hideModal();">
+                    Aceptar
+                </button>
+            `);
+            
+        } catch (error) {
+            hideLoading();
+            showError('Error al cambiar contraseña: ' + error.message);
+        }
+    },
+    
     async activar(usuarioId) {
         if (!confirm('¿Activar este usuario?\n\nEl usuario podrá volver a iniciar sesión.')) {
             return;
@@ -309,5 +426,113 @@ const Usuarios = {
             hideLoading();
             showError('Error al desactivar usuario: ' + error.message);
         }
+    }
+};
+
+
+// ========================================
+// MODAL DE CAMBIO DE CONTRASEÑA (USUARIO MISMO)
+// ========================================
+
+const CambiarPasswordPropia = {
+    mostrar() {
+        const user = UserStorage.get();
+        if (!user) {
+            showError('No hay sesión activa');
+            return;
+        }
+        
+        showModal('🔑 Cambiar Mi Contraseña', `
+            <form id="formCambiarPasswordPropia">
+                <div style="background: #e0f2fe; padding: 1rem; border-radius: 4px; margin-bottom: 1.5rem;">
+                    <strong>Usuario:</strong> ${user.nombre_completo}<br>
+                    <strong>Username:</strong> <code>${user.username}</code>
+                </div>
+                
+                <div class="form-group">
+                    <label>Contraseña Actual *</label>
+                    <input type="password" id="password_actual" required 
+                           placeholder="Tu contraseña actual">
+                </div>
+                
+                <div class="form-group">
+                    <label>Nueva Contraseña *</label>
+                    <input type="password" id="password_nueva" required 
+                           minlength="6"
+                           placeholder="Mínimo 6 caracteres">
+                    <small class="form-text">
+                        La contraseña debe tener al menos 6 caracteres
+                    </small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Confirmar Nueva Contraseña *</label>
+                    <input type="password" id="password_confirmar" required 
+                           minlength="6"
+                           placeholder="Repite la nueva contraseña">
+                </div>
+                
+                <div style="background: #dbeafe; padding: 1rem; border-radius: 4px; margin: 1rem 0;">
+                    <strong>💡 Recomendaciones:</strong><br>
+                    • Usa una combinación de letras, números y símbolos<br>
+                    • No uses contraseñas fáciles de adivinar<br>
+                    • No compartas tu contraseña con nadie
+                </div>
+                
+                <div style="display: flex; gap: 0.5rem;">
+                    <button type="button" class="btn btn-secondary" onclick="hideModal()">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">
+                        🔑 Cambiar Contraseña
+                    </button>
+                </div>
+            </form>
+        `);
+        
+        document.getElementById('formCambiarPasswordPropia').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await this.cambiar();
+        });
+    },
+    
+    async cambiar() {
+    try {
+        const passwordActual = document.getElementById('password_actual').value;
+        const passwordNueva = document.getElementById('password_nueva').value;
+        const passwordConfirmar = document.getElementById('password_confirmar').value;
+        
+        // Validaciones
+        if (!passwordActual || !passwordNueva || !passwordConfirmar) {
+            throw new Error('Debes completar todos los campos');
+        }
+        
+        if (passwordNueva.length < 6) {
+            throw new Error('La nueva contraseña debe tener al menos 6 caracteres');
+        }
+        
+        if (passwordNueva !== passwordConfirmar) {
+            throw new Error('Las contraseñas nuevas no coinciden');
+        }
+        
+        if (passwordActual === passwordNueva) {
+            throw new Error('La nueva contraseña debe ser diferente a la actual');
+        }
+        
+        showLoading();
+        
+        // ✅ CAMBIO IMPORTANTE: usar query parameters
+        const url = `/usuarios/me/cambiar-password?password_actual=${encodeURIComponent(passwordActual)}&password_nueva=${encodeURIComponent(passwordNueva)}`;
+        await API.put(url, {});
+        
+        hideLoading();
+        hideModal();
+        
+        showSuccess('✅ Contraseña cambiada exitosamente');
+        
+    } catch (error) {
+        hideLoading();
+        showError('Error al cambiar contraseña: ' + error.message);
+    }
     }
 };

@@ -1,0 +1,360 @@
+/* ========================================
+   🎨 MENÚ DE USUARIO ELEGANTE
+   Archivo: user-menu.css
+======================================== */
+
+/* ================================
+   CONTENEDOR DEL MENÚ DE USUARIO
+================================ */
+.nav-user {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    position: relative;
+}
+
+/* Info del usuario inline (nombre + rol) */
+.user-info-inline {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.user-name {
+    color: #1f2937;
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.user-name::before {
+    content: '👤 ';
+    margin-right: 0.25rem;
+}
+
+/* Badge del rol */
+#userRole {
+    padding: 0.35rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* ================================
+   BOTÓN DEL MENÚ (HAMBURGUESA)
+================================ */
+.user-menu-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+    position: relative;
+}
+
+.user-menu-btn svg {
+    color: white;
+    transition: transform 0.3s ease;
+}
+
+.user-menu-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.user-menu-btn:active {
+    transform: translateY(0);
+}
+
+/* Animación cuando el menú está abierto */
+.user-menu-btn.active svg {
+    transform: rotate(90deg);
+}
+
+/* ================================
+   MENÚ DESPLEGABLE
+================================ */
+.user-dropdown {
+    position: absolute;
+    top: calc(100% + 0.75rem);
+    right: 0;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    min-width: 280px;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1000;
+    overflow: hidden;
+}
+
+/* Flecha del dropdown */
+.user-dropdown::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    right: 20px;
+    width: 16px;
+    height: 16px;
+    background: white;
+    transform: rotate(45deg);
+    box-shadow: -3px -3px 8px rgba(0, 0, 0, 0.05);
+}
+
+.user-dropdown.show {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+/* ================================
+   HEADER DEL DROPDOWN
+================================ */
+.dropdown-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.25rem 1.5rem;
+    background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.user-avatar {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 4px 8px rgba(59, 130, 246, 0.2);
+}
+
+.user-avatar svg {
+    color: white;
+}
+
+.user-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.user-details strong {
+    display: block;
+    color: #1f2937;
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.user-details small {
+    display: block;
+    color: #6b7280;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ================================
+   ITEMS DEL MENÚ
+================================ */
+.dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    width: 100%;
+    padding: 0.875rem 1.5rem;
+    background: none;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: #374151;
+    font-size: 0.95rem;
+    font-weight: 500;
+}
+
+.dropdown-item svg {
+    flex-shrink: 0;
+    color: #6b7280;
+    transition: all 0.2s ease;
+}
+
+.dropdown-item:hover {
+    background: #f3f4f6;
+    color: #1f2937;
+}
+
+.dropdown-item:hover svg {
+    color: #3b82f6;
+    transform: scale(1.1);
+}
+
+/* Item especial de logout */
+.dropdown-item.logout-item {
+    color: #ef4444;
+}
+
+.dropdown-item.logout-item svg {
+    color: #ef4444;
+}
+
+.dropdown-item.logout-item:hover {
+    background: #fef2f2;
+}
+
+.dropdown-item.logout-item:hover svg {
+    color: #dc2626;
+}
+
+/* ================================
+   DIVISORES
+================================ */
+.dropdown-divider {
+    height: 1px;
+    background: #e5e7eb;
+    margin: 0.5rem 0;
+}
+
+/* ================================
+   ANIMACIONES
+================================ */
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.user-dropdown.show {
+    animation: slideDown 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ================================
+   RESPONSIVE
+================================ */
+@media (max-width: 768px) {
+    .user-info-inline {
+        display: none;
+    }
+    
+    .user-dropdown {
+        right: -10px;
+        min-width: 260px;
+    }
+    
+    .dropdown-header {
+        padding: 1rem 1.25rem;
+    }
+    
+    .user-avatar {
+        width: 42px;
+        height: 42px;
+    }
+}
+
+@media (max-width: 480px) {
+    .user-dropdown {
+        position: fixed;
+        top: auto;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        border-radius: 16px 16px 0 0;
+        max-width: 100%;
+        min-width: 100%;
+    }
+    
+    .user-dropdown::before {
+        display: none;
+    }
+}
+
+/* ================================
+   OVERLAY PARA CERRAR AL HACER CLIC FUERA
+================================ */
+.menu-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: transparent;
+    z-index: 999;
+    display: none;
+}
+
+.menu-overlay.active {
+    display: block;
+}
+
+/* ================================
+   ESTADOS ADICIONALES
+================================ */
+.user-menu-btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+}
+
+.dropdown-item:focus {
+    outline: none;
+    background: #f3f4f6;
+}
+
+/* ================================
+   TEMA OSCURO (OPCIONAL)
+================================ */
+@media (prefers-color-scheme: dark) {
+    .user-dropdown {
+        background: #1f2937;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    }
+    
+    .user-dropdown::before {
+        background: #1f2937;
+    }
+    
+    .dropdown-header {
+        background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
+        border-bottom-color: #374151;
+    }
+    
+    .user-details strong {
+        color: #f9fafb;
+    }
+    
+    .user-details small {
+        color: #9ca3af;
+    }
+    
+    .dropdown-item {
+        color: #d1d5db;
+    }
+    
+    .dropdown-item:hover {
+        background: #374151;
+        color: #f9fafb;
+    }
+    
+    .dropdown-divider {
+        background: #374151;
+    }
+}

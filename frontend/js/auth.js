@@ -1,4 +1,7 @@
-// Módulo de Autenticación
+// Módulo de Autenticación - VERSIÓN CORREGIDA
+// ✅ Actualiza el menú según el rol del usuario
+// ✅ Redirige correctamente después del login
+
 const Auth = {
     async login(username, password) {
         try {
@@ -33,12 +36,42 @@ const Auth = {
         
         const user = UserStorage.get();
         if (user) {
+            // ✅ Actualizar información del usuario en el header
             document.getElementById('userName').textContent = user.nombre_completo;
             document.getElementById('userRole').textContent = user.rol;
+            
+            // ✅ ACTUALIZAR MENÚ SEGÚN ROL
+            this.actualizarMenuSegunRol(user.rol);
+            
+            // ✅ REDIRIGIR AL DASHBOARD SIEMPRE DESPUÉS DEL LOGIN
+            App.showView('dashboard');
+        }
+    },
+    
+    // ✅ NUEVA FUNCIÓN: Actualizar menú según rol del usuario
+    actualizarMenuSegunRol(rol) {
+        const menuUsuarios = document.querySelector('[data-view="usuarios"]');
+        
+        if (!menuUsuarios) {
+            console.warn('⚠️ Elemento del menú "usuarios" no encontrado');
+            return;
         }
         
-        // Cargar dashboard por defecto
-        Dashboard.load();
+        const liUsuarios = menuUsuarios.closest('li');
+        
+        if (rol === 'SUPERADMIN') {
+            // SUPERADMIN puede ver todo
+            if (liUsuarios) {
+                liUsuarios.style.display = '';
+            }
+            console.log('✅ Menú de Usuarios VISIBLE para SUPERADMIN');
+        } else {
+            // ADMIN no puede ver "Usuarios del Sistema"
+            if (liUsuarios) {
+                liUsuarios.style.display = 'none';
+            }
+            console.log('🚫 Menú de Usuarios OCULTO para ADMIN');
+        }
     },
     
     checkAuth() {
@@ -47,6 +80,20 @@ const Auth = {
         } else {
             this.showLoginScreen();
         }
+    },
+    
+    // ✅ NUEVA FUNCIÓN: Verificar si el usuario tiene permiso para una vista
+    tienePermisoParaVista(viewName) {
+        const user = UserStorage.get();
+        if (!user) return false;
+        
+        // Solo SUPERADMIN puede acceder a "usuarios"
+        if (viewName === 'usuarios' && user.rol !== 'SUPERADMIN') {
+            return false;
+        }
+        
+        // Todas las demás vistas están disponibles para todos
+        return true;
     }
 };
 
