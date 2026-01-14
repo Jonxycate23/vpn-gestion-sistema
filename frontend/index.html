@@ -4,9 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Gestión VPN - PNC</title>
+    
+    <!-- ✅ CSS ORIGINALES -->
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/dashboard-elegant.css">
     <link rel="stylesheet" href="css/user-menu.css">
+    
+    <!-- ✅ NUEVOS CSS - MEJORAS VISUALES -->
+    <link rel="stylesheet" href="css/toast-notifications.css">
+    <link rel="stylesheet" href="css/modal-improvements.css">
+    <link rel="stylesheet" href="css/dashboard-colored-circles.css">
 </head>
 <body>
     <!-- Loading Overlay -->
@@ -44,14 +51,13 @@
                 <h2>Sistema VPN - DOSI</h2>
             </div>
             
-            <!-- ✅ NUEVO MENÚ DE USUARIO MEJORADO -->
+            <!-- Menú de Usuario -->
             <div class="nav-user">
                 <div class="user-info-inline">
                     <span id="userName" class="user-name"></span>
                     <span class="badge" id="userRole"></span>
                 </div>
                 
-                <!-- Botón del menú con icono de hamburguesa -->
                 <button id="btnUserMenu" class="user-menu-btn" aria-label="Menú de usuario">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="3" y1="12" x2="21" y2="12"></line>
@@ -60,7 +66,6 @@
                     </svg>
                 </button>
                 
-                <!-- Menú desplegable -->
                 <div id="userDropdown" class="user-dropdown">
                     <div class="dropdown-header">
                         <div class="user-avatar">
@@ -112,11 +117,10 @@
         <!-- Main Content -->
         <main class="content">
             <!-- Dashboard View -->
-           <div id="dashboardView" class="view active">
-                <!-- Alertas y contenido dinámico se cargan aquí -->
+            <div id="dashboardView" class="view active">
                 <div id="alertasContainer"></div>
                 
-                <!-- Las stats-grid y tabla vieja se ocultan porque ahora están en alertasContainer -->
+                <!-- Stats grid oculto (ahora se usa el nuevo diseño) -->
                 <div class="stats-grid" style="display: none;">
                     <div class="stat-card stat-success">
                         <div class="stat-icon">✅</div>
@@ -181,7 +185,6 @@
                     <button id="btnNuevaSolicitud" class="btn btn-primary">➕ INGRESAR</button>
                 </div>
 
-                <!-- Solicitudes Table -->
                 <div class="card">
                     <table class="table" id="tablaSolicitudes">
                         <thead>
@@ -212,7 +215,7 @@
                 </div>
             </div>
 
-            <!-- Agregar después de accesosView -->
+            <!-- Usuarios View -->
             <div id="usuariosView" class="view">
                 <div style="text-align: center; padding: 2rem;">
                     <p>Cargando...</p>
@@ -225,7 +228,7 @@
     <!-- Modal Container -->
     <div id="modalContainer"></div>
 
-    <!-- Scripts -->
+    <!-- ✅ SCRIPTS ORIGINALES -->
     <script src="js/config.js"></script>
     <script src="js/api.js"></script>
     <script src="js/auth.js"></script>
@@ -237,7 +240,12 @@
     <script src="js/usuarios.js"></script>
     <script src="js/cambiar-password.js"></script>
     <script src="js/user-menu.js"></script>
+    
+    <!-- ✅ NUEVOS SCRIPTS - MEJORAS VISUALES -->
+    <script src="js/toast-notifications.js"></script>
+    <script src="js/modal-improvements.js"></script>
 
+    <!-- Modal HTML -->
     <div id="modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">

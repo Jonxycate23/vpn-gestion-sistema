@@ -1,0 +1,347 @@
+/* 🎨 CORRECCIÓN DE COLORES - HACER TODO MÁS CLARO
+   📂 Ubicación: frontend/css/color-fixes.css
+   ✅ Reemplaza colores oscuros por tonos más claros y modernos
+*/
+
+/* ================================
+   MODAL - COLORES CLAROS
+================================ */
+.modal {
+    background: rgba(0, 0, 0, 0.4) !important; /* Más transparente */
+    backdrop-filter: blur(8px);
+}
+
+.modal-content {
+    background: #ffffff !important; /* Blanco puro */
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15) !important;
+}
+
+.modal-header {
+    background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%) !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+}
+
+.modal-header h2 {
+    color: #1e293b !important;
+}
+
+.modal-body {
+    background: #ffffff !important;
+    color: #334155 !important;
+}
+
+/* Inputs dentro del modal - más claros */
+.modal-body input,
+.modal-body select,
+.modal-body textarea {
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #1e293b !important;
+}
+
+.modal-body input:focus,
+.modal-body select:focus,
+.modal-body textarea:focus {
+    background: #ffffff !important;
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
+}
+
+/* Labels más legibles */
+.modal-body label {
+    color: #475569 !important;
+    font-weight: 600 !important;
+}
+
+.modal-body .form-text {
+    color: #64748b !important;
+}
+
+/* ================================
+   DASHBOARD CARDS - MÁS CLAROS
+================================ */
+
+/* Cards de cartas por año */
+.carta-card {
+    background: #ffffff !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06) !important;
+}
+
+.carta-label {
+    color: #475569 !important;
+}
+
+/* Cards de estados */
+.estado-card {
+    background: #ffffff !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06) !important;
+}
+
+.estado-label {
+    color: #64748b !important;
+}
+
+/* ================================
+   TABLA - HEADER MÁS CLARO
+================================ */
+.tabla-section {
+    background: #ffffff !important;
+}
+
+.tabla-header {
+    background: #f8fafc !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+}
+
+.tabla-header h3 {
+    color: #1e293b !important;
+}
+
+.tabla-datos thead th {
+    background: #f1f5f9 !important;
+    color: #475569 !important;
+}
+
+/* ================================
+   ALERTAS - COLORES SUAVES
+================================ */
+.modal-body .alert {
+    background: #f8fafc !important;
+}
+
+.modal-body .alert-info {
+    background: #eff6ff !important;
+    border-left-color: #3b82f6 !important;
+    color: #1e40af !important;
+}
+
+.modal-body .alert-warning {
+    background: #fffbeb !important;
+    border-left-color: #f59e0b !important;
+    color: #92400e !important;
+}
+
+.modal-body .alert-success {
+    background: #f0fdf4 !important;
+    border-left-color: #10b981 !important;
+    color: #065f46 !important;
+}
+
+.modal-body .alert-error {
+    background: #fef2f2 !important;
+    border-left-color: #ef4444 !important;
+    color: #991b1b !important;
+}
+
+/* ================================
+   BOTONES - MÁS VIBRANTES
+================================ */
+.btn-primary {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3) !important;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+    box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4) !important;
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3) !important;
+}
+
+.btn-warning {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3) !important;
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3) !important;
+}
+
+.btn-outline {
+    background: #ffffff !important;
+    border: 2px solid #e2e8f0 !important;
+    color: #475569 !important;
+}
+
+.btn-outline:hover {
+    background: #f8fafc !important;
+    border-color: #3b82f6 !important;
+    color: #3b82f6 !important;
+}
+
+/* ================================
+   CARDS EN GENERAL
+================================ */
+.card {
+    background: #ffffff !important;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05) !important;
+}
+
+.card-header {
+    background: #f8fafc !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+}
+
+.card-header h3 {
+    color: #1e293b !important;
+}
+
+/* ================================
+   VISTA GENERAL - FONDO
+================================ */
+.content {
+    background: #f8fafc !important;
+}
+
+.view {
+    background: transparent !important;
+}
+
+/* ================================
+   NAVEGACIÓN SUPERIOR
+================================ */
+.top-nav {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%) !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05) !important;
+}
+
+.nav-brand h2 {
+    color: #1e293b !important;
+}
+
+/* ================================
+   SIDEBAR
+================================ */
+.sidebar {
+    background: #ffffff !important;
+    border-right: 1px solid #e2e8f0 !important;
+}
+
+.menu-item {
+    color: #475569 !important;
+}
+
+.menu-item:hover,
+.menu-item.active {
+    background: #f1f5f9 !important;
+    color: #3b82f6 !important;
+}
+
+/* ================================
+   INPUTS EN GENERAL
+================================ */
+input,
+select,
+textarea {
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #1e293b !important;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    background: #ffffff !important;
+    border-color: #3b82f6 !important;
+}
+
+/* ================================
+   TABLAS
+================================ */
+.table {
+    background: #ffffff !important;
+}
+
+.table thead {
+    background: #f1f5f9 !important;
+}
+
+.table th {
+    color: #475569 !important;
+    background: #f1f5f9 !important;
+}
+
+.table td {
+    color: #334155 !important;
+}
+
+.table tbody tr:hover {
+    background: #f8fafc !important;
+}
+
+/* ================================
+   SCROLLBAR - MÁS CLARO
+================================ */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* ================================
+   ESTADOS - BADGES
+================================ */
+.status-badge {
+    font-weight: 600 !important;
+}
+
+.status-activo {
+    background: #d1fae5 !important;
+    color: #065f46 !important;
+}
+
+.status-por-vencer {
+    background: #fef3c7 !important;
+    color: #92400e !important;
+}
+
+.status-vencido {
+    background: #fee2e2 !important;
+    color: #991b1b !important;
+}
+
+.status-bloqueado {
+    background: #dbeafe !important;
+    color: #1e40af !important;
+}
+
+/* ================================
+   LOADING OVERLAY - MÁS CLARO
+================================ */
+.loading-overlay {
+    background: rgba(255, 255, 255, 0.9) !important;
+}
+
+.spinner {
+    border-color: #e2e8f0 !important;
+    border-top-color: #3b82f6 !important;
+}
+
+/* ================================
+   LOGIN SCREEN
+================================ */
+.login-screen {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+}
+
+.login-container {
+    background: #ffffff !important;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2) !important;
+}

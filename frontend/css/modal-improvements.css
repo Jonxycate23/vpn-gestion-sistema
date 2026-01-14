@@ -1,0 +1,354 @@
+/* 🎨 MODALES MEJORADOS - NO SE CIERRAN AL HACER CLIC AFUERA
+   📂 Ubicación: frontend/css/modal-improvements.css
+   ✅ Sobreescribe estilos de modales existentes
+*/
+
+/* ================================
+   OVERLAY DEL MODAL
+================================ */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.3s ease;
+}
+
+.modal.active {
+    display: flex;
+}
+
+/* ================================
+   CONTENEDOR DEL MODAL
+================================ */
+.modal-content {
+    background: white;
+    border-radius: 16px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 85vh;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+}
+
+/* Tamaño grande para modales con mucho contenido */
+.modal-content.large {
+    max-width: 900px;
+}
+
+/* ================================
+   HEADER DEL MODAL
+================================ */
+.modal-header {
+    padding: 1.75rem 2rem;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(135deg, #f9fafb 0%, #ffffff 100%);
+    flex-shrink: 0;
+}
+
+.modal-header h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0;
+    color: #1f2937;
+}
+
+/* ================================
+   BOTÓN DE CERRAR
+================================ */
+.modal-close {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(239, 68, 68, 0.1);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.75rem;
+    color: #ef4444;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.modal-close:hover {
+    background: rgba(239, 68, 68, 0.2);
+    transform: rotate(90deg) scale(1.1);
+}
+
+/* ================================
+   BODY DEL MODAL
+================================ */
+.modal-body {
+    padding: 2rem;
+    overflow-y: auto;
+    flex: 1;
+}
+
+/* Scrollbar personalizado para el modal */
+.modal-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+.modal-body::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* ================================
+   FOOTER DEL MODAL (OPCIONAL)
+================================ */
+.modal-footer {
+    padding: 1.5rem 2rem;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    background: #f9fafb;
+    flex-shrink: 0;
+}
+
+/* ================================
+   ANIMACIONES
+================================ */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Animación de salida */
+.modal.closing {
+    animation: fadeOut 0.3s ease forwards;
+}
+
+.modal.closing .modal-content {
+    animation: slideDown 0.3s ease forwards;
+}
+
+@keyframes fadeOut {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
+}
+
+@keyframes slideDown {
+    from {
+        transform: translateY(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateY(50px);
+        opacity: 0;
+    }
+}
+
+/* ================================
+   FORMULARIOS DENTRO DEL MODAL
+================================ */
+.modal-body .form-group {
+    margin-bottom: 1.5rem;
+}
+
+.modal-body .form-group:last-child {
+    margin-bottom: 0;
+}
+
+.modal-body label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: #374151;
+    font-size: 0.95rem;
+}
+
+.modal-body input,
+.modal-body select,
+.modal-body textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+}
+
+.modal-body input:focus,
+.modal-body select:focus,
+.modal-body textarea:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.modal-body .form-text {
+    display: block;
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: #6b7280;
+}
+
+/* ================================
+   ALERTAS DENTRO DEL MODAL
+================================ */
+.modal-body .alert {
+    padding: 1rem 1.25rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    border-left: 4px solid;
+    background: #f9fafb;
+}
+
+.modal-body .alert-info {
+    border-left-color: #3b82f6;
+    background: #eff6ff;
+    color: #1e40af;
+}
+
+.modal-body .alert-warning {
+    border-left-color: #f59e0b;
+    background: #fffbeb;
+    color: #92400e;
+}
+
+.modal-body .alert-success {
+    border-left-color: #10b981;
+    background: #f0fdf4;
+    color: #065f46;
+}
+
+.modal-body .alert-error {
+    border-left-color: #ef4444;
+    background: #fef2f2;
+    color: #991b1b;
+}
+
+/* ================================
+   BOTONES DENTRO DEL MODAL
+================================ */
+.modal-body .btn,
+.modal-footer .btn {
+    padding: 0.75rem 1.5rem;
+    font-weight: 600;
+    font-size: 0.95rem;
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+
+.modal-body .btn-block {
+    width: 100%;
+}
+
+/* ================================
+   RESPONSIVE
+================================ */
+@media (max-width: 768px) {
+    .modal-content {
+        width: 95%;
+        max-height: 90vh;
+    }
+    
+    .modal-header {
+        padding: 1.25rem 1.5rem;
+    }
+    
+    .modal-header h2 {
+        font-size: 1.25rem;
+    }
+    
+    .modal-body {
+        padding: 1.5rem;
+    }
+    
+    .modal-footer {
+        padding: 1.25rem 1.5rem;
+        flex-direction: column;
+    }
+    
+    .modal-footer .btn {
+        width: 100%;
+    }
+}
+
+/* ================================
+   MODO OSCURO (OPCIONAL)
+================================ */
+@media (prefers-color-scheme: dark) {
+    .modal {
+        background: rgba(0, 0, 0, 0.8);
+    }
+    
+    .modal-content {
+        background: #1f2937;
+    }
+    
+    .modal-header {
+        background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
+        border-bottom-color: #374151;
+    }
+    
+    .modal-header h2 {
+        color: #f9fafb;
+    }
+    
+    .modal-body {
+        color: #e5e7eb;
+    }
+    
+    .modal-body label {
+        color: #d1d5db;
+    }
+    
+    .modal-body input,
+    .modal-body select,
+    .modal-body textarea {
+        background: #374151;
+        border-color: #4b5563;
+        color: #f9fafb;
+    }
+    
+    .modal-footer {
+        background: #374151;
+        border-top-color: #4b5563;
+    }
+}
