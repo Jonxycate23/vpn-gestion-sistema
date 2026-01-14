@@ -1,7 +1,7 @@
 """
-Endpoints de Dashboard MEJORADO - Con Historial de Cartas - VERSIÓN CORREGIDA
+Endpoints de Dashboard MEJORADO - VERSIÓN CORREGIDA
 📍 Ubicación: backend/app/api/endpoints/dashboard.py
-✅ CORREGIDO: Ordenar SOLO por días restantes (sin agrupar por tipo)
+✅ CORREGIDO: Ahora cuenta correctamente las cartas por año desde cartas_responsabilidad
 """
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -96,7 +96,7 @@ async def obtener_accesos_actuales(
 
 
 # ========================================
-# ✅ NUEVO ENDPOINT: ALERTAS INTELIGENTES
+# ✅ CORREGIDO: ALERTAS INTELIGENTES CON CONTEO DE CARTAS CORRECTO
 # ========================================
 
 @router.get("/alertas-vencimientos-inteligentes")
@@ -105,21 +105,45 @@ async def obtener_alertas_inteligentes(
     db: Session = Depends(get_db)
 ):
     """
-    ✅ CORREGIDO: Muestra TODAS las alertas ordenadas SOLO por días restantes
-    
-    Muestra el historial completo de cartas de cada persona y permite
-    decidir si se debe bloquear o no basándose en el contexto completo.
+    ✅ CORREGIDO: Cuenta correctamente las cartas por año desde la tabla cartas_responsabilidad
     """
     hoy = date.today()
     
-    # Obtener TODOS los accesos para análisis completo
+    # ========================================
+    # ✅ CONTAR CARTAS POR AÑO DESDE cartas_responsabilidad
+    # ========================================
+    cartas_2026 = db.query(CartaResponsabilidad).filter(
+        CartaResponsabilidad.anio_carta == 2026
+    ).count()
+    
+    cartas_2025 = db.query(CartaResponsabilidad).filter(
+        CartaResponsabilidad.anio_carta == 2025
+    ).count()
+    
+    cartas_2024 = db.query(CartaResponsabilidad).filter(
+        CartaResponsabilidad.anio_carta == 2024
+    ).count()
+    
+    cartas_2023 = db.query(CartaResponsabilidad).filter(
+        CartaResponsabilidad.anio_carta == 2023
+    ).count()
+    
+    print(f"📊 Cartas por año:")
+    print(f"   2026: {cartas_2026} cartas")
+    print(f"   2025: {cartas_2025} cartas")
+    print(f"   2024: {cartas_2024} cartas")
+    print(f"   2023: {cartas_2023} cartas")
+    
+    # ========================================
+    # OBTENER TODOS LOS ACCESOS PARA ANÁLISIS
+    # ========================================
     accesos_criticos = db.query(AccesoVPN).join(
         SolicitudVPN
     ).join(
         Persona
     ).all()
     
-    # Agrupar por persona para evitar duplicados y detectar todas sus cartas
+    # Agrupar por persona para evitar duplicados
     personas_procesadas = {}
     
     for acceso in accesos_criticos:
@@ -128,25 +152,22 @@ async def obtener_alertas_inteligentes(
         
         # Si ya procesamos esta persona, solo actualizar si este acceso es más crítico
         if persona_id in personas_procesadas:
-            # Comparar días restantes y actualizar si este es más crítico
             dias_actual = (acceso.fecha_fin_con_gracia - hoy).days
             dias_guardado = personas_procesadas[persona_id]['dias_restantes_acceso_actual']
             
-            # Si este acceso está más próximo a vencer, actualizamos el acceso principal
             if dias_actual < dias_guardado:
                 personas_procesadas[persona_id]['acceso_id'] = acceso.id
                 personas_procesadas[persona_id]['fecha_vencimiento_acceso_actual'] = acceso.fecha_fin_con_gracia
                 personas_procesadas[persona_id]['dias_restantes_acceso_actual'] = dias_actual
                 
-                # Actualizar estado de bloqueo del acceso más crítico
                 ultimo_bloqueo = db.query(BloqueoVPN).filter(
                     BloqueoVPN.acceso_vpn_id == acceso.id
                 ).order_by(BloqueoVPN.fecha_cambio.desc()).first()
                 personas_procesadas[persona_id]['estado_bloqueo'] = ultimo_bloqueo.estado if ultimo_bloqueo else "DESBLOQUEADO"
             
-            continue  # Ya procesamos esta persona, siguiente
+            continue
         
-        # CLAVE: Obtener TODAS las cartas de esta persona
+        # Obtener TODAS las cartas de esta persona
         todas_las_cartas = db.query(CartaResponsabilidad).join(
             SolicitudVPN
         ).filter(
@@ -157,6 +178,7 @@ async def obtener_alertas_inteligentes(
         cartas_info = []
         tiene_carta_vigente = False
         carta_mas_reciente = None
+        anio_carta_actual = None
         
         for carta in todas_las_cartas:
             acceso_carta = db.query(AccesoVPN).filter(
@@ -166,13 +188,13 @@ async def obtener_alertas_inteligentes(
             if acceso_carta:
                 dias_rest = (acceso_carta.fecha_fin_con_gracia - hoy).days
                 
-                # Criterios de estado
                 estado_carta = "VENCIDA"
                 if dias_rest > 30:
                     estado_carta = "ACTIVA"
                     tiene_carta_vigente = True
                     if carta_mas_reciente is None or carta.fecha_generacion > carta_mas_reciente:
                         carta_mas_reciente = carta.fecha_generacion
+                        anio_carta_actual = carta.anio_carta  # ✅ Guardar el año de la carta actual
                 elif dias_rest > 0:
                     estado_carta = "POR_VENCER"
                 
@@ -183,10 +205,11 @@ async def obtener_alertas_inteligentes(
                     "fecha_vencimiento": acceso_carta.fecha_fin_con_gracia,
                     "dias_restantes": dias_rest,
                     "estado": estado_carta,
-                    "acceso_id": acceso_carta.id
+                    "acceso_id": acceso_carta.id,
+                    "anio_carta": carta.anio_carta  # ✅ Incluir año de la carta
                 })
         
-        # Obtener estado de bloqueo del acceso más crítico
+        # Obtener estado de bloqueo
         ultimo_bloqueo = db.query(BloqueoVPN).filter(
             BloqueoVPN.acceso_vpn_id == acceso.id
         ).order_by(BloqueoVPN.fecha_cambio.desc()).first()
@@ -196,24 +219,22 @@ async def obtener_alertas_inteligentes(
         # Determinar tipo de alerta
         dias_restantes = (acceso.fecha_fin_con_gracia - hoy).days
         
-        # Clasificación simple y clara
         if tiene_carta_vigente:
-            tipo_alerta = "CON_RENOVACION"  # Tiene otra carta activa
+            tipo_alerta = "CON_RENOVACION"
             prioridad = 1
         elif dias_restantes <= 0:
-            tipo_alerta = "VENCIDO_SIN_RENOVACION"  # Crítico
+            tipo_alerta = "VENCIDO_SIN_RENOVACION"
             prioridad = 5
         elif dias_restantes <= 7:
-            tipo_alerta = "POR_VENCER_URGENTE"  # Muy urgente
+            tipo_alerta = "POR_VENCER_URGENTE"
             prioridad = 4
         elif dias_restantes <= 30:
-            tipo_alerta = "POR_VENCER"  # Urgente
+            tipo_alerta = "POR_VENCER"
             prioridad = 3
         else:
-            tipo_alerta = "INFORMATIVA"  # Solo informativa
+            tipo_alerta = "INFORMATIVA"
             prioridad = 2
         
-        # Guardar en el diccionario de personas procesadas
         personas_procesadas[persona_id] = {
             "persona_id": persona.id,
             "nip": persona.nip,
@@ -230,20 +251,32 @@ async def obtener_alertas_inteligentes(
             "historial_cartas": cartas_info,
             "tipo_alerta": tipo_alerta,
             "prioridad": prioridad,
-            "requiere_bloqueo": not tiene_carta_vigente and dias_restantes <= 0
+            "requiere_bloqueo": not tiene_carta_vigente and dias_restantes <= 0,
+            "anio_carta": anio_carta_actual  # ✅ Incluir el año de la carta más reciente
         }
     
-    # Convertir el diccionario a lista
     alertas = list(personas_procesadas.values())
-    
-    # ✅ CORREGIDO: Ordenar SOLO por días restantes (de más negativo a más positivo)
-    # Esto agrupa automáticamente: vencidos primero (-30, -29... -1, 0), luego vigentes (1, 2, 3... 30)
-    # El color azul ya diferencia los que tienen renovación
     alertas.sort(key=lambda x: x["dias_restantes_acceso_actual"])
+    
+    # ========================================
+    # ✅ CONTAR PENDIENTES (Solicitudes sin carta)
+    # ========================================
+    pendientes = db.query(SolicitudVPN).filter(
+        SolicitudVPN.estado == 'PENDIENTE'
+    ).count()
+    
+    print(f"📊 Solicitudes pendientes: {pendientes}")
     
     return {
         "total_alertas": len(alertas),
         "alertas": alertas,
+        "cartas_por_anio": {  # ✅ NUEVO: Enviar conteo de cartas
+            "2026": cartas_2026,
+            "2025": cartas_2025,
+            "2024": cartas_2024,
+            "2023": cartas_2023
+        },
+        "pendientes_sin_carta": pendientes,  # ✅ NUEVO: Enviar pendientes
         "resumen": {
             "vencidos_sin_renovacion": sum(1 for a in alertas if a["tipo_alerta"] == "VENCIDO_SIN_RENOVACION"),
             "por_vencer_urgente": sum(1 for a in alertas if a["tipo_alerta"] == "POR_VENCER_URGENTE"),

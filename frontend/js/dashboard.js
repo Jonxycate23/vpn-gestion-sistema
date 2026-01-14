@@ -1,16 +1,14 @@
-// 📊 Dashboard MEJORADO con Historial de Cartas - VERSIÓN CORREGIDA
+// 📊 Dashboard Estilo Asperos Geek - VERSIÓN CORREGIDA
 // 📍 Ubicación: frontend/js/dashboard.js
-// ✅ CORREGIDO: Previene flechitas duplicadas + Filtra usuarios entre -30 y +30 días
+// ✅ CORREGIDO: Ahora muestra correctamente las cartas por año y pendientes
 
-const Dashboard = {
-    // ✅ PREVENIR INICIALIZACIONES MÚLTIPLES
+const DashboardAsperos = {
     _initialized: false,
     _cleanupExecuted: false,
     
     async load() {
-        console.log('🔄 Cargando Dashboard Inteligente...');
+        console.log('🚀 Cargando Dashboard Asperos Style...');
         
-        // ✅ LIMPIEZA DE INDICADORES DUPLICADOS (SOLO UNA VEZ)
         if (!this._cleanupExecuted) {
             this.limpiarIndicadoresDuplicados();
             this._cleanupExecuted = true;
@@ -20,31 +18,31 @@ const Dashboard = {
         await this.loadAlertasInteligentes();
     },
     
-    // ✅ NUEVA FUNCIÓN: Limpiar flechitas duplicadas
     limpiarIndicadoresDuplicados() {
-        console.log('🧹 Limpiando indicadores de ordenamiento duplicados...');
-        
         const todasLasTablas = document.querySelectorAll('table');
+        let totalLimpiados = 0;
+        
         todasLasTablas.forEach(tabla => {
             const headers = tabla.querySelectorAll('thead th');
             headers.forEach(header => {
                 const indicators = header.querySelectorAll('.sort-indicator');
-                
-                // Si hay más de 1 indicador, eliminar todos excepto el último
                 if (indicators.length > 1) {
-                    console.log(`⚠️ Encontradas ${indicators.length} flechitas en una columna. Limpiando...`);
-                    for (let i = 0; i < indicators.length - 1; i++) {
-                        indicators[i].remove();
-                    }
+                    indicators.forEach(ind => ind.remove());
+                    totalLimpiados += indicators.length;
                 }
             });
         });
+        
+        if (totalLimpiados > 0) {
+            console.log(`✅ Limpiados ${totalLimpiados} indicadores duplicados`);
+        }
     },
     
     async loadStats() {
         try {
             const data = await API.get('/dashboard/vencimientos');
             
+            // Actualizar las 4 estadísticas principales
             document.getElementById('statActivos').textContent = data.activos || 0;
             document.getElementById('statPorVencer').textContent = data.por_vencer || 0;
             document.getElementById('statVencidos').textContent = data.vencidos || 0;
@@ -60,6 +58,8 @@ const Dashboard = {
         try {
             const data = await API.get('/dashboard/alertas-vencimientos-inteligentes');
             
+            console.log('📊 Datos recibidos del backend:', data);
+            
             let alertContainer = document.getElementById('alertasContainer');
             if (!alertContainer) {
                 alertContainer = document.createElement('div');
@@ -73,206 +73,283 @@ const Dashboard = {
             
             alertContainer.innerHTML = '';
             
-            // ✅ FILTRAR: Solo mostrar usuarios entre -30 y +30 días
+            // Filtrar: Solo usuarios entre -30 y +30 días
             const alertasFiltradas = data.alertas.filter(alerta => {
                 const diasRestantes = alerta.dias_restantes_acceso_actual;
                 return diasRestantes >= -30 && diasRestantes <= 30;
             });
             
-            console.log(`📊 Total alertas: ${data.alertas.length} | Filtradas (-30 a +30): ${alertasFiltradas.length}`);
+            // ✅ OBTENER CARTAS POR AÑO DESDE EL BACKEND
+            const cartas2026 = data.cartas_por_anio['2026'] || 0;
+            const cartas2025 = data.cartas_por_anio['2025'] || 0;
+            const cartas2024 = data.cartas_por_anio['2024'] || 0;
+            const cartas2023 = data.cartas_por_anio['2023'] || 0;
             
-            if (alertasFiltradas.length === 0) {
-                alertContainer.innerHTML = `
-                    <div class="card" style="background: #d1fae5; border: 1px solid #10b981;">
-                        <div class="card-body">
-                            <h3 style="color: #065f46; text-align: center;">
-                                ✅ No hay usuarios por revisar en el rango de -30 a +30 días
-                            </h3>
+            // ✅ OBTENER PENDIENTES DESDE EL BACKEND
+            const pendientes = data.pendientes_sin_carta || 0;
+            
+            console.log(`📊 Cartas por año:`);
+            console.log(`   2026: ${cartas2026} cartas`);
+            console.log(`   2025: ${cartas2025} cartas`);
+            console.log(`   2024: ${cartas2024} cartas`);
+            console.log(`   2023: ${cartas2023} cartas`);
+            console.log(`   Pendientes: ${pendientes} solicitudes sin carta`);
+            
+            // Contar TODOS los usuarios (no solo los filtrados)
+            const todosUsuariosActivos = data.alertas.filter(a => 
+                a.estado_bloqueo !== 'BLOQUEADO' && a.dias_restantes_acceso_actual > 0
+            ).length;
+            
+            const todosUsuariosVencidos = data.alertas.filter(a => 
+                a.dias_restantes_acceso_actual <= 0 && a.estado_bloqueo !== 'BLOQUEADO'
+            ).length;
+            
+            const todosUsuariosBloqueados = data.alertas.filter(a => 
+                a.estado_bloqueo === 'BLOQUEADO'
+            ).length;
+            
+            const todosUsuariosCancelados = data.alertas.filter(a => 
+                a.tipo_alerta === 'VENCIDO_SIN_RENOVACION'
+            ).length;
+            
+            // ========================================
+            // 🎨 DISEÑO ESTILO ASPEROS GEEK
+            // ========================================
+            const dashboardHTML = `
+                <div class="dashboard-asperos">
+                    <!-- Header Principal -->
+                    <div class="dashboard-header-main">
+                        <h1>📊 DASHBOARD</h1>
+                        <p>SISTEMA | ${new Date().getFullYear()}</p>
+                    </div>
+
+                    <!-- Grid de Cards de Cartas -->
+                    <div class="cartas-grid">
+                        <!-- CARTAS 2026 -->
+                        <div class="carta-card cartas-2026">
+                            <div class="carta-label">CARTAS 2026</div>
+                            <div class="progress-circle">
+                                <svg width="120" height="120">
+                                    <circle class="circle-bg" cx="60" cy="60" r="45"></circle>
+                                </svg>
+                                <div class="progress-value">${cartas2026}</div>
+                            </div>
+                        </div>
+
+                        <!-- CARTAS 2025 -->
+                        <div class="carta-card cartas-2025">
+                            <div class="carta-label">CARTAS 2025</div>
+                            <div class="progress-circle">
+                                <svg width="120" height="120">
+                                    <circle class="circle-bg" cx="60" cy="60" r="45"></circle>
+                                </svg>
+                                <div class="progress-value">${cartas2025}</div>
+                            </div>
+                        </div>
+
+                        <!-- CARTAS 2024 -->
+                        <div class="carta-card cartas-2024">
+                            <div class="carta-label">CARTAS 2024</div>
+                            <div class="progress-circle">
+                                <svg width="120" height="120">
+                                    <circle class="circle-bg" cx="60" cy="60" r="45"></circle>
+                                </svg>
+                                <div class="progress-value">${cartas2024}</div>
+                            </div>
+                        </div>
+
+                        <!-- PENDIENTES POR CREAR -->
+                        <div class="carta-card pendientes">
+                            <div class="carta-label">PENDIENTES POR CREAR</div>
+                            <div class="progress-circle">
+                                <svg width="120" height="120">
+                                    <circle class="circle-bg" cx="60" cy="60" r="45"></circle>
+                                </svg>
+                                <div class="progress-value">${pendientes}</div>
+                            </div>
                         </div>
                     </div>
-                `;
-                return;
-            }
-            
-            // Separar por tipo para el resumen (usando alertas filtradas)
-            const vencidosSinRenovacion = alertasFiltradas.filter(a => a.tipo_alerta === 'VENCIDO_SIN_RENOVACION');
-            const porVencerUrgente = alertasFiltradas.filter(a => a.tipo_alerta === 'POR_VENCER_URGENTE');
-            const porVencer = alertasFiltradas.filter(a => a.tipo_alerta === 'POR_VENCER');
-            const conRenovacion = alertasFiltradas.filter(a => a.tipo_alerta === 'CON_RENOVACION');
-            
-            // ========================================
-            // RESUMEN EJECUTIVO
-            // ========================================
-            const cardResumen = document.createElement('div');
-            cardResumen.className = 'card';
-            cardResumen.style.marginBottom = '1rem';
-            
-            cardResumen.innerHTML = `
-                <div class="card-body">
-                    <h3 style="margin-bottom: 1rem;">📊 Resumen de Alertas (${alertasFiltradas.length} usuarios entre -30 y +30 días)</h3>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-                        <div style="background: #fee2e2; padding: 1rem; border-radius: 4px; border-left: 4px solid #dc2626;">
-                            <div style="font-size: 0.9rem; color: #666;">🚨 Vencidos sin renovación</div>
-                            <div style="font-size: 2rem; font-weight: bold; color: #dc2626;">${vencidosSinRenovacion.length}</div>
+
+                    <!-- Grid de Estados de Usuarios -->
+                    <div class="estados-grid">
+                        <!-- USUARIOS ACTIVOS -->
+                        <div class="estado-card activos">
+                            <div class="estado-label">USUARIOS ACTIVOS</div>
+                            <div class="estado-icon">✅</div>
+                            <div class="estado-value">${todosUsuariosActivos}</div>
                         </div>
-                        <div style="background: #fed7aa; padding: 1rem; border-radius: 4px; border-left: 4px solid #ea580c;">
-                            <div style="font-size: 0.9rem; color: #666;">⚠️ Por vencer (≤7 días)</div>
-                            <div style="font-size: 2rem; font-weight: bold; color: #ea580c;">${porVencerUrgente.length}</div>
+
+                        <!-- USUARIOS VENCIDOS -->
+                        <div class="estado-card vencidos">
+                            <div class="estado-label">USUARIOS VENCIDOS</div>
+                            <div class="estado-icon">🔴</div>
+                            <div class="estado-value">${todosUsuariosVencidos}</div>
                         </div>
-                        <div style="background: #fef3c7; padding: 1rem; border-radius: 4px; border-left: 4px solid #f59e0b;">
-                            <div style="font-size: 0.9rem; color: #666;">⏰ Por vencer (≤30 días)</div>
-                            <div style="font-size: 2rem; font-weight: bold; color: #f59e0b;">${porVencer.length}</div>
+
+                        <!-- USUARIOS BLOQUEADOS -->
+                        <div class="estado-card bloqueados">
+                            <div class="estado-label">USUARIOS BLOQUEADOS</div>
+                            <div class="estado-icon">🚫</div>
+                            <div class="estado-value">${todosUsuariosBloqueados}</div>
                         </div>
-                        <div style="background: #dbeafe; padding: 1rem; border-radius: 4px; border-left: 4px solid #3b82f6;">
-                            <div style="font-size: 0.9rem; color: #666;">✅ Con renovación</div>
-                            <div style="font-size: 2rem; font-weight: bold; color: #3b82f6;">${conRenovacion.length}</div>
+
+                        <!-- CANCELADOS -->
+                        <div class="estado-card cancelados">
+                            <div class="estado-label">CANCELADOS</div>
+                            <div class="estado-icon">⚠️</div>
+                            <div class="estado-value">${todosUsuariosCancelados}</div>
                         </div>
+                    </div>
+
+                    <!-- Tabla de Datos -->
+                    <div class="tabla-section">
+                        <div class="tabla-header">
+                            <h3>📋 Usuarios por Revisar (${alertasFiltradas.length})</h3>
+                            <div class="tabla-actions">
+                                <div class="search-box">
+                                    <input type="text" id="searchDashboard" 
+                                           placeholder="Buscar por NIP o nombre...">
+                                </div>
+                                <button class="btn-refresh-table" onclick="DashboardAsperos.load()">
+                                    🔄 Actualizar
+                                </button>
+                            </div>
+                        </div>
+                        <div id="tablaTodasAlertas"></div>
                     </div>
                 </div>
             `;
-            alertContainer.appendChild(cardResumen);
             
-            // ========================================
-            // TABLA ÚNICA CON TODAS LAS ALERTAS FILTRADAS
-            // ========================================
-            const cardTabla = document.createElement('div');
-            cardTabla.className = 'card';
+            alertContainer.innerHTML = dashboardHTML;
             
-            cardTabla.innerHTML = `
-                <div class="card-header">
-                    <h3>📋 Usuarios por Revisar (entre -30 días vencidos y +30 días vigentes)</h3>
-                </div>
-                <div class="card-body">
-                    <div id="tablaTodasAlertas"></div>
-                </div>
-            `;
-            alertContainer.appendChild(cardTabla);
-            
-            // ✅ Renderizar con alertas filtradas
+            // Renderizar tabla
             this.renderizarTablaCompleta('tablaTodasAlertas', alertasFiltradas);
+            
+            // Implementar búsqueda
+            this.implementarBusqueda(alertasFiltradas);
             
         } catch (error) {
             console.error('❌ Error loading alertas:', error);
         }
     },
     
+    implementarBusqueda(alertasOriginales) {
+        const searchInput = document.getElementById('searchDashboard');
+        if (!searchInput) return;
+        
+        searchInput.addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase();
+            
+            if (!term) {
+                this.renderizarTablaCompleta('tablaTodasAlertas', alertasOriginales);
+                return;
+            }
+            
+            const alertasFiltradas = alertasOriginales.filter(alerta => {
+                const nip = (alerta.nip || '').toLowerCase();
+                const nombre = `${alerta.nombres} ${alerta.apellidos}`.toLowerCase();
+                return nip.includes(term) || nombre.includes(term);
+            });
+            
+            this.renderizarTablaCompleta('tablaTodasAlertas', alertasFiltradas);
+        });
+    },
+
     renderizarTablaCompleta(containerId, alertas) {
         const container = document.getElementById(containerId);
         if (!container) return;
         
+        if (alertas.length === 0) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 3rem; color: #6b7280;">
+                    <div style="font-size: 4rem; margin-bottom: 1rem;">🔍</div>
+                    <h3 style="color: #1f2937;">No se encontraron resultados</h3>
+                    <p>Intenta con otro filtro o búsqueda</p>
+                </div>
+            `;
+            return;
+        }
+        
         const html = `
-            <div class="table-wrapper" style="max-height: 600px; overflow-y: auto;">
-                <table class="table" style="font-size: 0.9rem;" id="tablaDashboardAlertas">
+            <div class="tabla-wrapper">
+                <table class="tabla-datos">
                     <thead>
                         <tr>
-                            <th data-sort="prioridad">Prioridad</th>
-                            <th data-sort="nip">NIP</th>
-                            <th data-sort="nombre">Nombre</th>
-                            <th data-sort="total_cartas">Total Cartas</th>
-                            <th data-sort="renovo">¿Renovó?</th>
-                            <th data-sort="dias">Días Rest.</th>
-                            <th data-sort="estado">Estado</th>
-                            <th data-sort="bloqueo">Bloqueo</th>
-                            <th data-sortable="false">Acciones</th>
+                            <th>NIP</th>
+                            <th>Nombre Completo</th>
+                            <th>Institución</th>
+                            <th style="text-align: center;">Cartas</th>
+                            <th style="text-align: center;">¿Renovó?</th>
+                            <th style="text-align: center;">Días Restantes</th>
+                            <th>Estado</th>
+                            <th>Bloqueo</th>
+                            <th style="text-align: center;">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${alertas.map(alerta => {
-                            // Determinar color de fondo según prioridad
-                            let bgColor = '';
-                            let prioridadIcon = '';
-                            let prioridadText = '';
-                            
-                            switch(alerta.tipo_alerta) {
-                                case 'VENCIDO_SIN_RENOVACION':
-                                    bgColor = '#fee2e2';
-                                    prioridadIcon = '🚨';
-                                    prioridadText = 'CRÍTICO';
-                                    break;
-                                case 'POR_VENCER_URGENTE':
-                                    bgColor = '#fed7aa';
-                                    prioridadIcon = '⚠️';
-                                    prioridadText = 'URGENTE';
-                                    break;
-                                case 'POR_VENCER':
-                                    bgColor = '#fef3c7';
-                                    prioridadIcon = '⏰';
-                                    prioridadText = 'IMPORTANTE';
-                                    break;
-                                case 'CON_RENOVACION':
-                                    bgColor = '#dbeafe';
-                                    prioridadIcon = '✅';
-                                    prioridadText = 'RENOVADO';
-                                    break;
-                                default:
-                                    bgColor = '#f3f4f6';
-                                    prioridadIcon = 'ℹ️';
-                                    prioridadText = 'INFO';
-                            }
-                            
-                            return `
-                                <tr style="background: ${bgColor};">
-                                    <td>
-                                        <span style="font-weight: bold;">${prioridadIcon} ${prioridadText}</span>
-                                    </td>
-                                    <td><strong>${alerta.nip || 'N/A'}</strong></td>
-                                    <td>${alerta.nombres} ${alerta.apellidos}</td>
-                                    <td style="text-align: center;">
-                                        <button class="btn btn-sm btn-outline" 
-                                                onclick="Dashboard.verHistorialCartas(${alerta.persona_id})"
-                                                title="Ver historial completo">
-                                            📄 ${alerta.total_cartas}
+                        ${alertas.map(alerta => `
+                            <tr>
+                                <td><strong>${alerta.nip || 'N/A'}</strong></td>
+                                <td>${alerta.nombres} ${alerta.apellidos}</td>
+                                <td>${alerta.institucion || 'Sin institución'}</td>
+                                <td style="text-align: center;">
+                                    <button class="btn-action primary" 
+                                            onclick="DashboardAsperos.verHistorialCartas(${alerta.persona_id})"
+                                            title="Ver historial">
+                                        📄 ${alerta.total_cartas}
+                                    </button>
+                                </td>
+                                <td style="text-align: center;">
+                                    ${alerta.tiene_carta_vigente ? 
+                                        '<span style="font-size: 1.5rem; color: #10b981;">✅</span>' : 
+                                        '<span style="font-size: 1.5rem; color: #ef4444;">❌</span>'}
+                                </td>
+                                <td style="text-align: center;">
+                                    <strong style="font-size: 1.25rem; color: ${
+                                        alerta.dias_restantes_acceso_actual <= 0 ? '#ef4444' :
+                                        alerta.dias_restantes_acceso_actual <= 7 ? '#f59e0b' : '#10b981'
+                                    };">
+                                        ${alerta.dias_restantes_acceso_actual}
+                                    </strong>
+                                </td>
+                                <td>
+                                    ${alerta.dias_restantes_acceso_actual <= 0 ? 
+                                        '<span class="badge vencido">VENCIDO</span>' :
+                                      alerta.dias_restantes_acceso_actual <= 7 ? 
+                                        '<span class="badge pendiente">POR VENCER</span>' :
+                                        '<span class="badge activo">VIGENTE</span>'}
+                                </td>
+                                <td>
+                                    ${alerta.estado_bloqueo === 'BLOQUEADO' ? 
+                                        '<span class="badge bloqueado">BLOQUEADO</span>' :
+                                        '<span class="badge activo">ACTIVO</span>'}
+                                </td>
+                                <td style="text-align: center;">
+                                    ${alerta.requiere_bloqueo && alerta.estado_bloqueo !== 'BLOQUEADO' ? `
+                                        <button class="btn-action danger" 
+                                                onclick="DashboardAsperos.bloquearDesdeAlerta(${alerta.acceso_id}, '${alerta.nombres} ${alerta.apellidos}')"
+                                                title="Bloquear">
+                                            🚫
                                         </button>
-                                    </td>
-                                    <td style="text-align: center;">
-                                        ${alerta.tiene_carta_vigente ? 
-                                            '<span style="color: #10b981; font-size: 1.5rem;" title="Tiene otra carta vigente">✅</span>' : 
-                                            '<span style="color: #ef4444; font-size: 1.5rem;" title="NO tiene carta vigente">❌</span>'}
-                                    </td>
-                                    <td>
-                                        <span style="font-weight: bold; color: ${
-                                            alerta.dias_restantes_acceso_actual <= 0 ? '#dc2626' :
-                                            alerta.dias_restantes_acceso_actual <= 7 ? '#ea580c' : '#059669'
-                                        };">
-                                            ${alerta.dias_restantes_acceso_actual} días
-                                        </span>
-                                    </td>
-                                    <td>
-                                        ${alerta.dias_restantes_acceso_actual <= 0 ? '<span class="status-badge status-vencido">VENCIDO</span>' :
-                                          alerta.dias_restantes_acceso_actual <= 7 ? '<span class="status-badge status-por-vencer">POR VENCER</span>' :
-                                          '<span class="status-badge status-activo">VIGENTE</span>'}
-                                    </td>
-                                    <td>${getStatusBadge(alerta.estado_bloqueo)}</td>
-                                    <td style="white-space: nowrap;">
-                                        ${alerta.requiere_bloqueo && alerta.estado_bloqueo !== 'BLOQUEADO' ? `
-                                            <button class="btn btn-sm btn-danger" 
-                                                    onclick="Dashboard.bloquearDesdeAlerta(${alerta.acceso_id}, '${alerta.nombres} ${alerta.apellidos}')"
-                                                    title="Bloquear ahora">
-                                                🚫
-                                            </button>
-                                        ` : ''}
-                                        
-                                        <button class="btn btn-sm btn-outline" 
-                                                onclick="Accesos.verDetalles(${alerta.acceso_id})"
-                                                title="Ver detalles">
-                                            👁️
-                                        </button>
-                                    </td>
-                                </tr>
-                            `;
-                        }).join('')}
+                                    ` : ''}
+                                    <button class="btn-action primary" 
+                                            onclick="Accesos.verDetalles(${alerta.acceso_id})"
+                                            title="Ver detalles">
+                                        👁️
+                                    </button>
+                                </td>
+                            </tr>
+                        `).join('')}
                     </tbody>
                 </table>
             </div>
         `;
         
         container.innerHTML = html;
-        
-        // ✅ PREVENIR INICIALIZACIÓN MÚLTIPLE DEL ORDENAMIENTO
-        // NO llamar a IntegratedTableSystem aquí si ya se inicializó globalmente
-        console.log('✅ Tabla de alertas renderizada (sin reinicializar ordenamiento)');
+        console.log(`✅ Tabla renderizada con ${alertas.length} registros`);
     },
     
+    // ✅ FUNCIÓN PARA VER HISTORIAL DE CARTAS
     async verHistorialCartas(personaId) {
         try {
             showLoading();
@@ -366,6 +443,7 @@ const Dashboard = {
         }
     },
     
+    // ✅ FUNCIÓN PARA BLOQUEAR DESDE ALERTA
     async bloquearDesdeAlerta(accesoId, nombrePersona) {
         if (!confirm(`🚫 ¿Bloquear acceso de ${nombrePersona}?\n\nEsta persona NO tiene carta vigente.`)) {
             return;
@@ -383,7 +461,7 @@ const Dashboard = {
             });
             hideLoading();
             showSuccess('Acceso bloqueado exitosamente');
-            await this.load(); // Recargar dashboard
+            await this.load();
         } catch (error) {
             hideLoading();
             showError('Error al bloquear: ' + error.message);
@@ -391,12 +469,15 @@ const Dashboard = {
     }
 };
 
+// Compatibilidad con el sistema actual
+window.Dashboard = DashboardAsperos;
+
 // Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
     const refreshBtn = document.getElementById('refreshDashboard');
     if (refreshBtn) {
         refreshBtn.addEventListener('click', () => {
-            Dashboard.load();
+            DashboardAsperos.load();
         });
     }
 });

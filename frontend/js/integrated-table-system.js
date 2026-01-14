@@ -188,35 +188,43 @@ const IntegratedTableSystem = {
     /**
      * Inicializar headers ordenables
      */
-    initSortableHeaders(tableId) {
-        const table = document.getElementById(tableId);
-        if (!table) return;
-        
-        const headers = table.querySelectorAll('thead th');
-        headers.forEach((header, index) => {
-            const sortable = header.dataset.sortable !== 'false';
-            const columnName = header.dataset.sort || `col${index}`;
+        initSortableHeaders(tableId) {
+            const table = document.getElementById(tableId);
+            if (!table) return;
             
-            if (sortable && columnName !== 'actions') {
-                header.style.cursor = 'pointer';
-                header.style.userSelect = 'none';
-                header.dataset.sort = columnName;
+            const headers = table.querySelectorAll('thead th');
+            headers.forEach((header, index) => {
+                const sortable = header.dataset.sortable !== 'false';
+                const columnName = header.dataset.sort || `col${index}`;
                 
-                // Agregar indicador
-                const indicator = document.createElement('span');
-                indicator.className = 'sort-indicator';
-                indicator.innerHTML = '⇅';
-                indicator.style.marginLeft = '0.5rem';
-                indicator.style.opacity = '0.3';
-                header.appendChild(indicator);
-                
-                // Click para ordenar
-                header.addEventListener('click', () => {
-                    this.toggleSort(tableId, columnName);
-                });
-            }
-        });
-    },
+                if (sortable && columnName !== 'actions') {
+                    // ✅ LIMPIAR FLECHITAS ANTERIORES (CRÍTICO)
+                    const oldIndicators = header.querySelectorAll('.sort-indicator');
+                    oldIndicators.forEach(ind => ind.remove());
+                    
+                    header.style.cursor = 'pointer';
+                    header.style.userSelect = 'none';
+                    header.dataset.sort = columnName;
+                    
+                    // Agregar indicador NUEVO
+                    const indicator = document.createElement('span');
+                    indicator.className = 'sort-indicator';
+                    indicator.innerHTML = '⇅';
+                    indicator.style.marginLeft = '0.5rem';
+                    indicator.style.opacity = '0.3';
+                    header.appendChild(indicator);
+                    
+                    // ✅ REMOVER LISTENERS ANTERIORES (evitar duplicados)
+                    const newHeader = header.cloneNode(true);
+                    header.parentNode.replaceChild(newHeader, header);
+                    
+                    // Agregar nuevo listener
+                    newHeader.addEventListener('click', () => {
+                        this.toggleSort(tableId, columnName);
+                    });
+                }
+            });
+        },
     
     /**
      * Toggle ordenamiento
@@ -585,87 +593,111 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 2000);
 });
 
-function initIntegratedTables() {
-    console.log('🔥 Inicializando sistema integrado...');
-    
-    // Solicitudes
-    if (document.getElementById('solicitudesTable')) {
-        console.log('📄 Configurando tabla de solicitudes');
+    // 🔒 Control de inicialización
+    const tablesInitialized = {
+        solicitudesTable: false,
+        accesosTable: false,
+        tablaDashboardAlertas: false
+    };
+
+
+    function initIntegratedTables() {
+        console.log('🔥 Inicializando sistema integrado...');
         
-        // Agregar atributos data-sort a los headers
-        const solHeaders = document.querySelectorAll('#solicitudesTable thead th');
-        const solColumns = ['id', 'nip', 'oficio', 'providencia', 'fecha', 'nombre', 'estado', 'actions'];
-        solHeaders.forEach((th, i) => {
-            th.dataset.sort = solColumns[i];
-            if (solColumns[i] === 'actions') {
-                th.dataset.sortable = 'false';
+        // Solicitudes
+        if (document.getElementById('solicitudesTable')) {
+            // ✅ SOLO INICIALIZAR SI NO ESTÁ INICIALIZADO
+            if (!tablesInitialized.solicitudesTable) {
+                console.log('📄 Configurando tabla de solicitudes');
+                
+                const solHeaders = document.querySelectorAll('#solicitudesTable thead th');
+                const solColumns = ['id', 'nip', 'oficio', 'providencia', 'fecha', 'nombre', 'estado', 'actions'];
+                solHeaders.forEach((th, i) => {
+                    th.dataset.sort = solColumns[i];
+                    if (solColumns[i] === 'actions') {
+                        th.dataset.sortable = 'false';
+                    }
+                });
+                
+                IntegratedTableSystem.init('solicitudesTable', {
+                    itemsPerPage: 100,
+                    searchable: true,
+                    sortable: true,
+                    defaultSort: { column: 'id', order: 'desc' },
+                    searchPlaceholder: 'Buscar por nombre, DPI, NIP, oficio, providencia...',
+                    filters: [
+                        {
+                            id: 'estado',
+                            label: 'Todos los estados',
+                            columnIndex: 6,
+                            options: [
+                                { value: 'APROBADA', label: '✅ Aprobadas' },
+                                { value: 'RECHAZADA', label: '❌ Rechazadas' },
+                                { value: 'CANCELADA', label: '🚫 Canceladas' }
+                            ]
+                        }
+                    ]
+                });
+                
+                tablesInitialized.solicitudesTable = true;
+                console.log('✅ Tabla solicitudesTable inicializada');
+            } else {
+                console.log('⏭️ Tabla solicitudesTable ya estaba inicializada, saltando...');
+                IntegratedTableSystem.refresh('solicitudesTable');
             }
-        });
+        }
         
-        IntegratedTableSystem.init('solicitudesTable', {
-            itemsPerPage: 100,
-            searchable: true,
-            sortable: true,
-            defaultSort: { column: 'id', order: 'desc' },
-            searchPlaceholder: 'Buscar por nombre, DPI, NIP, oficio, providencia...',
-            filters: [
-                {
-                    id: 'estado',
-                    label: 'Todos los estados',
-                    columnIndex: 6,
-                    options: [
-                        { value: 'APROBADA', label: '✅ Aprobadas' },
-                        { value: 'RECHAZADA', label: '❌ Rechazadas' },
-                        { value: 'CANCELADA', label: '🚫 Canceladas' }
+        // Accesos
+        if (document.getElementById('accesosTable')) {
+            if (!tablesInitialized.accesosTable) {
+                console.log('🔑 Configurando tabla de accesos');
+                
+                const accHeaders = document.querySelectorAll('#accesosTable thead th');
+                const accColumns = ['nip', 'nombre', 'usuario', 'fecha_inicio', 'fecha_fin', 'estado', 'dias', 'bloqueo', 'actions'];
+                accHeaders.forEach((th, i) => {
+                    th.dataset.sort = accColumns[i];
+                    if (accColumns[i] === 'actions') {
+                        th.dataset.sortable = 'false';
+                    }
+                });
+                
+                IntegratedTableSystem.init('accesosTable', {
+                    itemsPerPage: 100,
+                    searchable: true,
+                    sortable: true,
+                    defaultSort: { column: 'dias', order: 'asc' },
+                    searchPlaceholder: 'Buscar por nombre, DPI, NIP, usuario VPN...',
+                    filters: [
+                        {
+                            id: 'estado',
+                            label: 'Todos los estados',
+                            columnIndex: 5,
+                            options: [
+                                { value: 'ACTIVO', label: '✅ Activos' },
+                                { value: 'POR_VENCER', label: '⚠️ Por vencer' },
+                                { value: 'VENCIDO', label: '❌ Vencidos' }
+                            ]
+                        },
+                        {
+                            id: 'bloqueo',
+                            label: 'Todos',
+                            columnIndex: 7,
+                            options: [
+                                { value: 'DESBLOQUEADO', label: '🔓 Desbloqueados' },
+                                { value: 'BLOQUEADO', label: '🔒 Bloqueados' }
+                            ]
+                        }
                     ]
-                }
-            ]
-        });
-    }
-    
-    // Accesos
-    if (document.getElementById('accesosTable')) {
-        console.log('🔑 Configurando tabla de accesos');
-        
-        const accHeaders = document.querySelectorAll('#accesosTable thead th');
-        const accColumns = ['nip', 'nombre', 'usuario', 'fecha_inicio', 'fecha_fin', 'estado', 'dias', 'bloqueo', 'actions'];
-        accHeaders.forEach((th, i) => {
-            th.dataset.sort = accColumns[i];
-            if (accColumns[i] === 'actions') {
-                th.dataset.sortable = 'false';
+                });
+                
+                tablesInitialized.accesosTable = true;
+                console.log('✅ Tabla accesosTable inicializada');
+            } else {
+                console.log('⏭️ Tabla accesosTable ya estaba inicializada, saltando...');
+                IntegratedTableSystem.refresh('accesosTable');
             }
-        });
-        
-        IntegratedTableSystem.init('accesosTable', {
-            itemsPerPage: 100,
-            searchable: true,
-            sortable: true,
-            defaultSort: { column: 'dias', order: 'asc' },
-            searchPlaceholder: 'Buscar por nombre, DPI, NIP, usuario VPN...',
-            filters: [
-                {
-                    id: 'estado',
-                    label: 'Todos los estados',
-                    columnIndex: 5,
-                    options: [
-                        { value: 'ACTIVO', label: '✅ Activos' },
-                        { value: 'POR_VENCER', label: '⚠️ Por vencer' },
-                        { value: 'VENCIDO', label: '❌ Vencidos' }
-                    ]
-                },
-                {
-                    id: 'bloqueo',
-                    label: 'Todos',
-                    columnIndex: 7,
-                    options: [
-                        { value: 'DESBLOQUEADO', label: '🔓 Desbloqueados' },
-                        { value: 'BLOQUEADO', label: '🔒 Bloqueados' }
-                    ]
-                }
-            ]
-        });
+        }
     }
-}
 
 // Modificar Solicitudes.load()
 if (typeof Solicitudes !== 'undefined') {

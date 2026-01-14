@@ -6,10 +6,17 @@ const Accesos = {
     ordenActual: 'prioridad',
     datosOriginales: [],
 
+
     async load() {
         console.log('Cargando Accesos...');
         this.verificarEstructuraTabla();
         await this.loadAccesos();
+        
+        // ✅ SOLO REFRESCAR SI YA ESTÁ INICIALIZADA
+        if (typeof tablesInitialized !== 'undefined' && tablesInitialized.accesosTable) {
+            console.log('🔄 Refrescando tabla de accesos...');
+            IntegratedTableSystem.refresh('accesosTable');
+        }
     },
     
     verificarEstructuraTabla() {

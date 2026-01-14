@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Gestión VPN - PNC</title>
     <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/dashboard-elegant.css">
+
 </head>
 <body>
     <!-- Loading Overlay -->
@@ -53,22 +55,20 @@
             <ul class="menu">
                 <li><a href="#" data-view="dashboard" class="menu-item active">📊 Dashboard</a></li>
                 <li><a href="#" data-view="solicitudes" class="menu-item">📄 Solicitudes VPN</a></li>
-                <li><a href="#" data-view="accesos" class="menu-item">🔑 Usuarios</a></li>
-                <li><a href="#" data-view="usuarios" class="menu-item">👥 User Sistem</a></li>
+                <li><a href="#" data-view="accesos" class="menu-item">🔑 Usuarios VPN</a></li>
+                <li><a href="#" data-view="usuarios" class="menu-item">👥 User System</a></li>
             </ul>
         </aside>
 
         <!-- Main Content -->
         <main class="content">
             <!-- Dashboard View -->
-            <div id="dashboardView" class="view active">
-                <h1>📊 Dashboard de Vencimientos</h1>
-                
-                <!-- Alertas -->
+           <div id="dashboardView" class="view active">
+                <!-- Alertas y contenido dinámico se cargan aquí -->
                 <div id="alertasContainer"></div>
                 
-                <!-- Stats Cards -->
-                <div class="stats-grid">
+                <!-- Las stats-grid y tabla vieja se ocultan porque ahora están en alertasContainer -->
+                <div class="stats-grid" style="display: none;">
                     <div class="stat-card stat-success">
                         <div class="stat-icon">✅</div>
                         <div class="stat-content">
@@ -99,8 +99,8 @@
                     </div>
                 </div>
 
-                <!-- Próximos a Vencer -->
-                <div class="card">
+                <!-- Próximos a Vencer (OCULTO) -->
+                <div class="card" style="display: none;">
                     <div class="card-header">
                         <h3>⏰ Próximos a Vencer (30 días)</h3>
                         <button id="refreshDashboard" class="btn btn-sm">🔄 Actualizar</button>

@@ -16,7 +16,14 @@ const Solicitudes = {
         
         this.verificarEstructuraTabla();
         await this.listarSolicitudes();
+        
+        // ✅ SOLO REFRESCAR SI YA ESTÁ INICIALIZADA
+        if (typeof tablesInitialized !== 'undefined' && tablesInitialized.solicitudesTable) {
+            console.log('🔄 Refrescando tabla de solicitudes...');
+            IntegratedTableSystem.refresh('solicitudesTable');
+        }
     },
+
     
     async obtenerUsuarioActual() {
         try {
