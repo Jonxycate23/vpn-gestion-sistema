@@ -115,8 +115,3 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     }
 });
 
-document.getElementById('logoutBtn').addEventListener('click', () => {
-    if (confirm('¿Cerrar sesión?')) {
-        Auth.logout();
-    }
-});

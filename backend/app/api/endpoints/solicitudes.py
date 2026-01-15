@@ -1,13 +1,7 @@
-"""
-Endpoints de Solicitudes VPN - VERSIÓN CON AUTO-NUMERACIÓN DE CARTAS
-📍 Ubicación: backend/app/api/endpoints/solicitudes.py
-✅ Subdirección fija + Nombre usuario sistema + Usuario generado
-✅ AUTO-NUMERACIÓN: Genera número de carta automático según el año actual
-"""
 from fastapi import APIRouter, Depends, status, Request, Query, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import func  # ✅ AGREGADO para MAX()
+from sqlalchemy import func
 from typing import Optional
 from datetime import date, timedelta, datetime
 from app.core.database import get_db
@@ -30,19 +24,20 @@ from app.models import (
 )
 from app.utils.auditoria import AuditoriaService
 
-# Para generar PDF
+# Para generar PDF EN MEMORIA
 from reportlab.lib.pagesizes import legal
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT
+from io import BytesIO
 import os
 
 router = APIRouter()
 
 # ========================================
-# RUTAS DE IMÁGENES
+# RUTAS DE IMÁGENES (OPCIONAL)
 # ========================================
 IMAGEN_ENCABEZADO = r"C:\Users\HP\Desktop\VPN-PROJECT\vpn-gestion-sistema\vpn-gestion-sistema\frontend\imagenes\encabezado.png"
 IMAGEN_PIE = r"C:\Users\HP\Desktop\VPN-PROJECT\vpn-gestion-sistema\vpn-gestion-sistema\frontend\imagenes\FinPagina.png"
@@ -178,7 +173,7 @@ async def crear_solicitud(
                 status_code=400, 
                 detail=f"❌ YA EXISTE un registro con NIP {nip_persona} y Oficio {data['numero_oficio']} (Solicitud #{existe_nip_oficio.id})"
             )
-        
+    
     solicitud = SolicitudVPN(
         persona_id=data['persona_id'],
         numero_oficio=data.get('numero_oficio'),
@@ -306,31 +301,35 @@ async def obtener_solicitud(
 
 
 # ========================================
-# GENERAR PDF CON FORMATO OFICIAL PNC
+# ✅ GENERAR PDF EN MEMORIA (SIN GUARDAR)
 # ========================================
 
-def generar_carta_pdf_oficial(solicitud: SolicitudVPN, carta: CartaResponsabilidad, usuario_sistema: UsuarioSistema, db: Session):
+def generar_carta_pdf_en_memoria(
+    solicitud: SolicitudVPN, 
+    carta: CartaResponsabilidad, 
+    usuario_sistema: UsuarioSistema, 
+    db: Session
+) -> BytesIO:
     """
-    Genera PDF con formato OFICIAL PNC
-    ✅ Subdirección fija en primera celda
-    ✅ Nombre usuario sistema en firma
+    Genera PDF EN MEMORIA sin guardar en disco
+    ✅ Retorna un BytesIO que se puede enviar directamente al navegador
     """
     
-    output_dir = "/var/vpn_archivos/cartas"
-    os.makedirs(output_dir, exist_ok=True)
+    # Crear buffer en memoria
+    buffer = BytesIO()
     
     persona = solicitud.persona
-    filename = f"CARTA_{carta.id}_{persona.dpi}.pdf"
-    filepath = os.path.join(output_dir, filename)
     
+    # Crear PDF en el buffer
     doc = SimpleDocTemplate(
-        filepath, 
+        buffer,
         pagesize=legal,
-        topMargin=0.3*inch, 
+        topMargin=0.3*inch,
         bottomMargin=0.5*inch,
-        leftMargin=0.75*inch, 
+        leftMargin=0.75*inch,
         rightMargin=0.75*inch
     )
+    
     story = []
     styles = getSampleStyleSheet()
     
@@ -405,27 +404,20 @@ def generar_carta_pdf_oficial(solicitud: SolicitudVPN, carta: CartaResponsabilid
     
     story.append(Spacer(1, 0.12*inch))
     
-    # ===== TABLA DE DATOS =====
+    # Tabla de datos
     fecha_expiracion = carta.fecha_generacion + timedelta(days=365)
     
-    # ✅ Generar username
+    # Generar username
     nombres_split = persona.nombres.lower().split()
     apellidos_split = persona.apellidos.lower().split()
     username = f"{nombres_split[0]}.{apellidos_split[0]}" if nombres_split and apellidos_split else "usuario"
     
-    # ✅ CONSTRUIR TABLA
     tabla_datos = [
-        # Fila 1
         ['Responsable:', f"{persona.nombres} {persona.apellidos}", 'Usuario:', username],
-        # Fila 2
         ['DPI:', persona.dpi, 'Correo:', persona.email or ''],
-        # Fila 3
         ['NIP:', persona.nip or 'N/A', 'Teléfono:', persona.telefono or ''],
-        # Fila 4: ✅ SUBDIRECCIÓN FIJA (SIEMPRE LA MISMA)
         ['Subdirección General de Investigación Criminal SGIC', '', 'Fecha de Expiración:', fecha_expiracion.strftime("%d/%m/%Y")],
-        # Fila 5: ✅ DIPANDA (institución de la persona)
-        [persona.institucion, '', 'Privilegios de red:'],
-        # Fila 6: Vacío
+        [persona.institucion, '', 'Privilegios de red:', ''],
         ['', '', 'Escritorio Policial:', '172.21.68.154']
     ]
     
@@ -437,10 +429,9 @@ def generar_carta_pdf_oficial(solicitud: SolicitudVPN, carta: CartaResponsabilid
         ('FONTNAME', (2, 0), (2, -1), 'Helvetica-Bold'),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-        # Celdas que ocupan 2 espacios
-        ('SPAN', (0, 3), (1, 3)),  # Fila 4: Subdirección
-        ('SPAN', (0, 4), (1, 4)),  # Fila 5: Institución
-        ('SPAN', (0, 5), (1, 5)),  # Fila 6: Vacío
+        ('SPAN', (0, 3), (1, 3)),
+        ('SPAN', (0, 4), (1, 4)),
+        ('SPAN', (0, 5), (1, 5)),
     ]))
     story.append(t)
     story.append(Spacer(1, 0.12*inch))
@@ -466,11 +457,11 @@ def generar_carta_pdf_oficial(solicitud: SolicitudVPN, carta: CartaResponsabilid
     story.append(Paragraph(fecha_texto, body_style))
     story.append(Spacer(1, 0.40*inch))
     
-    # ✅ FIRMAS CON NOMBRE USUARIO SISTEMA
+    # Firmas
     firmas = [
         ['f. _________________________', 'f. _________________________'],
         ['Firmo y recibo conforme', 'Firmo y entrego DOSI/SGTIC'],
-        [f'{persona.nombres} {persona.apellidos}', usuario_sistema.nombre_completo]  # ✅ NOMBRE USUARIO LOGUEADO
+        [f'{persona.nombres} {persona.apellidos}', usuario_sistema.nombre_completo]
     ]
     
     t_firmas = Table(firmas, colWidths=[3.5*inch, 3.5*inch])
@@ -491,13 +482,18 @@ def generar_carta_pdf_oficial(solicitud: SolicitudVPN, carta: CartaResponsabilid
         except Exception as e:
             print(f"Error cargando pie: {e}")
     
-    # Construir PDF
+    # Construir PDF en memoria
     try:
         doc.build(story)
-        return filepath
+        buffer.seek(0)  # ✅ Volver al inicio del buffer
+        return buffer
     except Exception as e:
         raise Exception(f"Error construyendo PDF: {str(e)}")
 
+
+# ========================================
+# ✅ ENDPOINT: CREAR CARTA (SIN PDF)
+# ========================================
 
 @router.post("/{solicitud_id}/crear-carta", response_model=dict)
 async def crear_carta_responsabilidad(
@@ -507,8 +503,8 @@ async def crear_carta_responsabilidad(
     db: Session = Depends(get_db)
 ):
     """
-    Crear carta, generar PDF y crear acceso VPN
-    ✅ AUTO-NUMERACIÓN: Genera número de carta automático
+    Crear carta SIN generar PDF físico
+    ✅ El PDF se genera dinámicamente al descargarlo
     """
     ip_origen = get_client_ip(request)
     
@@ -526,46 +522,34 @@ async def crear_carta_responsabilidad(
     if carta_existente:
         raise HTTPException(status_code=400, detail="Ya existe carta")
     
-    # ========================================
-    # ✅ AUTO-NUMERACIÓN DE CARTAS
-    # ========================================
+    # Auto-numeración
     anio_actual = date.today().year
     
-    # Buscar el máximo numero_carta del año actual (excluyendo NULLs)
     resultado = db.query(
         func.max(CartaResponsabilidad.numero_carta)
     ).filter(
         CartaResponsabilidad.anio_carta == anio_actual,
-        CartaResponsabilidad.numero_carta.isnot(None)  # ✅ EXCLUIR NULLs
+        CartaResponsabilidad.numero_carta.isnot(None)
     ).scalar()
     
-    # Si existe, incrementar en 1; si no, empezar en 1
     proximo_numero = (resultado + 1) if resultado is not None else 1
     
     print(f"📊 AUTO-NUMERACIÓN:")
     print(f"   Año actual: {anio_actual}")
-    print(f"   Último número encontrado: {resultado if resultado is not None else 'N/A'}")
-    print(f"   Próximo número a asignar: {proximo_numero}")
-    print(f"   Carta generada: {proximo_numero}-{anio_actual}")
+    print(f"   Último número: {resultado if resultado is not None else 'N/A'}")
+    print(f"   Próximo número: {proximo_numero}")
     
-    # Crear carta con número automático
+    # Crear carta (SIN generar PDF)
     carta = CartaResponsabilidad(
         solicitud_id=solicitud_id,
         tipo='RESPONSABILIDAD',
         fecha_generacion=date.today(),
         generada_por_usuario_id=current_user.id,
-        numero_carta=proximo_numero,  # ✅ NÚMERO AUTOMÁTICO
-        anio_carta=anio_actual         # ✅ AÑO ACTUAL
+        numero_carta=proximo_numero,
+        anio_carta=anio_actual
     )
     db.add(carta)
     db.flush()
-    
-    # Generar PDF
-    try:
-        pdf_path = generar_carta_pdf_oficial(solicitud, carta, current_user, db)
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error generando PDF: {str(e)}")
     
     # Crear acceso VPN
     fecha_inicio = date.today()
@@ -586,6 +570,7 @@ async def crear_carta_responsabilidad(
     db.refresh(carta)
     db.refresh(acceso)
     
+    # Auditoría
     AuditoriaService.registrar_crear(
         db=db,
         usuario=current_user,
@@ -594,24 +579,26 @@ async def crear_carta_responsabilidad(
         detalle={
             "solicitud_id": solicitud_id,
             "acceso_id": acceso.id,
-            "pdf_generado": True,
-            "pdf_path": pdf_path,
-            "numero_carta": proximo_numero,  # ✅ REGISTRAR EN AUDITORÍA
-            "anio_carta": anio_actual
+            "numero_carta": proximo_numero,
+            "anio_carta": anio_actual,
+            "pdf_generado_dinamicamente": True
         },
         ip_origen=ip_origen
     )
     
     return {
         "success": True,
-        "message": f"Carta {proximo_numero}-{anio_actual} creada, PDF generado y acceso VPN activado",
+        "message": f"Carta {proximo_numero}-{anio_actual} creada. PDF disponible para descarga.",
         "carta_id": carta.id,
-        "numero_carta": proximo_numero,  # ✅ DEVOLVER AL FRONTEND
+        "numero_carta": proximo_numero,
         "anio_carta": anio_actual,
-        "acceso_id": acceso.id,
-        "pdf_path": pdf_path
+        "acceso_id": acceso.id
     }
 
+
+# ========================================
+# ✅ ENDPOINT: DESCARGAR PDF (GENERADO EN MEMORIA)
+# ========================================
 
 @router.get("/{solicitud_id}/descargar-carta")
 async def descargar_carta_pdf(
@@ -619,30 +606,45 @@ async def descargar_carta_pdf(
     current_user: UsuarioSistema = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Descargar PDF de la carta"""
+    """
+    Genera y descarga PDF EN MEMORIA
+    ✅ No guarda archivos en disco
+    """
+    # Obtener solicitud
     solicitud = db.query(SolicitudVPN).filter(SolicitudVPN.id == solicitud_id).first()
     if not solicitud:
         raise HTTPException(status_code=404, detail="Solicitud no encontrada")
     
+    # Obtener carta
     carta = db.query(CartaResponsabilidad).filter(
         CartaResponsabilidad.solicitud_id == solicitud_id
     ).first()
     
     if not carta:
-        raise HTTPException(status_code=404, detail="No existe carta")
+        raise HTTPException(status_code=404, detail="No existe carta para esta solicitud")
     
-    persona = solicitud.persona
-    filename = f"CARTA_{carta.id}_{persona.dpi}.pdf"
-    filepath = os.path.join("/var/vpn_archivos/cartas", filename)
-    
-    if not os.path.exists(filepath):
-        raise HTTPException(status_code=404, detail=f"Archivo PDF no encontrado: {filepath}")
-    
-    return FileResponse(
-        path=filepath,
-        filename=filename,
-        media_type='application/pdf'
-    )
+    # Generar PDF en memoria
+    try:
+        pdf_buffer = generar_carta_pdf_en_memoria(solicitud, carta, current_user, db)
+        
+        # Nombre del archivo
+        persona = solicitud.persona
+        filename = f"CARTA_{carta.numero_carta}-{carta.anio_carta}_{persona.dpi}.pdf"
+        
+        # Retornar como descarga
+        return StreamingResponse(
+            pdf_buffer,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}"
+            }
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error generando PDF: {str(e)}"
+        )
 
 
 # ========================================
