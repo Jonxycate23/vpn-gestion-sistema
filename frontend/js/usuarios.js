@@ -194,12 +194,7 @@ const Usuarios = {
                     </small>
                 </div>
                 
-                <div style="background: #fef3c7; padding: 1rem; border-radius: 4px; margin: 1rem 0;">
-                    <strong>ℹ️ Información importante:</strong><br>
-                    • El <strong>username</strong> se generará automáticamente<br>
-                    • La <strong>contraseña inicial</strong> será: <code>Usuario.2025!</code><br>
-                    • El usuario debe cambiarla en su primer login
-                </div>
+
                 
                 <button type="submit" class="btn btn-success btn-block">
                     ➕ Crear Usuario
