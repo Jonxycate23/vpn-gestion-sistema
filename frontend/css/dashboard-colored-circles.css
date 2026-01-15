@@ -63,22 +63,22 @@
 
 /* Cards de cartas por año */
 .carta-card {
-    background: #ffffff !important;
+    background: #ffffff28 !important;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06) !important;
 }
 
 .carta-label {
-    color: #475569 !important;
+    color: #000000 !important;
 }
 
 /* Cards de estados */
 .estado-card {
-    background: #ffffff !important;
+    background: #ffffff96 !important;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06) !important;
 }
 
 .estado-label {
-    color: #64748b !important;
+    color: #006aff !important;
 }
 
 /* ================================

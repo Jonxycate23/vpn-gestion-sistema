@@ -105,12 +105,12 @@ async def obtener_alertas_inteligentes(
     db: Session = Depends(get_db)
 ):
     """
-    ✅ CORREGIDO: Cuenta correctamente las cartas por año y cancelados
+    ✅ CORREGIDO: Contadores separados y precisos
     """
     hoy = date.today()
     
     # ========================================
-    # ✅ CONTAR CARTAS POR AÑO DESDE cartas_responsabilidad
+    # ✅ CONTAR CARTAS POR AÑO
     # ========================================
     cartas_2026 = db.query(CartaResponsabilidad).filter(
         CartaResponsabilidad.anio_carta == 2026
@@ -135,34 +135,22 @@ async def obtener_alertas_inteligentes(
     print(f"   2023: {cartas_2023} cartas")
     
     # ========================================
-    # ✅ CONTAR CANCELADOS 
+    # ✅ CONTAR CANCELADOS (SOLICITUDES)
     # ========================================
-    # IMPORTANTE: Ajusta esto según cómo identificas los cancelados en tu sistema
-    
-    # OPCIÓN 1: Si usas estado CANCELADO en SolicitudVPN
     cancelados = db.query(SolicitudVPN).filter(
-        SolicitudVPN.estado == 'CANCELADO'
+        SolicitudVPN.estado == 'CANCELADA'
     ).count()
     
-    # OPCIÓN 2: Si usas estado RECHAZADO
-    # cancelados = db.query(SolicitudVPN).filter(
-    #     SolicitudVPN.estado == 'RECHAZADO'
-    # ).count()
+    print(f"📊 Solicitudes Canceladas: {cancelados}")
     
-    # OPCIÓN 3: Si tienes un campo específico en AccesoVPN
-    # cancelados = db.query(AccesoVPN).filter(
-    #     AccesoVPN.estado_cancelacion == 'CANCELADO'
-    # ).count()
+    # ========================================
+    # ✅ CONTAR PENDIENTES (Solicitudes sin carta)
+    # ========================================
+    pendientes = db.query(SolicitudVPN).filter(
+        SolicitudVPN.estado == 'PENDIENTE'
+    ).count()
     
-    # OPCIÓN 4: Si es una combinación de condiciones
-    # cancelados = db.query(SolicitudVPN).filter(
-    #     and_(
-    #         SolicitudVPN.estado.in_(['RECHAZADO', 'CANCELADO']),
-    #         SolicitudVPN.activo == False
-    #     )
-    # ).count()
-    
-    print(f"📊 Usuarios cancelados: {cancelados}")
+    print(f"📊 Solicitudes Pendientes: {pendientes}")
     
     # ========================================
     # OBTENER TODOS LOS ACCESOS PARA ANÁLISIS
@@ -288,15 +276,6 @@ async def obtener_alertas_inteligentes(
     alertas = list(personas_procesadas.values())
     alertas.sort(key=lambda x: x["dias_restantes_acceso_actual"])
     
-    # ========================================
-    # ✅ CONTAR PENDIENTES (Solicitudes sin carta)
-    # ========================================
-    pendientes = db.query(SolicitudVPN).filter(
-        SolicitudVPN.estado == 'PENDIENTE'
-    ).count()
-    
-    print(f"📊 Solicitudes pendientes: {pendientes}")
-    
     return {
         "total_alertas": len(alertas),
         "alertas": alertas,
@@ -307,10 +286,10 @@ async def obtener_alertas_inteligentes(
             "2023": cartas_2023
         },
         "pendientes_sin_carta": pendientes,
-        "total_cancelados": cancelados,  # ✅ NUEVO: Enviar cancelados
+        "total_cancelados": cancelados,  # ✅ ENVIAR CANCELADOS
         "resumen": {
             "activos": sum(1 for a in alertas if a["estado_bloqueo"] != "BLOQUEADO" and a["dias_restantes_acceso_actual"] > 0),
-            "vencidos": sum(1 for a in alertas if a["dias_restantes_acceso_actual"] <= 0 and a["estado_bloqueo"] != "BLOQUEADO"),
+            "vencidos_hoy": sum(1 for a in alertas if a["fecha_vencimiento_acceso_actual"] == hoy and a["estado_bloqueo"] != "BLOQUEADO"),
             "bloqueados": sum(1 for a in alertas if a["estado_bloqueo"] == "BLOQUEADO"),
             "cancelados": cancelados,
             "vencidos_sin_renovacion": sum(1 for a in alertas if a["tipo_alerta"] == "VENCIDO_SIN_RENOVACION"),

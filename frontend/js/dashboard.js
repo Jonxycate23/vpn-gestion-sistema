@@ -1,6 +1,6 @@
-// 📊 Dashboard Estilo Asperos Geek - VERSIÓN CORREGIDA COMPLETA
+// 📊 Dashboard Estilo Asperos Geek - VERSIÓN COMPLETA CORREGIDA
 // 📍 Ubicación: frontend/js/dashboard.js
-// ✅ CORREGIDO: Contadores correctos + Colores de fondo en filas
+// ✅ CORREGIDO: Contadores correctos + Variable hoy definida correctamente
 
 const DashboardAsperos = {
     _initialized: false,
@@ -42,7 +42,6 @@ const DashboardAsperos = {
         try {
             const data = await API.get('/dashboard/vencimientos');
             
-            // Actualizar las 4 estadísticas principales
             document.getElementById('statActivos').textContent = data.activos || 0;
             document.getElementById('statPorVencer').textContent = data.por_vencer || 0;
             document.getElementById('statVencidos').textContent = data.vencidos || 0;
@@ -59,6 +58,10 @@ const DashboardAsperos = {
             const data = await API.get('/dashboard/alertas-vencimientos-inteligentes');
             
             console.log('📊 Datos recibidos del backend:', data);
+            
+            // ✅ DEFINIR HOY AL INICIO
+            const hoy = new Date();
+            hoy.setHours(0, 0, 0, 0);
             
             let alertContainer = document.getElementById('alertasContainer');
             if (!alertContainer) {
@@ -95,35 +98,35 @@ const DashboardAsperos = {
             console.log(`   2023: ${cartas2023} cartas`);
             console.log(`   Pendientes: ${pendientes} solicitudes sin carta`);
             
-            // ✅ CONTADORES CORRECTOS - USANDO TODAS LAS ALERTAS (NO SOLO LAS FILTRADAS)
+            // ✅ CONTADORES CORRECTOS Y SEPARADOS
             
-            // ACTIVOS: Desbloqueados con más de 0 días restantes
+            // 1. ACTIVOS: Usuarios VPN desbloqueados con días > 0
             const todosUsuariosActivos = data.alertas.filter(a => 
                 a.estado_bloqueo !== 'BLOQUEADO' && a.dias_restantes_acceso_actual > 0
             ).length;
             
-            // VENCIDOS: TODOS los que tienen 0 o menos días (sin importar rango)
-            const todosUsuariosVencidos = data.alertas.filter(a => 
-                a.dias_restantes_acceso_actual <= 0 && a.estado_bloqueo !== 'BLOQUEADO'
-            ).length;
+            // 2. VENCIDOS HOY: Solo los que vencen exactamente hoy
+            const todosUsuariosVencidosHoy = data.alertas.filter(a => {
+                const fechaVencimiento = new Date(a.fecha_vencimiento_acceso_actual);
+                fechaVencimiento.setHours(0, 0, 0, 0);
+                
+                return fechaVencimiento.getTime() === hoy.getTime() && 
+                       a.estado_bloqueo !== 'BLOQUEADO';
+            }).length;
             
-            // BLOQUEADOS: Todos con estado BLOQUEADO
+            // 3. BLOQUEADOS: Solo usuarios VPN con estado BLOQUEADO
             const todosUsuariosBloqueados = data.alertas.filter(a => 
                 a.estado_bloqueo === 'BLOQUEADO'
             ).length;
             
-            // ✅ CANCELADOS: Contar solicitudes con estado CANCELADA desde el backend
-            // Esto debería venir del backend, pero como no lo tienes, lo estimaremos
-            // Mejor usar data.resumen si existe, o hacer una llamada adicional
-            const todosUsuariosCancelados = data.alertas.filter(a => 
-                a.tipo_alerta === 'VENCIDO_SIN_RENOVACION' && a.estado_bloqueo === 'BLOQUEADO'
-            ).length;
+            // 4. CANCELADOS: Solicitudes con estado CANCELADA (viene del backend)
+            const todosUsuariosCancelados = data.total_cancelados || 0;
             
             console.log(`📊 CONTADORES CORREGIDOS:`);
-            console.log(`   Activos: ${todosUsuariosActivos}`);
-            console.log(`   Vencidos: ${todosUsuariosVencidos}`);
-            console.log(`   Bloqueados: ${todosUsuariosBloqueados}`);
-            console.log(`   Cancelados: ${todosUsuariosCancelados}`);
+            console.log(`   Activos (VPN desbloqueados con días > 0): ${todosUsuariosActivos}`);
+            console.log(`   Vencidos HOY: ${todosUsuariosVencidosHoy}`);
+            console.log(`   Bloqueados (VPN): ${todosUsuariosBloqueados}`);
+            console.log(`   Cancelados (Solicitudes): ${todosUsuariosCancelados}`);
             
             // ========================================
             // 🎨 DISEÑO ESTILO ASPEROS GEEK
@@ -192,11 +195,11 @@ const DashboardAsperos = {
                             <div class="estado-value">${todosUsuariosActivos}</div>
                         </div>
 
-                        <!-- USUARIOS VENCIDOS -->
+                        <!-- USUARIOS VENCIDOS HOY -->
                         <div class="estado-card vencidos">
-                            <div class="estado-label">USUARIOS VENCIDOS</div>
+                            <div class="estado-label">VENCIDOS HOY</div>
                             <div class="estado-icon">🔴</div>
-                            <div class="estado-value">${todosUsuariosVencidos}</div>
+                            <div class="estado-value">${todosUsuariosVencidosHoy}</div>
                         </div>
 
                         <!-- USUARIOS BLOQUEADOS -->
@@ -301,21 +304,17 @@ const DashboardAsperos = {
                     </thead>
                     <tbody>
                         ${alertas.map(alerta => {
-                            // ✅ DETERMINAR COLOR DE FONDO SEGÚN TIPO DE ALERTA
                             let bgColor = '';
                             let rowStyle = '';
                             
                             if (alerta.tipo_alerta === 'VENCIDO_SIN_RENOVACION') {
-                                // Rojo suave para vencidos sin renovación
-                                bgColor = '#fee2e2'; // Rojo muy suave
+                                bgColor = '#fee2e2';
                                 rowStyle = 'background-color: #fee2e2 !important;';
                             } else if (alerta.tiene_carta_vigente && alerta.dias_restantes_acceso_actual <= 30) {
-                                // Azul/Celeste para vencidos o por vencer CON renovación
-                                bgColor = '#dbeafe'; // Azul muy suave
+                                bgColor = '#dbeafe';
                                 rowStyle = 'background-color: #dbeafe !important;';
                             } else if (alerta.dias_restantes_acceso_actual <= 30 && !alerta.tiene_carta_vigente) {
-                                // Amarillo para próximos a vencer sin renovación
-                                bgColor = '#fef3c7'; // Amarillo suave
+                                bgColor = '#fef3c7';
                                 rowStyle = 'background-color: #fef3c7 !important;';
                             }
                             
@@ -382,7 +381,6 @@ const DashboardAsperos = {
         console.log(`✅ Tabla renderizada con ${alertas.length} registros`);
     },
     
-    // ✅ FUNCIÓN PARA VER HISTORIAL DE CARTAS
     async verHistorialCartas(personaId) {
         try {
             showLoading();
@@ -476,7 +474,6 @@ const DashboardAsperos = {
         }
     },
     
-    // ✅ FUNCIÓN PARA BLOQUEAR DESDE ALERTA
     async bloquearDesdeAlerta(accesoId, nombrePersona) {
         if (!confirm(`🚫 ¿Bloquear acceso de ${nombrePersona}?\n\nEsta persona NO tiene carta vigente.`)) {
             return;
