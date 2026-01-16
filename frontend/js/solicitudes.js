@@ -902,55 +902,104 @@ async guardarEdicion(solicitudId, personaData) {
             const sol = await API.get(`/solicitudes/${solicitudId}`);
             hideLoading();
             
-            // ✅ Verificar si el usuario es SUPERADMIN
+            // Verificar si el usuario es SUPERADMIN
             const esSuperadmin = this.usuarioActual?.rol === 'SUPERADMIN';
             
-            // ✅ Verificar si la solicitud puede ser editada/eliminada
-            const tieneCarta = sol.carta_fecha_generacion !== null;
-            const tieneAcceso = sol.acceso !== null;
-            const puedeEditar = !tieneCarta && !tieneAcceso;
-            const puedeEliminar = esSuperadmin && !tieneCarta && !tieneAcceso;
+            // Verificar si tiene carta
+            const tieneCarta = sol.carta !== null && sol.carta !== undefined;
+            const tieneAcceso = sol.acceso !== null && sol.acceso !== undefined;
+            
+            // ✅ NUEVO: Botones de gestión de carta para SUPERADMIN
+            let botonesGestionCarta = '';
+            if (esSuperadmin && tieneCarta) {
+                botonesGestionCarta = `
+                    <div style="border-top: 2px solid #fee2e2; padding-top: 1.5rem; margin-top: 1.5rem;">
+                        <h4 style="color: #991b1b; margin-bottom: 1rem;">
+                            🔧 Herramientas SUPERADMIN
+                        </h4>
+                        
+                        <div style="background: #fee2e2; padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
+                            <p style="margin-bottom: 0.5rem; font-size: 0.9rem;">
+                                <strong>¿Hay errores en los datos de la persona?</strong>
+                            </p>
+                            <p style="margin-bottom: 0; font-size: 0.85rem; color: #666;">
+                                Puedes eliminar la carta, corregir los datos (nombre, DPI, NIP) 
+                                y regenerarla manteniendo el mismo número (${sol.carta?.numero_carta}-${sol.carta?.anio_carta})
+                            </p>
+                        </div>
+                        
+                        <button class="btn btn-danger btn-block" 
+                               onclick="Solicitudes.eliminarCartaYCorregir(${sol.carta.id}, ${sol.carta.numero_carta}, ${sol.carta.anio_carta}, ${solicitudId}); hideModal();">
+                        </button>
+                    </div>
+                `;
+            }
+            
+            // ✅ NUEVO: Opción de editar persona completa para SUPERADMIN
+            let opcionEditarCompleta = '';
+            if (esSuperadmin) {
+                opcionEditarCompleta = `
+                <button class="btn btn-warning" 
+                        onclick="Solicitudes.editarPersonaCompleta(${sol.persona.id}, ${solicitudId});">
+                    ✏️ Editar Todos los Datos
+                </button>
+                `;
+            }
             
             showModal(`📄 Solicitud #${sol.id}`, `
-                <div style="margin-bottom: 1.5rem;">
-                    <h4 style="margin-bottom: 1rem;">📋 Datos Administrativos</h4>
-                    <p style="margin-bottom: 0.5rem;"><strong>Oficio:</strong> ${sol.numero_oficio || 'N/A'}</p>
-                    <p style="margin-bottom: 0.5rem;"><strong>Providencia:</strong> ${sol.numero_providencia || 'N/A'}</p>
-                    <p style="margin-bottom: 0.5rem;"><strong>Fecha Recepción:</strong> ${formatDate(sol.fecha_recepcion)}</p>
-                    <p style="margin-bottom: 0.5rem;"><strong>Tipo:</strong> ${sol.tipo_solicitud}</p>
-                    <p style="margin-bottom: 0.5rem;"><strong>Estado:</strong> ${getStatusBadge(sol.estado)}</p>
-                    <p style="margin-bottom: 0.5rem;"><strong>Justificación:</strong> ${sol.justificacion}</p>
-                </div>
-                
-                <div style="margin-bottom: 1.5rem;">
-                    <h4 style="margin-bottom: 1rem;">👤 Persona</h4>
-                    <p style="margin-bottom: 0.5rem;"><strong>Nombre:</strong> ${sol.persona.nombres} ${sol.persona.apellidos}</p>
-                    <p style="margin-bottom: 0.5rem;"><strong>NIP:</strong> ${sol.persona.nip || 'N/A'}</p>
-                    <p style="margin-bottom: 0.5rem;"><strong>DPI:</strong> ${sol.persona.dpi}</p>
-                    <p style="margin-bottom: 0.5rem;"><strong>Cargo:</strong> ${sol.persona.cargo || 'N/A'}</p>
-                    <p style="margin-bottom: 0.5rem;"><strong>Institución:</strong> ${sol.persona.institucion || 'N/A'}</p>
-                    <p style="margin-bottom: 0.5rem;"><strong>Email:</strong> ${sol.persona.email || 'N/A'}</p>
-                    <p style="margin-bottom: 0.5rem;"><strong>Teléfono:</strong> ${sol.persona.telefono || 'N/A'}</p>
-                </div>
-                
-                ${sol.acceso ? `
+                <div style="max-height: 70vh; overflow-y: auto;">
+                    
+                    <!-- Datos Administrativos -->
                     <div style="margin-bottom: 1.5rem;">
-                        <h4 style="margin-bottom: 1rem;">🔐 Acceso VPN</h4>
-                        <p style="margin-bottom: 0.5rem;"><strong>ID Acceso:</strong> ${sol.acceso.id}</p>
-                        <p style="margin-bottom: 0.5rem;"><strong>Fecha de Expiración:</strong> ${formatDate(sol.acceso.fecha_fin)}</p>
+                        <h4 style="margin-bottom: 1rem;">📋 Datos Administrativos</h4>
+                        <p style="margin-bottom: 0.5rem;"><strong>Oficio:</strong> ${sol.numero_oficio || 'N/A'}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Providencia:</strong> ${sol.numero_providencia || 'N/A'}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Fecha Recepción:</strong> ${formatDate(sol.fecha_recepcion)}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Tipo:</strong> ${sol.tipo_solicitud}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Estado:</strong> ${getStatusBadge(sol.estado)}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Justificación:</strong> ${sol.justificacion}</p>
                     </div>
-                ` : ''}
-                
-                <div style="margin-top: 2rem; display: flex; gap: 1rem; justify-content: center;">
-                    ${puedeEditar ? `
-                        <button class="btn btn-warning" onclick="Solicitudes.editar(${sol.id}); hideModal();">
-                            ✏️ Editar
-                        </button>
+                    
+                    <!-- Persona -->
+                    <div style="margin-bottom: 1.5rem;">
+                        <h4 style="margin-bottom: 1rem;">👤 Persona</h4>
+                        <p style="margin-bottom: 0.5rem;"><strong>Nombre:</strong> ${sol.persona.nombres} ${sol.persona.apellidos}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>NIP:</strong> ${sol.persona.nip || 'N/A'}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>DPI:</strong> ${sol.persona.dpi}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Cargo:</strong> ${sol.persona.cargo || 'N/A'}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Institución:</strong> ${sol.persona.institucion || 'N/A'}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Email:</strong> ${sol.persona.email || 'N/A'}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Teléfono:</strong> ${sol.persona.telefono || 'N/A'}</p>
+                    </div>
+                    
+                    <!-- Carta (si existe) -->
+                    ${tieneCarta ? `
+                        <div style="margin-bottom: 1.5rem;">
+                            <h4 style="margin-bottom: 1rem;">📄 Carta de Responsabilidad</h4>
+                            <p style="margin-bottom: 0.5rem;"><strong>Número:</strong> ${sol.numero_carta}-${sol.anio_carta}</p>
+                            <p style="margin-bottom: 0.5rem;"><strong>Fecha Generación:</strong> ${formatDate(sol.carta_fecha_generacion)}</p>
+                        </div>
                     ` : ''}
                     
-                    ${puedeEliminar ? `
-                        <button class="btn btn-danger" onclick="Solicitudes.eliminar(${sol.id})">
-                            🗑️ Eliminar
+                    <!-- Acceso VPN (si existe) -->
+                    ${tieneAcceso ? `
+                        <div style="margin-bottom: 1.5rem;">
+                            <h4 style="margin-bottom: 1rem;">🔐 Acceso VPN</h4>
+                            <p style="margin-bottom: 0.5rem;"><strong>ID Acceso:</strong> ${sol.acceso.id}</p>
+                            <p style="margin-bottom: 0.5rem;"><strong>Fecha de Expiración:</strong> ${formatDate(sol.acceso.fecha_fin)}</p>
+                        </div>
+                    ` : ''}
+                    
+                    ${botonesGestionCarta}
+                </div>
+                
+                <!-- Botones de acción -->
+                <div style="margin-top: 2rem; display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+                    ${opcionEditarCompleta}
+                    
+                    ${tieneCarta ? `
+                        <button class="btn btn-primary" onclick="Solicitudes.verCarta(${sol.id}); hideModal();">
+                            📄 Ver Carta
                         </button>
                     ` : ''}
                     
@@ -958,23 +1007,179 @@ async guardarEdicion(solicitudId, personaData) {
                         Cerrar
                     </button>
                 </div>
-                
-                ${!puedeEditar && !puedeEliminar ? `
-                    <div style="margin-top: 1rem; text-align: center; color: #6c757d; font-size: 0.9rem;">
-                        <small>Esta solicitud no puede ser editada porque ya tiene carta generada y acceso VPN activo</small>
-                    </div>
-                ` : ''}
-                
-                ${puedeEditar && !puedeEliminar ? `
-                    <div style="margin-top: 1rem; text-align: center; color: #6c757d; font-size: 0.9rem;">
-                        <small>Solo el SUPERADMIN puede eliminar solicitudes</small>
-                    </div>
-                ` : ''}
             `);
             
         } catch (error) {
             hideLoading();
             showError('Error: ' + error.message);
         }
+    },
+
+       // ========================================
+    // NUEVA FUNCIÓN: Eliminar carta y corregir
+    // ========================================
+    
+    async eliminarCartaYCorregir(cartaId, numeroCarta, anioCarta, solicitudId) {
+        if (!GestionCartas) {
+            showError('Módulo de gestión de cartas no disponible');
+            return;
+        }
+        
+        await GestionCartas.eliminarCarta(cartaId, numeroCarta, anioCarta, solicitudId);
+    },
+    
+    // ========================================
+    // NUEVA FUNCIÓN: Editar persona completa (SUPERADMIN)
+    // ========================================
+    
+    async editarPersonaCompleta(personaId, solicitudId) {
+        try {
+            showLoading();
+            
+            // ✅ OBTENER DATOS COMPLETOS DE LA SOLICITUD (incluye persona completa)
+            const sol = await API.get(`/solicitudes/${solicitudId}`);
+            
+            // Verificar si tiene cartas activas
+            const verificacion = await API.get(`/personas/verificar-carta/${personaId}`);
+            
+            hideLoading();
+            
+            // Usar los datos de sol.persona que tiene TODOS los campos
+            const persona = sol.persona;
+            
+            // Mostrar advertencia si tiene cartas activas
+            let advertencia = '';
+            if (verificacion.tiene_cartas_activas) {
+                advertencia = `
+                    <div style="background: #fee2e2; padding: 1rem; border-radius: 4px; margin-bottom: 1.5rem;">
+                        <h4 style="color: #991b1b; margin-bottom: 0.5rem;">
+                            ⚠️ ADVERTENCIA
+                        </h4>
+                        <p style="margin-bottom: 0.5rem; font-size: 0.9rem;">
+                            Esta persona tiene ${verificacion.total_cartas_activas} carta(s) activa(s):
+                        </p>
+                        <ul style="margin-bottom: 0.5rem; padding-left: 1.5rem;">
+                            ${verificacion.cartas.map(c => `
+                                <li>Carta ${c.numero} (ID: ${c.carta_id})</li>
+                            `).join('')}
+                        </ul>
+                        <p style="margin-bottom: 0; font-size: 0.85rem; color: #666;">
+                            Si cambias datos, deberás regenerar la carta.
+                        </p>
+                    </div>
+                `;
+            }
+            
+            showModal('✏️ Editar Todos los Datos (SUPERADMIN)', `
+                ${advertencia}
+                
+                <form id="formEditarPersonaCompleta">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="form-group">
+                            <label>Nombres *</label>
+                            <input type="text" id="nombres" required 
+                                   value="${persona.nombres}">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Apellidos *</label>
+                            <input type="text" id="apellidos" required 
+                                   value="${persona.apellidos}">
+                        </div>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="form-group">
+                            <label>DPI * (13 dígitos)</label>
+                            <input type="text" id="dpi" required 
+                                   pattern="[0-9]{13}" maxlength="13" 
+                                   value="${persona.dpi}">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>NIP</label>
+                            <input type="text" id="nip" 
+                                   value="${persona.nip || ''}">
+                        </div>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="form-group">
+                            <label>Email</label>
+                            <input type="email" id="email" 
+                                   value="${persona.email || ''}">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Teléfono</label>
+                            <input type="text" id="telefono" 
+                                   value="${persona.telefono || ''}">
+                        </div>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="form-group">
+                            <label>Cargo/Grado</label>
+                            <input type="text" id="cargo" 
+                                   value="${persona.cargo || ''}">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Institución</label>
+                            <input type="text" id="institucion" 
+                                   value="${persona.institucion || ''}">
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-success btn-block">
+                        💾 Guardar Todos los Cambios
+                    </button>
+                </form>
+            `, 'large');
+            
+            document.getElementById('formEditarPersonaCompleta').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await this.guardarEdicionCompletaPersona(personaId, solicitudId);
+            });
+            
+        } catch (error) {
+            hideLoading();
+            showError('Error: ' + error.message);
+        }
+    },
+    
+    async guardarEdicionCompletaPersona(personaId, solicitudId) {
+        try {
+            showLoading();
+            
+            const data = {
+                nombres: document.getElementById('nombres').value.trim(),
+                apellidos: document.getElementById('apellidos').value.trim(),
+                dpi: document.getElementById('dpi').value.trim(),
+                nip: document.getElementById('nip').value.trim() || null,
+                email: document.getElementById('email').value.trim() || null,
+                cargo: document.getElementById('cargo').value.trim() || null,
+                telefono: document.getElementById('telefono').value.trim() || null,
+                institucion: document.getElementById('institucion').value.trim() || null
+            };
+            
+            // Validar DPI
+            if (!/^\d{13}$/.test(data.dpi)) {
+                throw new Error('El DPI debe tener exactamente 13 dígitos');
+            }
+            
+            await API.put(`/personas/editar-completa/${personaId}`, data);
+            
+            hideLoading();
+            hideModal();
+            
+            showSuccess('✅ Datos actualizados correctamente');
+            await this.load();
+            
+        } catch (error) {
+            hideLoading();
+            showError('Error al guardar: ' + error.message);
+        }
     }
+
 };

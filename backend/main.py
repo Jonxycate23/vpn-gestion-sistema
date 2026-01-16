@@ -9,6 +9,9 @@ from app.core.config import settings
 # Importar todos los routers necesarios
 from app.api.endpoints import auth, dashboard, solicitudes, accesos, usuarios
 
+# ✅ NUEVAS IMPORTACIONES - AGREGAR ESTAS LÍNEAS
+from app.api.endpoints import cartas, personas_superadmin
+
 # Crear aplicación
 app = FastAPI(
     title=settings.APP_NAME,
@@ -71,6 +74,10 @@ app.include_router(dashboard.router, prefix="/api/dashboard", tags=["📊 Dashbo
 app.include_router(solicitudes.router, prefix="/api/solicitudes", tags=["📄 Solicitudes VPN"])
 app.include_router(accesos.router, prefix="/api/accesos", tags=["🔑 Accesos VPN"])
 app.include_router(usuarios.router, prefix="/api/usuarios", tags=["👥 Usuarios del Sistema (ADMIN/SUPERADMIN)"])
+
+# ✅ NUEVAS RUTAS - AGREGAR ESTAS LÍNEAS
+app.include_router(cartas.router, prefix="/api/cartas", tags=["📋 Cartas de Responsabilidad"])
+app.include_router(personas_superadmin.router, prefix="/api/personas", tags=["👤 Gestión de Personas (SUPERADMIN)"])
 
 
 if __name__ == "__main__":

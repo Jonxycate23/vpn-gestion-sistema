@@ -1,9 +1,10 @@
 """
 Modelos: Cartas de Responsabilidad y Archivos Adjuntos
-ACTUALIZADO: Incluye numero_carta y anio_carta
+📍 ACTUALIZADO: Incluye numero_carta, anio_carta y eliminada
+✅ Campo 'eliminada' permite mantener numeración al eliminar/regenerar
 """
 from sqlalchemy import (
-    Column, Integer, String, Date, DateTime, Text,
+    Column, Integer, String, Date, DateTime, Text, Boolean,
     ForeignKey, BigInteger, CheckConstraint
 )
 from sqlalchemy.orm import relationship
@@ -23,8 +24,8 @@ class CartaResponsabilidad(Base):
     """
     Metadatos de documentos legales
     
-    No almacena el archivo, solo los metadatos
-    Los archivos físicos se guardan en filesystem
+    ACTUALIZADO: Incluye campo 'eliminada' para mantener numeración
+    al eliminar y regenerar cartas con datos corregidos
     """
     __tablename__ = "cartas_responsabilidad"
     
@@ -42,9 +43,11 @@ class CartaResponsabilidad(Base):
         ForeignKey("usuarios_sistema.id"),
         nullable=False
     )
-    # NUEVAS COLUMNAS AGREGADAS
     numero_carta = Column(Integer, index=True)
     anio_carta = Column(Integer, index=True)
+    
+    # ✅ NUEVO CAMPO: permite eliminar sin perder el número
+    eliminada = Column(Boolean, nullable=False, default=False, index=True)
     
     # Constraints
     __table_args__ = (
@@ -67,7 +70,8 @@ class CartaResponsabilidad(Base):
     )
     
     def __repr__(self):
-        return f"<CartaResponsabilidad(id={self.id}, numero={self.numero_carta}-{self.anio_carta})>"
+        estado = " (ELIMINADA)" if self.eliminada else ""
+        return f"<CartaResponsabilidad(id={self.id}, numero={self.numero_carta}-{self.anio_carta}{estado})>"
 
 
 class ArchivoAdjunto(Base):
