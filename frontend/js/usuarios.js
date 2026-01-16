@@ -40,6 +40,54 @@ const Usuarios = {
         
         let tabla = contenedor.querySelector('#usuariosTable');
         if (tabla) {
+            return;
+        }
+        
+        contenedor.innerHTML = `
+            <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h1>👥 Gestión de Usuarios del Sistema</h1>
+                <button id="btnNuevoUsuario" class="btn btn-primary">➕ Crear Usuario</button>
+            </div>
+            
+            <div class="card">
+                <div class="card-body">
+                    <table class="table" id="usuariosTable">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Username</th>
+                                <th>Nombre Completo</th>
+                                <th>Email</th>
+                                <th>Rol</th>
+                                <th>Estado</th>
+                                <th>Último Login</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="8" style="text-align: center;">Cargando...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+        
+        const btnNuevo = document.getElementById('btnNuevoUsuario');
+        if (btnNuevo) {
+            btnNuevo.onclick = () => this.mostrarFormularioCrear();
+        }
+    },
+
+    
+    verificarEstructuraVista() {
+        let contenedor = document.getElementById('usuariosView');
+        if (!contenedor) {
+            console.error('No se encontró usuariosView');
+            return;
+        }
+        
+        let tabla = contenedor.querySelector('#usuariosTable');
+        if (tabla) {
             return; // Ya existe la estructura
         }
         
@@ -95,7 +143,6 @@ const Usuarios = {
                 return;
             }
             
-            // Obtener usuario actual para deshabilitar acciones sobre sí mismo
             const currentUser = UserStorage.get();
             
             tbody.innerHTML = data.usuarios.map(usuario => {
@@ -157,6 +204,7 @@ const Usuarios = {
             showError('Error al cargar usuarios: ' + error.message);
         }
     },
+
     
     mostrarFormularioCrear() {
         showModal('➕ Crear Nuevo Usuario del Sistema', `
@@ -194,8 +242,6 @@ const Usuarios = {
                     </small>
                 </div>
                 
-
-                
                 <button type="submit" class="btn btn-success btn-block">
                     ➕ Crear Usuario
                 </button>
@@ -207,6 +253,7 @@ const Usuarios = {
             await this.crearUsuario();
         });
     },
+
     
     async crearUsuario() {
         try {
@@ -219,7 +266,6 @@ const Usuarios = {
                 rol: document.getElementById('rol').value
             };
             
-            // Validaciones
             if (!data.nombres || !data.apellidos || !data.email || !data.rol) {
                 throw new Error('Todos los campos son obligatorios');
             }
@@ -228,16 +274,13 @@ const Usuarios = {
                 throw new Error('Rol inválido');
             }
             
-            // Agregar contraseña por defecto
             data.password = 'Usuario.2025!';
             
-            // Crear usuario enviando datos en el body como JSON
             const response = await API.post('/usuarios/', data);
             
             hideLoading();
             hideModal();
             
-            // Mostrar credenciales generadas
             showModal('✅ Usuario Creado Exitosamente', `
                 <div style="background: #d1fae5; padding: 1.5rem; border-radius: 4px; margin-bottom: 1rem;">
                     <h3 style="margin-bottom: 1rem; color: #065f46;">
@@ -280,7 +323,7 @@ const Usuarios = {
     // NUEVA FUNCIÓN: CAMBIAR CONTRASEÑA (SUPERADMIN)
     // ========================================
     
-    mostrarCambiarPassword(usuarioId, nombreCompleto) {
+     mostrarCambiarPassword(usuarioId, nombreCompleto) {
         showModal('🔑 Cambiar Contraseña de Usuario', `
             <form id="formCambiarPassword">
                 <div style="background: #e0f2fe; padding: 1rem; border-radius: 4px; margin-bottom: 1.5rem;">
@@ -332,7 +375,6 @@ const Usuarios = {
             const passwordNueva = document.getElementById('password_nueva').value;
             const passwordConfirmar = document.getElementById('password_confirmar').value;
             
-            // Validaciones
             if (!passwordNueva || !passwordConfirmar) {
                 throw new Error('Debes completar ambos campos');
             }
@@ -347,13 +389,11 @@ const Usuarios = {
             
             showLoading();
             
-            // Llamar al endpoint de resetear contraseña
             await API.put(`/usuarios/${usuarioId}/resetear-password?password_nueva=${encodeURIComponent(passwordNueva)}`, {});
             
             hideLoading();
             hideModal();
             
-            // Mostrar confirmación con la nueva contraseña
             showModal('✅ Contraseña Cambiada', `
                 <div style="background: #d1fae5; padding: 1.5rem; border-radius: 4px; margin-bottom: 1rem;">
                     <h3 style="margin-bottom: 1rem; color: #065f46;">
@@ -390,7 +430,18 @@ const Usuarios = {
     },
     
     async activar(usuarioId) {
-        if (!confirm('¿Activar este usuario?\n\nEl usuario podrá volver a iniciar sesión.')) {
+        // ✅ ESPERAR la respuesta del confirm
+        const confirmado = await CustomConfirm.show({
+            title: '✅ Activar Usuario',
+            message: '¿Activar este usuario?\n\nEl usuario podrá volver a iniciar sesión.',
+            type: 'info',
+            confirmText: 'Sí, activar',
+            cancelText: 'Cancelar'
+        });
+        
+        // ✅ SI NO CONFIRMÓ, SALIR
+        if (!confirmado) {
+            console.log('❌ Activación cancelada');
             return;
         }
         
@@ -406,8 +457,23 @@ const Usuarios = {
         }
     },
     
+    // ========================================
+    // ✅ CORREGIDO: DESACTIVAR CON AWAIT
+    // ========================================
+    
     async desactivar(usuarioId) {
-        if (!confirm('⚠️ ¿Desactivar este usuario?\n\nEl usuario no podrá iniciar sesión hasta que sea reactivado.')) {
+        // ✅ ESPERAR la respuesta del confirm
+        const confirmado = await CustomConfirm.show({
+            title: '🚫 Desactivar Usuario',
+            message: '⚠️ ¿Desactivar este usuario?\n\nEl usuario no podrá iniciar sesión hasta que sea reactivado.',
+            type: 'danger',
+            confirmText: 'Sí, desactivar',
+            cancelText: 'Cancelar'
+        });
+        
+        // ✅ SI NO CONFIRMÓ, SALIR
+        if (!confirmado) {
+            console.log('❌ Desactivación cancelada');
             return;
         }
         
@@ -490,44 +556,43 @@ const CambiarPasswordPropia = {
             await this.cambiar();
         });
     },
+
     
-    async cambiar() {
-    try {
-        const passwordActual = document.getElementById('password_actual').value;
-        const passwordNueva = document.getElementById('password_nueva').value;
-        const passwordConfirmar = document.getElementById('password_confirmar').value;
-        
-        // Validaciones
-        if (!passwordActual || !passwordNueva || !passwordConfirmar) {
-            throw new Error('Debes completar todos los campos');
+   async cambiar() {
+        try {
+            const passwordActual = document.getElementById('password_actual').value;
+            const passwordNueva = document.getElementById('password_nueva').value;
+            const passwordConfirmar = document.getElementById('password_confirmar').value;
+            
+            if (!passwordActual || !passwordNueva || !passwordConfirmar) {
+                throw new Error('Debes completar todos los campos');
+            }
+            
+            if (passwordNueva.length < 6) {
+                throw new Error('La nueva contraseña debe tener al menos 6 caracteres');
+            }
+            
+            if (passwordNueva !== passwordConfirmar) {
+                throw new Error('Las contraseñas nuevas no coinciden');
+            }
+            
+            if (passwordActual === passwordNueva) {
+                throw new Error('La nueva contraseña debe ser diferente a la actual');
+            }
+            
+            showLoading();
+            
+            const url = `/usuarios/me/cambiar-password?password_actual=${encodeURIComponent(passwordActual)}&password_nueva=${encodeURIComponent(passwordNueva)}`;
+            await API.put(url, {});
+            
+            hideLoading();
+            hideModal();
+            
+            showSuccess('✅ Contraseña cambiada exitosamente');
+            
+        } catch (error) {
+            hideLoading();
+            showError('Error al cambiar contraseña: ' + error.message);
         }
-        
-        if (passwordNueva.length < 6) {
-            throw new Error('La nueva contraseña debe tener al menos 6 caracteres');
-        }
-        
-        if (passwordNueva !== passwordConfirmar) {
-            throw new Error('Las contraseñas nuevas no coinciden');
-        }
-        
-        if (passwordActual === passwordNueva) {
-            throw new Error('La nueva contraseña debe ser diferente a la actual');
-        }
-        
-        showLoading();
-        
-        // ✅ CAMBIO IMPORTANTE: usar query parameters
-        const url = `/usuarios/me/cambiar-password?password_actual=${encodeURIComponent(passwordActual)}&password_nueva=${encodeURIComponent(passwordNueva)}`;
-        await API.put(url, {});
-        
-        hideLoading();
-        hideModal();
-        
-        showSuccess('✅ Contraseña cambiada exitosamente');
-        
-    } catch (error) {
-        hideLoading();
-        showError('Error al cambiar contraseña: ' + error.message);
-    }
     }
 };
