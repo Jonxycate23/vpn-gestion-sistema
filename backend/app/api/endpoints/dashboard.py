@@ -1,8 +1,3 @@
-"""
-Endpoints de Dashboard SIN VISTAS SQL - SOLUCIÓN DEFINITIVA
-📍 Ubicación: backend/app/api/endpoints/dashboard.py
-✅ No usa vistas SQL, hace queries directas (evita problemas de permisos)
-"""
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import text, func, and_
@@ -23,15 +18,12 @@ async def obtener_dashboard_vencimientos(
     current_user: UsuarioSistema = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """
-    ⚡ OPTIMIZADO - Query directa con eager loading
-    Obtener dashboard de vencimientos
-    """
+    """Obtener dashboard de vencimientos con eager loading de bloqueos"""
     from sqlalchemy.orm import selectinload
     
     hoy = date.today()
     
-    # ⚡ Obtener todos los accesos con bloqueos pre-cargados
+    # Obtener accesos con bloqueos pre-cargados
     accesos = db.query(AccesoVPN)\
         .options(selectinload(AccesoVPN.bloqueos))\
         .all()
@@ -44,7 +36,7 @@ async def obtener_dashboard_vencimientos(
     vencen_hoy = 0
     
     for acceso in accesos:
-        # ⚡ Obtener último bloqueo de la lista pre-cargada
+        # Obtener último bloqueo de la lista pre-cargada
         bloqueos_ordenados = sorted(acceso.bloqueos, key=lambda b: b.fecha_cambio, reverse=True)
         estado_bloqueo = bloqueos_ordenados[0].estado if bloqueos_ordenados else "DESBLOQUEADO"
         
@@ -80,15 +72,12 @@ async def obtener_accesos_actuales(
     db: Session = Depends(get_db),
     estado_vigencia: str = None,
     estado_bloqueo: str = None,
-    limit: int = 5000  # ⚡ Aumentado para mostrar todos los registros
+    limit: int = 5000
 ):
-    """
-    ⚡ OPTIMIZADO - Query directa con eager loading
-    Obtener lista de accesos actuales CON NIP
-    """
+    """Obtener lista de accesos actuales con eager loading de relaciones"""
     from sqlalchemy.orm import joinedload, selectinload
     
-    # ⚡ Eager loading de todas las relaciones necesarias
+    # Eager loading de relaciones necesarias
     query = db.query(AccesoVPN)\
         .options(
             joinedload(AccesoVPN.solicitud).joinedload(SolicitudVPN.persona),
@@ -109,7 +98,7 @@ async def obtener_accesos_actuales(
     for acceso in accesos:
         persona = acceso.solicitud.persona
         
-        # ⚡ Obtener último bloqueo de la lista pre-cargada
+        # Obtener último bloqueo de la lista pre-cargada
         bloqueos_ordenados = sorted(acceso.bloqueos, key=lambda b: b.fecha_cambio, reverse=True)
         estado_bloqueo_actual = bloqueos_ordenados[0].estado if bloqueos_ordenados else "DESBLOQUEADO"
         
@@ -145,7 +134,7 @@ async def obtener_accesos_actuales(
 
 
 # ========================================
-# ✅ ALERTAS INTELIGENTES - VERSIÓN ORIGINAL
+# ALERTAS INTELIGENTES
 # ========================================
 
 @router.get("/alertas-vencimientos-inteligentes")
@@ -153,16 +142,12 @@ async def obtener_alertas_inteligentes(
     current_user: UsuarioSistema = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """
-    ⚡ VERSIÓN OPTIMIZADA - Elimina N+1 queries con eager loading
-    """
+    """Obtener alertas de vencimientos con eager loading para evitar N+1 queries"""
     from sqlalchemy.orm import joinedload, selectinload
     
     hoy = date.today()
     
-    # ========================================
-    # ✅ CONTAR CARTAS POR AÑO - Optimizado con una sola query
-    # ========================================
+    # Contar cartas por año en una sola query
     cartas_por_anio = db.query(
         CartaResponsabilidad.anio_carta,
         func.count(CartaResponsabilidad.id)
@@ -176,11 +161,9 @@ async def obtener_alertas_inteligentes(
     cartas_2024 = cartas_dict.get('2024', 0)
     cartas_2023 = cartas_dict.get('2023', 0)
     
-    print(f"📊 Cartas por año: 2026={cartas_2026}, 2025={cartas_2025}, 2024={cartas_2024}, 2023={cartas_2023}")
+    print(f"Cartas por año: 2026={cartas_2026}, 2025={cartas_2025}, 2024={cartas_2024}, 2023={cartas_2023}")
     
-    # ========================================
-    # ✅ CONTAR CANCELADOS Y PENDIENTES - Una sola query
-    # ========================================
+    # Contar solicitudes canceladas y pendientes
     estados_count = db.query(
         SolicitudVPN.estado,
         func.count(SolicitudVPN.id)
@@ -192,11 +175,9 @@ async def obtener_alertas_inteligentes(
     cancelados = estados_dict.get('CANCELADA', 0)
     pendientes = estados_dict.get('PENDIENTE', 0)
     
-    print(f"📊 Cancelados: {cancelados}, Pendientes: {pendientes}")
+    print(f"Cancelados: {cancelados}, Pendientes: {pendientes}")
     
-    # ========================================
-    # ⚡ OBTENER ACCESOS CON EAGER LOADING - Elimina N+1 queries
-    # ========================================
+    # Obtener accesos con eager loading de relaciones
     accesos_criticos = db.query(AccesoVPN)\
         .options(
             joinedload(AccesoVPN.solicitud).joinedload(SolicitudVPN.persona),
@@ -237,9 +218,7 @@ async def obtener_alertas_inteligentes(
             .all()
         accesos_cartas = {acc.solicitud_id: acc for acc in accesos_por_solicitud}
     
-    # ========================================
-    # PROCESAR PERSONAS - Sin queries adicionales
-    # ========================================
+    # Procesar personas sin queries adicionales
     personas_procesadas = {}
     
     for acceso in accesos_criticos:
@@ -376,16 +355,14 @@ async def obtener_historial_cartas_persona(
     current_user: UsuarioSistema = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """
-    ⚡ OPTIMIZADO - Obtener historial completo de cartas de una persona
-    """
+    """Obtener historial completo de cartas de una persona con eager loading"""
     from sqlalchemy.orm import joinedload, selectinload
     
     persona = db.query(Persona).filter(Persona.id == persona_id).first()
     if not persona:
         raise HTTPException(status_code=404, detail="Persona no encontrada")
     
-    # ⚡ Pre-cargar cartas con sus solicitudes
+    # Pre-cargar cartas con sus solicitudes
     cartas = db.query(CartaResponsabilidad)\
         .options(joinedload(CartaResponsabilidad.solicitud))\
         .join(SolicitudVPN)\
@@ -395,7 +372,7 @@ async def obtener_historial_cartas_persona(
     
     hoy = date.today()
     
-    # ⚡ Pre-cargar todos los accesos relacionados en UNA query
+    # Pre-cargar todos los accesos relacionados en una query
     solicitud_ids = [carta.solicitud_id for carta in cartas]
     accesos_dict = {}
     if solicitud_ids:
@@ -419,7 +396,7 @@ async def obtener_historial_cartas_persona(
             elif dias_restantes > 0:
                 estado = "POR_VENCER"
             
-            # ⚡ Obtener último bloqueo de la lista pre-cargada
+            # Obtener último bloqueo de la lista pre-cargada
             bloqueos_ordenados = sorted(acceso.bloqueos, key=lambda b: b.fecha_cambio, reverse=True)
             estado_bloqueo = bloqueos_ordenados[0].estado if bloqueos_ordenados else "DESBLOQUEADO"
             

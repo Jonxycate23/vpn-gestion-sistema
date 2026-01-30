@@ -76,6 +76,7 @@ img {
     
     /* Ocultar sidebar en móvil */
     .sidebar {
+        display: block !important; /* ⚡ FORZAR VISIBILIDAD para sobrescribir styles.css */
         position: fixed;
         left: -250px;
         top: 60px;
