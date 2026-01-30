@@ -11,26 +11,26 @@ const Accesos = {
         console.log('Cargando Accesos...');
         this.verificarEstructuraTabla();
         await this.loadAccesos();
-        
+
         // ✅ SOLO REFRESCAR SI YA ESTÁ INICIALIZADA
         if (typeof tablesInitialized !== 'undefined' && tablesInitialized.accesosTable) {
             console.log('🔄 Refrescando tabla de accesos...');
             IntegratedTableSystem.refresh('accesosTable');
         }
     },
-    
+
     verificarEstructuraTabla() {
         let contenedor = document.getElementById('accesosView');
         if (!contenedor) {
             console.error('No se encontró accesosView');
             return;
         }
-        
+
         let tabla = contenedor.querySelector('#accesosTable');
         if (tabla) {
             return;
         }
-        
+
         contenedor.innerHTML = `
             <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
                 <div style="display: flex; align-items: center; gap: 1rem;">
@@ -75,7 +75,7 @@ const Accesos = {
             </div>
         `;
     },
-    
+
     cambiarOrden(nuevoOrden) {
         this.ordenActual = nuevoOrden;
         console.log(`🔄 Orden cambiado a: ${nuevoOrden}`);
@@ -84,42 +84,42 @@ const Accesos = {
 
     async loadAccesos() {
         try {
-            const data = await API.get('/dashboard/accesos-actuales?limit=2000');
+            const data = await API.get('/dashboard/accesos-actuales?limit=5000');
             const tbody = document.querySelector('#accesosTable tbody');
-            
+
             if (!tbody) {
                 console.error('No se encontró la tabla de accesos');
                 return;
             }
-            
+
             const accesos = data.accesos || [];
-            
+
             if (accesos.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="9" style="text-align: center;">No hay accesos VPN registrados</td></tr>';
                 return;
             }
-            
+
             // ✅ Guardar datos originales
             this.datosOriginales = accesos;
-            
+
             // ✅ Renderizar con el orden actual
             this.renderizarAccesos();
-            
+
         } catch (error) {
             console.error('Error loading accesos:', error);
             showError('Error al cargar accesos: ' + error.message);
         }
     },
-    
+
     // ✅ NUEVA FUNCIÓN: Renderizar con orden actual
     renderizarAccesos() {
         const tbody = document.querySelector('#accesosTable tbody');
         if (!tbody) return;
-        
+
         // ✅ Ordenar según la opción seleccionada
         let accesosOrdenados = [...this.datosOriginales];
-        
-        switch(this.ordenActual) {
+
+        switch (this.ordenActual) {
             case 'prioridad':
                 // Prioridad: Vencidos y por vencer primero
                 accesosOrdenados.sort((a, b) => {
@@ -128,17 +128,17 @@ const Accesos = {
                     return a.dias_restantes - b.dias_restantes;
                 });
                 break;
-                
+
             case 'dias_asc':
                 // Días restantes: menor a mayor
                 accesosOrdenados.sort((a, b) => a.dias_restantes - b.dias_restantes);
                 break;
-                
+
             case 'dias_desc':
                 // Días restantes: mayor a menor
                 accesosOrdenados.sort((a, b) => b.dias_restantes - a.dias_restantes);
                 break;
-                
+
             case 'nombre_asc':
                 // Nombre: A-Z
                 accesosOrdenados.sort((a, b) => {
@@ -147,7 +147,7 @@ const Accesos = {
                     return nombreA.localeCompare(nombreB);
                 });
                 break;
-                
+
             case 'nombre_desc':
                 // Nombre: Z-A
                 accesosOrdenados.sort((a, b) => {
@@ -157,16 +157,16 @@ const Accesos = {
                 });
                 break;
         }
-        
+
         tbody.innerHTML = accesosOrdenados.map(acceso => {
-            const diasClass = acceso.dias_restantes <= 0 ? 'status-vencido' : 
-                             acceso.dias_restantes <= 7 ? 'status-por-vencer' : 'status-activo';
-            
+            const diasClass = acceso.dias_restantes <= 0 ? 'status-vencido' :
+                acceso.dias_restantes <= 7 ? 'status-por-vencer' : 'status-activo';
+
             // Generar username
             const nombresArray = acceso.nombres.toLowerCase().split(' ');
             const apellidosArray = acceso.apellidos.toLowerCase().split(' ');
             const username = `${nombresArray[0]}.${apellidosArray[0]}`;
-            
+
             return `
                 <tr>
                     <td><strong>${acceso.nip || 'N/A'}</strong></td>
@@ -201,32 +201,32 @@ const Accesos = {
                 </tr>
             `;
         }).join('');
-        
+
         console.log(`✅ ${accesosOrdenados.length} accesos ordenados (${this.ordenActual})`);
-        
+
         // ✅ Refrescar paginación si existe
         if (typeof Paginator !== 'undefined' && Paginator.configs['accesosTable']) {
             Paginator.refresh('accesosTable');
         }
     },
-    
+
     async verDetalles(accesoId) {
         try {
             showLoading();
-            
+
             // Obtener detalles completos del acceso
             const acceso = await API.get(`/accesos/${accesoId}`);
-            
+
             hideLoading();
-            
+
             // Generar username
             const nombresArray = acceso.persona.nombres.toLowerCase().split(' ');
             const apellidosArray = acceso.persona.apellidos.toLowerCase().split(' ');
             const username = `${nombresArray[0]}.${apellidosArray[0]}`;
-            
+
             // Calcular fecha de expiración 
             const fechaExpiracion = new Date(acceso.fecha_fin_con_gracia + 'T00:00:00');
-            
+
             showModal('📋 Detalles Completos del Acceso VPN', `
                 <div style="max-height: 70vh; overflow-y: auto;">
                     
@@ -311,27 +311,27 @@ const Accesos = {
                     </button>
                 </div>
             `);
-            
+
         } catch (error) {
             hideLoading();
             console.error('Error obteniendo detalles:', error);
             showError('Error al obtener detalles: ' + error.message);
         }
     },
-    
-      async descargarCarta(solicitudId) {
-    try {
-        await API.downloadFile(
-            `/solicitudes/${solicitudId}/descargar-carta`,
-            `CARTA_RESPONSABILIDAD_${solicitudId}.pdf`
-        );
-        showSuccess('📥 PDF descargado exitosamente');
-    } catch (error) {
-        showError('Error al descargar PDF: ' + error.message);
-        console.error('Detalle del error:', error);
-    }
-},
-    
+
+    async descargarCarta(solicitudId) {
+        try {
+            await API.downloadFile(
+                `/solicitudes/${solicitudId}/descargar-carta`,
+                `CARTA_RESPONSABILIDAD_${solicitudId}.pdf`
+            );
+            showSuccess('📥 PDF descargado exitosamente');
+        } catch (error) {
+            showError('Error al descargar PDF: ' + error.message);
+            console.error('Detalle del error:', error);
+        }
+    },
+
     async prorrogar(accesoId) {
         const form = `
             <form id="formProrrogar">
@@ -350,19 +350,19 @@ const Accesos = {
                 </button>
             </form>
         `;
-        
+
         showModal('Prorrogar Acceso VPN', form);
-        
+
         document.getElementById('formProrrogar').addEventListener('submit', async (e) => {
             e.preventDefault();
-            
+
             try {
                 showLoading();
                 const data = {
                     dias_adicionales: parseInt(document.getElementById('dias_adicionales').value),
                     motivo: document.getElementById('motivo').value
                 };
-                
+
                 await API.post(`/accesos/${accesoId}/prorrogar`, data);
                 hideLoading();
                 hideModal();
@@ -374,7 +374,7 @@ const Accesos = {
             }
         });
     },
-    
+
     async bloquear(accesoId) {
         const form = `
             <form id="formBloquear">
@@ -393,12 +393,12 @@ const Accesos = {
                 </button>
             </form>
         `;
-        
+
         showModal('Bloquear Acceso VPN', form);
-        
+
         document.getElementById('formBloquear').addEventListener('submit', async (e) => {
             e.preventDefault();
-            
+
             try {
                 showLoading();
                 const data = {
@@ -406,7 +406,7 @@ const Accesos = {
                     estado: 'BLOQUEADO',
                     motivo: document.getElementById('motivo').value
                 };
-                
+
                 await API.post('/accesos/bloquear', data);
                 hideLoading();
                 hideModal();
@@ -418,7 +418,7 @@ const Accesos = {
             }
         });
     },
-    
+
     async desbloquear(accesoId) {
         const form = `
             <form id="formDesbloquear">
@@ -436,12 +436,12 @@ const Accesos = {
                 </button>
             </form>
         `;
-        
+
         showModal('Desbloquear Acceso VPN', form);
-        
+
         document.getElementById('formDesbloquear').addEventListener('submit', async (e) => {
             e.preventDefault();
-            
+
             try {
                 showLoading();
                 const data = {
@@ -449,7 +449,7 @@ const Accesos = {
                     estado: 'DESBLOQUEADO',
                     motivo: document.getElementById('motivo').value
                 };
-                
+
                 await API.post('/accesos/bloquear', data);
                 hideLoading();
                 hideModal();

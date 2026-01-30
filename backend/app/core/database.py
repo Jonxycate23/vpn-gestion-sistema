@@ -10,7 +10,7 @@ from app.core.config import settings
 # Motor de base de datos
 engine = create_engine(
     settings.DATABASE_URL,
-    echo=settings.DATABASE_ECHO,
+    echo=False,
     pool_pre_ping=True,  # Verifica conexión antes de usar
     pool_size=10,        # Tamaño del pool
     max_overflow=20      # Conexiones adicionales permitidas

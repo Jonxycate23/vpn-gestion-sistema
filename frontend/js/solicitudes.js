@@ -3,20 +3,20 @@ const Solicitudes = {
     usuarioActual: null,
     ordenActual: 'desc',
     datosOriginales: [],
-    
+
     async load() {
         console.log('Cargando Solicitudes...');
-        
+
         this.usuarioActual = await this.obtenerUsuarioActual();
-        
+
         const btnNueva = document.getElementById('btnNuevaSolicitud');
         if (btnNueva) {
             btnNueva.onclick = () => this.nuevaSolicitud();
         }
-        
+
         this.verificarEstructuraTabla();
         await this.listarSolicitudes();
-        
+
         // ✅ SOLO REFRESCAR SI YA ESTÁ INICIALIZADA
         if (typeof tablesInitialized !== 'undefined' && tablesInitialized.solicitudesTable) {
             console.log('🔄 Refrescando tabla de solicitudes...');
@@ -24,7 +24,7 @@ const Solicitudes = {
         }
     },
 
-    
+
     async obtenerUsuarioActual() {
         try {
             const response = await API.get('/auth/me');
@@ -34,19 +34,19 @@ const Solicitudes = {
             return { nombre_completo: 'Usuario del Sistema', rol: 'USER' };
         }
     },
-    
+
     verificarEstructuraTabla() {
         let contenedor = document.getElementById('solicitudesView');
         if (!contenedor) {
             console.error('No se encontró solicitudesView');
             return;
         }
-        
+
         let tabla = contenedor.querySelector('#solicitudesTable');
         if (tabla) {
             return;
         }
-        
+
         contenedor.innerHTML = `
             <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
                 <div style="display: flex; align-items: center; gap: 1rem;">
@@ -86,7 +86,7 @@ const Solicitudes = {
                 </div>
             </div>
         `;
-        
+
         const btnNueva = document.getElementById('btnNuevaSolicitud');
         if (btnNueva) {
             btnNueva.onclick = () => this.nuevaSolicitud();
@@ -96,11 +96,11 @@ const Solicitudes = {
     toggleOrden() {
         // Cambiar estado
         this.ordenActual = this.ordenActual === 'desc' ? 'asc' : 'desc';
-        
+
         // Actualizar label del botón
         const label = document.getElementById('labelOrden');
         const btn = document.getElementById('btnOrdenarSolicitudes');
-        
+
         if (this.ordenActual === 'desc') {
             label.textContent = 'Más Recientes Primero';
             btn.innerHTML = '🔢 <span id="labelOrden">Más Recientes Primero</span> ⬇️';
@@ -108,45 +108,45 @@ const Solicitudes = {
             label.textContent = 'Más Antiguos Primero';
             btn.innerHTML = '🔢 <span id="labelOrden">Más Antiguos Primero</span> ⬆️';
         }
-        
+
         console.log(`🔄 Orden cambiado a: ${this.ordenActual.toUpperCase()}`);
-        
+
         // Renderizar nuevamente con el nuevo orden
         this.renderizarSolicitudes();
     },
 
     async listarSolicitudes() {
         try {
-            const data = await API.get('/solicitudes/?limit=2000');
-            
+            const data = await API.get('/solicitudes/?limit=3000');
+
             const tbody = document.querySelector('#solicitudesTable tbody');
             if (!tbody) {
                 console.error('❌ No se encontró tbody');
                 return;
             }
-            
+
             if (!data || !data.solicitudes || data.solicitudes.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No hay solicitudes</td></tr>';
                 return;
             }
-            
+
             // ✅ Guardar datos originales
             this.datosOriginales = data.solicitudes;
-            
+
             // ✅ Renderizar con el orden actual
             this.renderizarSolicitudes();
-            
+
         } catch (error) {
             console.error('Error:', error);
             showError('Error al cargar solicitudes');
         }
     },
-    
+
     // ✅ NUEVA FUNCIÓN: Renderizar tabla con orden actual
     renderizarSolicitudes() {
         const tbody = document.querySelector('#solicitudesTable tbody');
         if (!tbody) return;
-        
+
         // ✅ Ordenar según el estado actual
         const solicitudesOrdenadas = [...this.datosOriginales].sort((a, b) => {
             if (this.ordenActual === 'desc') {
@@ -155,15 +155,15 @@ const Solicitudes = {
                 return a.id - b.id; // Ascendente: 1, 2, 3...
             }
         });
-        
+
         tbody.innerHTML = solicitudesOrdenadas.map(sol => {
             const tieneCarta = sol.carta_generada === true;
             const puedeEditar = !tieneCarta && !sol.acceso_id;
             const esNoPresentado = sol.estado === 'CANCELADA' && sol.comentarios_admin && sol.comentarios_admin.includes('NO_PRESENTADO');
-            
+
             const esPendiente = sol.estado === 'PENDIENTE';
             const esAprobada = sol.estado === 'APROBADA';
-            
+
             return `
                 <tr>
                     <td><strong>${sol.id}</strong></td>
@@ -206,9 +206,9 @@ const Solicitudes = {
                 </tr>
             `;
         }).join('');
-        
+
         console.log(`✅ ${solicitudesOrdenadas.length} solicitudes ordenadas (${this.ordenActual.toUpperCase()})`);
-        
+
         // ✅ Refrescar paginación si existe
         if (typeof Paginator !== 'undefined' && Paginator.configs['solicitudesTable']) {
             Paginator.refresh('solicitudesTable');
@@ -227,33 +227,33 @@ const Solicitudes = {
             </form>
             <div id="resultadoBusqueda"></div>
         `);
-        
+
         document.getElementById('formBuscarNIP').addEventListener('submit', async (e) => {
             e.preventDefault();
             const nip = document.getElementById('nip').value;
             await this.buscarYMostrarPersona(nip);
         });
     },
-    
+
     async buscarYMostrarPersona(nip) {
         try {
             showLoading();
             const resultado = await API.get(`/solicitudes/buscar-nip/${nip}`);
             hideLoading();
-            
+
             if (resultado.existe) {
                 this.personaActual = resultado;
                 this.mostrarFormularioEdicion(resultado);
             } else {
                 this.mostrarFormularioCreacion(nip);
             }
-            
+
         } catch (error) {
             hideLoading();
             showError('Error en búsqueda: ' + error.message);
         }
     },
-    
+
     mostrarFormularioEdicion(persona) {
         const resultadoDiv = document.getElementById('resultadoBusqueda');
         resultadoDiv.innerHTML = `
@@ -314,13 +314,13 @@ const Solicitudes = {
                 </button>
             </form>
         `;
-        
+
         document.getElementById('formDatosPersona').addEventListener('submit', async (e) => {
             e.preventDefault();
             await this.actualizarYContinuar();
         });
     },
-    
+
     mostrarFormularioCreacion(nip) {
         const resultadoDiv = document.getElementById('resultadoBusqueda');
         resultadoDiv.innerHTML = `
@@ -380,17 +380,17 @@ const Solicitudes = {
                 </button>
             </form>
         `;
-        
+
         document.getElementById('formDatosPersona').addEventListener('submit', async (e) => {
             e.preventDefault();
             await this.crearYContinuar(nip);
         });
     },
-    
+
     async actualizarYContinuar() {
         try {
             showLoading();
-            
+
             const data = {
                 dpi: this.personaActual.dpi,
                 nip: this.personaActual.nip,
@@ -401,23 +401,23 @@ const Solicitudes = {
                 telefono: document.getElementById('telefono').value || null,
                 institucion: document.getElementById('institucion').value || null
             };
-            
+
             await API.post('/solicitudes/persona', data);
             this.personaActual = { ...this.personaActual, ...data };
-            
+
             hideLoading();
             this.mostrarFormularioSolicitud();
-            
+
         } catch (error) {
             hideLoading();
             showError('Error: ' + error.message);
         }
     },
-    
+
     async crearYContinuar(nip) {
         try {
             showLoading();
-            
+
             const data = {
                 nip: nip,
                 dpi: document.getElementById('dpi').value,
@@ -428,27 +428,27 @@ const Solicitudes = {
                 telefono: document.getElementById('telefono').value || null,
                 institucion: document.getElementById('institucion').value || null
             };
-            
+
             const response = await API.post('/solicitudes/persona', data);
             this.personaActual = {
                 id: response.persona_id,
                 ...data
             };
-            
+
             hideLoading();
             showSuccess('Persona creada');
             this.mostrarFormularioSolicitud();
-            
+
         } catch (error) {
             hideLoading();
             showError('Error: ' + error.message);
         }
     },
-    
+
     mostrarFormularioSolicitud() {
         const resultadoDiv = document.getElementById('resultadoBusqueda');
         const hoy = new Date().toISOString().split('T')[0];
-        
+
         resultadoDiv.innerHTML = `
             <div style="background: #d1fae5; padding: 1rem; margin-bottom: 1.5rem; border-radius: 4px;">
                 <strong>✅ Datos guardados</strong><br>
@@ -491,17 +491,17 @@ const Solicitudes = {
                 </button>
             </form>
         `;
-        
+
         document.getElementById('formSolicitud').addEventListener('submit', async (e) => {
             e.preventDefault();
             await this.crearSolicitud();
         });
     },
-    
+
     async crearSolicitud() {
         try {
             showLoading();
-            
+
             const data = {
                 persona_id: this.personaActual.id,
                 numero_oficio: document.getElementById('numeroOficio').value || null,
@@ -511,67 +511,67 @@ const Solicitudes = {
                 tipo_solicitud: document.getElementById('tipoSolicitud').value,
                 justificacion: document.getElementById('justificacion').value
             };
-            
+
             await API.post('/solicitudes/', data);
-            
+
             hideLoading();
             hideModal();
             showSuccess('¡Solicitud creada!');
             await this.load();
-            
+
         } catch (error) {
             hideLoading();
             showError('Error: ' + error.message);
         }
     },
-    
+
     async crearCarta(solicitudId) {
         if (!confirm('¿Crear carta de responsabilidad?\n\nEsto generará el PDF y creará el acceso VPN automáticamente.')) return;
-        
+
         try {
             showLoading();
             const response = await API.post(`/solicitudes/${solicitudId}/crear-carta`, {});
             hideLoading();
-            
+
             showSuccess(`✅ ¡Carta Creada!\n\nCarta #${response.carta_id}\nAcceso VPN #${response.acceso_id}\n\nYa puedes ver la carta y descargar el PDF`);
-            
+
             await this.load();
         } catch (error) {
             hideLoading();
             showError('Error al crear carta: ' + error.message);
         }
     },
-    
+
     async verCarta(solicitudId) {
         try {
             showLoading();
             const sol = await API.get(`/solicitudes/${solicitudId}`);
             hideLoading();
-            
+
             // ✅ CORRECCIÓN: Usar la fecha correcta
-            const fechaGeneracion = sol.carta_fecha_generacion 
+            const fechaGeneracion = sol.carta_fecha_generacion
                 ? new Date(sol.carta_fecha_generacion + 'T00:00:00')  // ✅ 
                 : new Date();
-            
+
             const fechaExpiracion = new Date(fechaGeneracion);
             fechaExpiracion.setFullYear(fechaExpiracion.getFullYear() + 1);
-            
+
             const nombresArray = sol.persona.nombres.toLowerCase().split(' ');
             const apellidosArray = sol.persona.apellidos.toLowerCase().split(' ');
             const username = `${nombresArray[0]}.${apellidosArray[0]}`;
-            
+
             const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
             const dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
-            
+
             // ✅ CORRECCIÓN: Usar getDate() en lugar de getDay()
             const fechaTexto = `Ciudad de Guatemala, ${dias[fechaGeneracion.getDay()]}, ${fechaGeneracion.getDate()} de ${meses[fechaGeneracion.getMonth()]} de ${fechaGeneracion.getFullYear()}`;
-            
+
             const nombreUsuarioSistema = this.usuarioActual?.nombre_completo || 'Usuario del Sistema';
-            
+
             // ✅ CORRECCIÓN: Mostrar fechas correctas
             console.log('📅 Fecha de generación:', fechaGeneracion);
             console.log('📅 Fecha de expiración:', fechaExpiracion);
-            
+
             showModal('📄 Carta de Responsabilidad', `
                 <div style="max-height: 70vh; overflow-y: auto; padding: 2rem; background: white; border: 1px solid #ccc;">
                     <div style="text-align: center; margin-bottom: 1.5rem;">
@@ -668,13 +668,13 @@ const Solicitudes = {
                     </button>
                 </div>
             `);
-            
+
         } catch (error) {
             hideLoading();
             showError('Error: ' + error.message);
         }
     },
-    
+
     async descargarPDF(solicitudId) {
         await API.downloadFile(
             `/solicitudes/${solicitudId}/descargar-carta`,
@@ -682,11 +682,11 @@ const Solicitudes = {
         );
         showSuccess('📥 PDF descargado exitosamente');
     },
-    
+
     async marcarNoPresentado(solicitudId) {
         const motivo = prompt('Motivo:', 'No se presentó a firmar');
         if (!motivo) return;
-        
+
         try {
             showLoading();
             await API.post(`/solicitudes/${solicitudId}/no-presentado`, { motivo });
@@ -698,10 +698,10 @@ const Solicitudes = {
             showError('Error: ' + error.message);
         }
     },
-    
+
     async reactivar(solicitudId) {
         if (!confirm('¿Reactivar esta solicitud?')) return;
-        
+
         try {
             showLoading();
             await API.post(`/solicitudes/${solicitudId}/reactivar`, {});
@@ -713,11 +713,11 @@ const Solicitudes = {
             showError('Error: ' + error.message);
         }
     },
-    
+
     async eliminar(solicitudId) {
         if (!confirm('⚠️ ¿ELIMINAR ESTA SOLICITUD?\n\nEsta acción no se puede deshacer.')) return;
         if (!confirm('¿Está completamente SEGURO?')) return;
-        
+
         try {
             showLoading();
             await API.delete(`/solicitudes/${solicitudId}`);
@@ -730,14 +730,14 @@ const Solicitudes = {
             showError('Error: ' + error.message);
         }
     },
-    
-async editar(solicitudId) {
-    try {
-        showLoading();
-        const sol = await API.get(`/solicitudes/${solicitudId}`);
-        hideLoading();
-        
-        showModal('✏️ Editar Solicitud', `
+
+    async editar(solicitudId) {
+        try {
+            showLoading();
+            const sol = await API.get(`/solicitudes/${solicitudId}`);
+            hideLoading();
+
+            showModal('✏️ Editar Solicitud', `
             <div style="max-height: 75vh; overflow-y: auto;">
                 
                 <!-- ✅ SECCIÓN 1: DATOS DE LA PERSONA (READ-ONLY) -->
@@ -841,74 +841,74 @@ async editar(solicitudId) {
                 
             </div>
         `, 'large');
-        
-        document.getElementById('formEditar').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            await this.guardarEdicion(solicitudId, sol.persona);
-        });
-        
-    } catch (error) {
-        hideLoading();
-        showError('Error: ' + error.message);
-    }
-},
 
-async guardarEdicion(solicitudId, personaData) {
-    try {
-        showLoading();
-        
-        // ✅ 1. ACTUALIZAR DATOS DE LA SOLICITUD
-        const dataSolicitud = {
-            numero_oficio: document.getElementById('numeroOficio').value || null,
-            numero_providencia: document.getElementById('numeroProvidencia').value || null,
-            fecha_recepcion: document.getElementById('fechaRecepcion').value || null,
-            tipo_solicitud: document.getElementById('tipoSolicitud').value,
-            justificacion: document.getElementById('justificacion').value
-        };
-        
-        console.log('📤 Enviando datos de solicitud:', dataSolicitud);
-        await API.put(`/solicitudes/${solicitudId}`, dataSolicitud);
-        
-        // ✅ 2. ACTUALIZAR DATOS DE LA PERSONA
-        const dataPersonaCompleta = {
-            dpi: personaData.dpi,
-            nip: personaData.nip,
-            nombres: personaData.nombres,
-            apellidos: personaData.apellidos,
-            email: document.getElementById('email').value || null,
-            telefono: document.getElementById('telefono').value || null,
-            cargo: document.getElementById('cargo').value || null,
-            institucion: document.getElementById('institucion').value || null
-        };
-        
-        console.log('📤 Enviando datos de persona:', dataPersonaCompleta);
-        await API.post('/solicitudes/persona', dataPersonaCompleta);
-        
-        hideLoading();
-        hideModal();
-        showSuccess('✅ Solicitud y datos de persona actualizados exitosamente');
-        await this.load();
-        
-    } catch (error) {
-        hideLoading();
-        console.error('❌ Error completo:', error);
-        showError('Error al guardar: ' + error.message);
-    }
-},
+            document.getElementById('formEditar').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await this.guardarEdicion(solicitudId, sol.persona);
+            });
+
+        } catch (error) {
+            hideLoading();
+            showError('Error: ' + error.message);
+        }
+    },
+
+    async guardarEdicion(solicitudId, personaData) {
+        try {
+            showLoading();
+
+            // ✅ 1. ACTUALIZAR DATOS DE LA SOLICITUD
+            const dataSolicitud = {
+                numero_oficio: document.getElementById('numeroOficio').value || null,
+                numero_providencia: document.getElementById('numeroProvidencia').value || null,
+                fecha_recepcion: document.getElementById('fechaRecepcion').value || null,
+                tipo_solicitud: document.getElementById('tipoSolicitud').value,
+                justificacion: document.getElementById('justificacion').value
+            };
+
+            console.log('📤 Enviando datos de solicitud:', dataSolicitud);
+            await API.put(`/solicitudes/${solicitudId}`, dataSolicitud);
+
+            // ✅ 2. ACTUALIZAR DATOS DE LA PERSONA
+            const dataPersonaCompleta = {
+                dpi: personaData.dpi,
+                nip: personaData.nip,
+                nombres: personaData.nombres,
+                apellidos: personaData.apellidos,
+                email: document.getElementById('email').value || null,
+                telefono: document.getElementById('telefono').value || null,
+                cargo: document.getElementById('cargo').value || null,
+                institucion: document.getElementById('institucion').value || null
+            };
+
+            console.log('📤 Enviando datos de persona:', dataPersonaCompleta);
+            await API.post('/solicitudes/persona', dataPersonaCompleta);
+
+            hideLoading();
+            hideModal();
+            showSuccess('✅ Solicitud y datos de persona actualizados exitosamente');
+            await this.load();
+
+        } catch (error) {
+            hideLoading();
+            console.error('❌ Error completo:', error);
+            showError('Error al guardar: ' + error.message);
+        }
+    },
 
     async verDetalle(solicitudId) {
         try {
             showLoading();
             const sol = await API.get(`/solicitudes/${solicitudId}`);
             hideLoading();
-            
+
             // Verificar si el usuario es SUPERADMIN
             const esSuperadmin = this.usuarioActual?.rol === 'SUPERADMIN';
-            
+
             // Verificar si tiene carta
             const tieneCarta = sol.carta !== null && sol.carta !== undefined;
             const tieneAcceso = sol.acceso !== null && sol.acceso !== undefined;
-            
+
             // ✅ NUEVO: Botones de gestión de carta para SUPERADMIN
             let botonesGestionCarta = '';
             if (esSuperadmin && tieneCarta) {
@@ -934,7 +934,7 @@ async guardarEdicion(solicitudId, personaData) {
                     </div>
                 `;
             }
-            
+
             // ✅ NUEVO: Opción de editar persona completa para SUPERADMIN
             let opcionEditarCompleta = '';
             if (esSuperadmin) {
@@ -945,7 +945,7 @@ async guardarEdicion(solicitudId, personaData) {
                 </button>
                 `;
             }
-            
+
             showModal(`📄 Solicitud #${sol.id}`, `
                 <div style="max-height: 70vh; overflow-y: auto;">
                     
@@ -1008,45 +1008,45 @@ async guardarEdicion(solicitudId, personaData) {
                     </button>
                 </div>
             `);
-            
+
         } catch (error) {
             hideLoading();
             showError('Error: ' + error.message);
         }
     },
 
-       // ========================================
+    // ========================================
     // NUEVA FUNCIÓN: Eliminar carta y corregir
     // ========================================
-    
+
     async eliminarCartaYCorregir(cartaId, numeroCarta, anioCarta, solicitudId) {
         if (!GestionCartas) {
             showError('Módulo de gestión de cartas no disponible');
             return;
         }
-        
+
         await GestionCartas.eliminarCarta(cartaId, numeroCarta, anioCarta, solicitudId);
     },
-    
+
     // ========================================
     // NUEVA FUNCIÓN: Editar persona completa (SUPERADMIN)
     // ========================================
-    
+
     async editarPersonaCompleta(personaId, solicitudId) {
         try {
             showLoading();
-            
+
             // ✅ OBTENER DATOS COMPLETOS DE LA SOLICITUD (incluye persona completa)
             const sol = await API.get(`/solicitudes/${solicitudId}`);
-            
+
             // Verificar si tiene cartas activas
             const verificacion = await API.get(`/personas/verificar-carta/${personaId}`);
-            
+
             hideLoading();
-            
+
             // Usar los datos de sol.persona que tiene TODOS los campos
             const persona = sol.persona;
-            
+
             // Mostrar advertencia si tiene cartas activas
             let advertencia = '';
             if (verificacion.tiene_cartas_activas) {
@@ -1069,7 +1069,7 @@ async guardarEdicion(solicitudId, personaData) {
                     </div>
                 `;
             }
-            
+
             showModal('✏️ Editar Todos los Datos (SUPERADMIN)', `
                 ${advertencia}
                 
@@ -1136,22 +1136,22 @@ async guardarEdicion(solicitudId, personaData) {
                     </button>
                 </form>
             `, 'large');
-            
+
             document.getElementById('formEditarPersonaCompleta').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 await this.guardarEdicionCompletaPersona(personaId, solicitudId);
             });
-            
+
         } catch (error) {
             hideLoading();
             showError('Error: ' + error.message);
         }
     },
-    
+
     async guardarEdicionCompletaPersona(personaId, solicitudId) {
         try {
             showLoading();
-            
+
             const data = {
                 nombres: document.getElementById('nombres').value.trim(),
                 apellidos: document.getElementById('apellidos').value.trim(),
@@ -1162,20 +1162,20 @@ async guardarEdicion(solicitudId, personaData) {
                 telefono: document.getElementById('telefono').value.trim() || null,
                 institucion: document.getElementById('institucion').value.trim() || null
             };
-            
+
             // Validar DPI
             if (!/^\d{13}$/.test(data.dpi)) {
                 throw new Error('El DPI debe tener exactamente 13 dígitos');
             }
-            
+
             await API.put(`/personas/editar-completa/${personaId}`, data);
-            
+
             hideLoading();
             hideModal();
-            
+
             showSuccess('✅ Datos actualizados correctamente');
             await this.load();
-            
+
         } catch (error) {
             hideLoading();
             showError('Error al guardar: ' + error.message);

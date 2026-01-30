@@ -1,7 +1,7 @@
 """
-Endpoints de Dashboard MEJORADO - VERSIÓN CORREGIDA
+Endpoints de Dashboard SIN VISTAS SQL - SOLUCIÓN DEFINITIVA
 📍 Ubicación: backend/app/api/endpoints/dashboard.py
-✅ CORREGIDO: Ahora cuenta correctamente las cartas por año y cancelados
+✅ No usa vistas SQL, hace queries directas (evita problemas de permisos)
 """
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -23,17 +23,54 @@ async def obtener_dashboard_vencimientos(
     current_user: UsuarioSistema = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Obtener dashboard de vencimientos"""
-    query = text("SELECT * FROM vista_dashboard_vencimientos")
-    result = db.execute(query).fetchone()
+    """
+    ⚡ OPTIMIZADO - Query directa con eager loading
+    Obtener dashboard de vencimientos
+    """
+    from sqlalchemy.orm import selectinload
+    
+    hoy = date.today()
+    
+    # ⚡ Obtener todos los accesos con bloqueos pre-cargados
+    accesos = db.query(AccesoVPN)\
+        .options(selectinload(AccesoVPN.bloqueos))\
+        .all()
+    
+    activos = 0
+    por_vencer = 0
+    vencidos = 0
+    bloqueados = 0
+    vencen_esta_semana = 0
+    vencen_hoy = 0
+    
+    for acceso in accesos:
+        # ⚡ Obtener último bloqueo de la lista pre-cargada
+        bloqueos_ordenados = sorted(acceso.bloqueos, key=lambda b: b.fecha_cambio, reverse=True)
+        estado_bloqueo = bloqueos_ordenados[0].estado if bloqueos_ordenados else "DESBLOQUEADO"
+        
+        dias_restantes = (acceso.fecha_fin_con_gracia - hoy).days
+        
+        if estado_bloqueo == "BLOQUEADO":
+            bloqueados += 1
+        elif dias_restantes > 30:
+            activos += 1
+        elif dias_restantes > 0:
+            por_vencer += 1
+            if dias_restantes <= 7:
+                vencen_esta_semana += 1
+        else:
+            vencidos += 1
+        
+        if acceso.fecha_fin_con_gracia == hoy:
+            vencen_hoy += 1
     
     return DashboardVencimientos(
-        activos=result[0] or 0,
-        por_vencer=result[1] or 0,
-        vencidos=result[2] or 0,
-        bloqueados=result[3] or 0,
-        vencen_esta_semana=result[4] or 0,
-        vencen_hoy=result[5] or 0
+        activos=activos,
+        por_vencer=por_vencer,
+        vencidos=vencidos,
+        bloqueados=bloqueados,
+        vencen_esta_semana=vencen_esta_semana,
+        vencen_hoy=vencen_hoy
     )
 
 
@@ -43,50 +80,62 @@ async def obtener_accesos_actuales(
     db: Session = Depends(get_db),
     estado_vigencia: str = None,
     estado_bloqueo: str = None,
-    limit: int = 50
+    limit: int = 5000  # ⚡ Aumentado para mostrar todos los registros
 ):
-    """Obtener lista de accesos actuales CON NIP"""
-    query = "SELECT * FROM vista_accesos_actuales WHERE 1=1"
-    params = {}
+    """
+    ⚡ OPTIMIZADO - Query directa con eager loading
+    Obtener lista de accesos actuales CON NIP
+    """
+    from sqlalchemy.orm import joinedload, selectinload
+    
+    # ⚡ Eager loading de todas las relaciones necesarias
+    query = db.query(AccesoVPN)\
+        .options(
+            joinedload(AccesoVPN.solicitud).joinedload(SolicitudVPN.persona),
+            joinedload(AccesoVPN.solicitud).joinedload(SolicitudVPN.usuario_registro),
+            selectinload(AccesoVPN.bloqueos)
+        )\
+        .join(SolicitudVPN)\
+        .join(Persona)
     
     if estado_vigencia:
-        query += " AND estado_vigencia = :estado_vigencia"
-        params["estado_vigencia"] = estado_vigencia
+        query = query.filter(AccesoVPN.estado_vigencia == estado_vigencia)
     
-    if estado_bloqueo:
-        query += " AND estado_bloqueo = :estado_bloqueo"
-        params["estado_bloqueo"] = estado_bloqueo
-    
-    query += f" ORDER BY dias_restantes LIMIT {limit}"
-    
-    result = db.execute(text(query), params).fetchall()
+    accesos = query.order_by(AccesoVPN.fecha_fin_con_gracia).limit(limit).all()
     
     accesos_list = []
-    for row in result:
-        persona_id = row[0]
-        persona = db.query(Persona).filter(Persona.id == persona_id).first()
-        nip = persona.nip if persona else None
+    hoy = date.today()
+    
+    for acceso in accesos:
+        persona = acceso.solicitud.persona
+        
+        # ⚡ Obtener último bloqueo de la lista pre-cargada
+        bloqueos_ordenados = sorted(acceso.bloqueos, key=lambda b: b.fecha_cambio, reverse=True)
+        estado_bloqueo_actual = bloqueos_ordenados[0].estado if bloqueos_ordenados else "DESBLOQUEADO"
+        
+        if estado_bloqueo and estado_bloqueo_actual != estado_bloqueo:
+            continue
         
         accesos_list.append({
-            "persona_id": row[0],
-            "dpi": row[1],
-            "nip": nip,
-            "nombres": row[2],
-            "apellidos": row[3],
-            "institucion": row[4],
-            "cargo": row[5],
-            "solicitud_id": row[6],
-            "fecha_solicitud": row[7],
-            "tipo_solicitud": row[8],
-            "acceso_id": row[9],
-            "fecha_inicio": row[10],
-            "fecha_fin": row[11],
-            "dias_gracia": row[12],
-            "fecha_fin_con_gracia": row[13],
-            "estado_vigencia": row[14],
-            "dias_restantes": row[15],
-            "estado_bloqueo": row[16],
-            "usuario_registro": row[17]
+            "persona_id": persona.id,
+            "dpi": persona.dpi,
+            "nip": persona.nip,
+            "nombres": persona.nombres,
+            "apellidos": persona.apellidos,
+            "institucion": persona.institucion,
+            "cargo": persona.cargo,
+            "solicitud_id": acceso.solicitud_id,
+            "fecha_solicitud": acceso.solicitud.fecha_solicitud,
+            "tipo_solicitud": acceso.solicitud.tipo_solicitud,
+            "acceso_id": acceso.id,
+            "fecha_inicio": acceso.fecha_inicio,
+            "fecha_fin": acceso.fecha_fin,
+            "dias_gracia": acceso.dias_gracia,
+            "fecha_fin_con_gracia": acceso.fecha_fin_con_gracia,
+            "estado_vigencia": acceso.estado_vigencia,
+            "dias_restantes": (acceso.fecha_fin_con_gracia - hoy).days,
+            "estado_bloqueo": estado_bloqueo_actual,
+            "usuario_registro": acceso.solicitud.usuario_registro.nombre_completo if acceso.solicitud.usuario_registro else "N/A"
         })
     
     return {
@@ -96,7 +145,7 @@ async def obtener_accesos_actuales(
 
 
 # ========================================
-# ✅ CORREGIDO: ALERTAS INTELIGENTES CON CONTEO DE CARTAS Y CANCELADOS
+# ✅ ALERTAS INTELIGENTES - VERSIÓN ORIGINAL
 # ========================================
 
 @router.get("/alertas-vencimientos-inteligentes")
@@ -105,63 +154,92 @@ async def obtener_alertas_inteligentes(
     db: Session = Depends(get_db)
 ):
     """
-    ✅ CORREGIDO: Contadores separados y precisos
+    ⚡ VERSIÓN OPTIMIZADA - Elimina N+1 queries con eager loading
     """
+    from sqlalchemy.orm import joinedload, selectinload
+    
     hoy = date.today()
     
     # ========================================
-    # ✅ CONTAR CARTAS POR AÑO
+    # ✅ CONTAR CARTAS POR AÑO - Optimizado con una sola query
     # ========================================
-    cartas_2026 = db.query(CartaResponsabilidad).filter(
-        CartaResponsabilidad.anio_carta == 2026
-    ).count()
+    cartas_por_anio = db.query(
+        CartaResponsabilidad.anio_carta,
+        func.count(CartaResponsabilidad.id)
+    ).filter(
+        CartaResponsabilidad.anio_carta.in_([2023, 2024, 2025, 2026])
+    ).group_by(CartaResponsabilidad.anio_carta).all()
     
-    cartas_2025 = db.query(CartaResponsabilidad).filter(
-        CartaResponsabilidad.anio_carta == 2025
-    ).count()
+    cartas_dict = {str(anio): count for anio, count in cartas_por_anio}
+    cartas_2026 = cartas_dict.get('2026', 0)
+    cartas_2025 = cartas_dict.get('2025', 0)
+    cartas_2024 = cartas_dict.get('2024', 0)
+    cartas_2023 = cartas_dict.get('2023', 0)
     
-    cartas_2024 = db.query(CartaResponsabilidad).filter(
-        CartaResponsabilidad.anio_carta == 2024
-    ).count()
-    
-    cartas_2023 = db.query(CartaResponsabilidad).filter(
-        CartaResponsabilidad.anio_carta == 2023
-    ).count()
-    
-    print(f"📊 Cartas por año:")
-    print(f"   2026: {cartas_2026} cartas")
-    print(f"   2025: {cartas_2025} cartas")
-    print(f"   2024: {cartas_2024} cartas")
-    print(f"   2023: {cartas_2023} cartas")
+    print(f"📊 Cartas por año: 2026={cartas_2026}, 2025={cartas_2025}, 2024={cartas_2024}, 2023={cartas_2023}")
     
     # ========================================
-    # ✅ CONTAR CANCELADOS (SOLICITUDES)
+    # ✅ CONTAR CANCELADOS Y PENDIENTES - Una sola query
     # ========================================
-    cancelados = db.query(SolicitudVPN).filter(
-        SolicitudVPN.estado == 'CANCELADA'
-    ).count()
+    estados_count = db.query(
+        SolicitudVPN.estado,
+        func.count(SolicitudVPN.id)
+    ).filter(
+        SolicitudVPN.estado.in_(['CANCELADA', 'PENDIENTE'])
+    ).group_by(SolicitudVPN.estado).all()
     
-    print(f"📊 Solicitudes Canceladas: {cancelados}")
+    estados_dict = {estado: count for estado, count in estados_count}
+    cancelados = estados_dict.get('CANCELADA', 0)
+    pendientes = estados_dict.get('PENDIENTE', 0)
     
-    # ========================================
-    # ✅ CONTAR PENDIENTES (Solicitudes sin carta)
-    # ========================================
-    pendientes = db.query(SolicitudVPN).filter(
-        SolicitudVPN.estado == 'PENDIENTE'
-    ).count()
-    
-    print(f"📊 Solicitudes Pendientes: {pendientes}")
+    print(f"📊 Cancelados: {cancelados}, Pendientes: {pendientes}")
     
     # ========================================
-    # OBTENER TODOS LOS ACCESOS PARA ANÁLISIS
+    # ⚡ OBTENER ACCESOS CON EAGER LOADING - Elimina N+1 queries
     # ========================================
-    accesos_criticos = db.query(AccesoVPN).join(
-        SolicitudVPN
-    ).join(
-        Persona
-    ).all()
+    accesos_criticos = db.query(AccesoVPN)\
+        .options(
+            joinedload(AccesoVPN.solicitud).joinedload(SolicitudVPN.persona),
+            selectinload(AccesoVPN.bloqueos)
+        )\
+        .join(SolicitudVPN)\
+        .join(Persona)\
+        .all()
     
-    # Agrupar por persona para evitar duplicados
+    # ========================================
+    # ⚡ PRE-CARGAR TODAS LAS CARTAS Y BLOQUEOS - Una sola query cada uno
+    # ========================================
+    # Obtener IDs de personas únicas
+    persona_ids = list(set(acceso.solicitud.persona_id for acceso in accesos_criticos))
+    
+    # Pre-cargar todas las cartas de todas las personas en UNA query
+    todas_cartas_query = db.query(CartaResponsabilidad)\
+        .options(joinedload(CartaResponsabilidad.solicitud))\
+        .join(SolicitudVPN)\
+        .filter(SolicitudVPN.persona_id.in_(persona_ids))\
+        .order_by(CartaResponsabilidad.fecha_generacion.desc())\
+        .all()
+    
+    # Organizar cartas por persona_id
+    cartas_por_persona = {}
+    for carta in todas_cartas_query:
+        persona_id = carta.solicitud.persona_id
+        if persona_id not in cartas_por_persona:
+            cartas_por_persona[persona_id] = []
+        cartas_por_persona[persona_id].append(carta)
+    
+    # Pre-cargar todos los accesos relacionados con cartas en UNA query
+    solicitud_ids = [carta.solicitud_id for carta in todas_cartas_query]
+    accesos_cartas = {}
+    if solicitud_ids:
+        accesos_por_solicitud = db.query(AccesoVPN)\
+            .filter(AccesoVPN.solicitud_id.in_(solicitud_ids))\
+            .all()
+        accesos_cartas = {acc.solicitud_id: acc for acc in accesos_por_solicitud}
+    
+    # ========================================
+    # PROCESAR PERSONAS - Sin queries adicionales
+    # ========================================
     personas_procesadas = {}
     
     for acceso in accesos_criticos:
@@ -174,23 +252,19 @@ async def obtener_alertas_inteligentes(
             dias_guardado = personas_procesadas[persona_id]['dias_restantes_acceso_actual']
             
             if dias_actual < dias_guardado:
+                # Obtener último bloqueo de la lista pre-cargada
+                bloqueos_ordenados = sorted(acceso.bloqueos, key=lambda b: b.fecha_cambio, reverse=True)
+                estado_bloqueo = bloqueos_ordenados[0].estado if bloqueos_ordenados else "DESBLOQUEADO"
+                
                 personas_procesadas[persona_id]['acceso_id'] = acceso.id
                 personas_procesadas[persona_id]['fecha_vencimiento_acceso_actual'] = acceso.fecha_fin_con_gracia
                 personas_procesadas[persona_id]['dias_restantes_acceso_actual'] = dias_actual
-                
-                ultimo_bloqueo = db.query(BloqueoVPN).filter(
-                    BloqueoVPN.acceso_vpn_id == acceso.id
-                ).order_by(BloqueoVPN.fecha_cambio.desc()).first()
-                personas_procesadas[persona_id]['estado_bloqueo'] = ultimo_bloqueo.estado if ultimo_bloqueo else "DESBLOQUEADO"
+                personas_procesadas[persona_id]['estado_bloqueo'] = estado_bloqueo
             
             continue
         
-        # Obtener TODAS las cartas de esta persona
-        todas_las_cartas = db.query(CartaResponsabilidad).join(
-            SolicitudVPN
-        ).filter(
-            SolicitudVPN.persona_id == persona.id
-        ).order_by(CartaResponsabilidad.fecha_generacion.desc()).all()
+        # Obtener cartas pre-cargadas de esta persona
+        cartas_persona = cartas_por_persona.get(persona_id, [])
         
         # Analizar las cartas
         cartas_info = []
@@ -198,10 +272,8 @@ async def obtener_alertas_inteligentes(
         carta_mas_reciente = None
         anio_carta_actual = None
         
-        for carta in todas_las_cartas:
-            acceso_carta = db.query(AccesoVPN).filter(
-                AccesoVPN.solicitud_id == carta.solicitud_id
-            ).first()
+        for carta in cartas_persona:
+            acceso_carta = accesos_cartas.get(carta.solicitud_id)
             
             if acceso_carta:
                 dias_rest = (acceso_carta.fecha_fin_con_gracia - hoy).days
@@ -227,12 +299,9 @@ async def obtener_alertas_inteligentes(
                     "anio_carta": carta.anio_carta
                 })
         
-        # Obtener estado de bloqueo
-        ultimo_bloqueo = db.query(BloqueoVPN).filter(
-            BloqueoVPN.acceso_vpn_id == acceso.id
-        ).order_by(BloqueoVPN.fecha_cambio.desc()).first()
-        
-        estado_bloqueo = ultimo_bloqueo.estado if ultimo_bloqueo else "DESBLOQUEADO"
+        # Obtener estado de bloqueo de la lista pre-cargada
+        bloqueos_ordenados = sorted(acceso.bloqueos, key=lambda b: b.fecha_cambio, reverse=True)
+        estado_bloqueo = bloqueos_ordenados[0].estado if bloqueos_ordenados else "DESBLOQUEADO"
         
         # Determinar tipo de alerta
         dias_restantes = (acceso.fecha_fin_con_gracia - hoy).days
@@ -286,7 +355,7 @@ async def obtener_alertas_inteligentes(
             "2023": cartas_2023
         },
         "pendientes_sin_carta": pendientes,
-        "total_cancelados": cancelados,  # ✅ ENVIAR CANCELADOS
+        "total_cancelados": cancelados,
         "resumen": {
             "activos": sum(1 for a in alertas if a["estado_bloqueo"] != "BLOQUEADO" and a["dias_restantes_acceso_actual"] > 0),
             "vencidos_hoy": sum(1 for a in alertas if a["fecha_vencimiento_acceso_actual"] == hoy and a["estado_bloqueo"] != "BLOQUEADO"),
@@ -308,25 +377,38 @@ async def obtener_historial_cartas_persona(
     db: Session = Depends(get_db)
 ):
     """
-    Obtener historial completo de cartas de una persona
+    ⚡ OPTIMIZADO - Obtener historial completo de cartas de una persona
     """
+    from sqlalchemy.orm import joinedload, selectinload
+    
     persona = db.query(Persona).filter(Persona.id == persona_id).first()
     if not persona:
         raise HTTPException(status_code=404, detail="Persona no encontrada")
     
-    cartas = db.query(CartaResponsabilidad).join(
-        SolicitudVPN
-    ).filter(
-        SolicitudVPN.persona_id == persona_id
-    ).order_by(CartaResponsabilidad.fecha_generacion.desc()).all()
+    # ⚡ Pre-cargar cartas con sus solicitudes
+    cartas = db.query(CartaResponsabilidad)\
+        .options(joinedload(CartaResponsabilidad.solicitud))\
+        .join(SolicitudVPN)\
+        .filter(SolicitudVPN.persona_id == persona_id)\
+        .order_by(CartaResponsabilidad.fecha_generacion.desc())\
+        .all()
     
     hoy = date.today()
+    
+    # ⚡ Pre-cargar todos los accesos relacionados en UNA query
+    solicitud_ids = [carta.solicitud_id for carta in cartas]
+    accesos_dict = {}
+    if solicitud_ids:
+        accesos = db.query(AccesoVPN)\
+            .options(selectinload(AccesoVPN.bloqueos))\
+            .filter(AccesoVPN.solicitud_id.in_(solicitud_ids))\
+            .all()
+        accesos_dict = {acc.solicitud_id: acc for acc in accesos}
+    
     historial = []
     
     for carta in cartas:
-        acceso = db.query(AccesoVPN).filter(
-            AccesoVPN.solicitud_id == carta.solicitud_id
-        ).first()
+        acceso = accesos_dict.get(carta.solicitud_id)
         
         if acceso:
             dias_restantes = (acceso.fecha_fin_con_gracia - hoy).days
@@ -337,6 +419,10 @@ async def obtener_historial_cartas_persona(
             elif dias_restantes > 0:
                 estado = "POR_VENCER"
             
+            # ⚡ Obtener último bloqueo de la lista pre-cargada
+            bloqueos_ordenados = sorted(acceso.bloqueos, key=lambda b: b.fecha_cambio, reverse=True)
+            estado_bloqueo = bloqueos_ordenados[0].estado if bloqueos_ordenados else "DESBLOQUEADO"
+            
             historial.append({
                 "carta_id": carta.id,
                 "numero_carta": f"{carta.numero_carta}-{carta.anio_carta}",
@@ -346,7 +432,7 @@ async def obtener_historial_cartas_persona(
                 "dias_restantes": dias_restantes,
                 "estado": estado,
                 "acceso_id": acceso.id,
-                "estado_bloqueo": acceso.estado_bloqueo_actual
+                "estado_bloqueo": estado_bloqueo
             })
     
     return {
