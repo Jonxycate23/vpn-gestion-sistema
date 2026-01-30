@@ -1,13 +1,13 @@
 """
 Aplicación principal FastAPI
-Sistema de Gestión de Accesos VPN
+
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 
 # Importar todos los routers necesarios
-from app.api.endpoints import auth, dashboard, solicitudes, accesos, usuarios
+from app.api.endpoints import auth, dashboard, solicitudes, accesos, usuarios, data
 
 # ✅ NUEVAS IMPORTACIONES - AGREGAR ESTAS LÍNEAS
 from app.api.endpoints import cartas, personas_superadmin
@@ -76,6 +76,7 @@ app.include_router(accesos.router, prefix="/api/accesos", tags=["🔑 Accesos VP
 app.include_router(usuarios.router, prefix="/api/usuarios", tags=["👥 Usuarios del Sistema (ADMIN/SUPERADMIN)"])
 
 # ✅ NUEVAS RUTAS - AGREGAR ESTAS LÍNEAS
+app.include_router(data.router, prefix="/api/data", tags=["📥 Importacion/Exportacion"])
 app.include_router(cartas.router, prefix="/api/cartas", tags=["📋 Cartas de Responsabilidad"])
 app.include_router(personas_superadmin.router, prefix="/api/personas", tags=["👤 Gestión de Personas (SUPERADMIN)"])
 

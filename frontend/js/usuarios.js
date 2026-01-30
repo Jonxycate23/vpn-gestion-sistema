@@ -1,7 +1,4 @@
-// 👥 Módulo de Gestión de Usuarios del Sistema - MEJORADO CON CAMBIO DE CONTRASEÑA
-// 📂 Ubicación: frontend/js/usuarios.js
-// ✅ Solo SUPERADMIN puede acceder
-
+// Módulo de Gestión de Usuarios del Sistema
 const Usuarios = {
     async load() {
         console.log('Cargando Gestión de Usuarios...');

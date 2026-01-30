@@ -1,6 +1,5 @@
 """
-Modelo: Solicitud VPN (historial administrativo)
-ACTUALIZADO: Incluye oficio, providencia y fecha de recepción
+Solicitud VPN (historial administrativo)
 """
 from sqlalchemy import (
     Column, Integer, String, Date, DateTime, Text, 

@@ -1,5 +1,5 @@
 """
-Prueba de imports - Ejecutar en el backend con venv activado
+Prueba de imports 
 """
 
 print("Probando imports...")

@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
 Script para regenerar el hash de la contraseña del admin
-Ejecutar: python fix_admin_password.py
 """
 import sys
 from passlib.context import CryptContext

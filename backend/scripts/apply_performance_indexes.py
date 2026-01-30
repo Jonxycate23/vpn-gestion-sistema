@@ -1,7 +1,5 @@
 """
-Script para aplicar índices de rendimiento a la base de datos
-📍 Ubicación: backend/scripts/apply_performance_indexes.py
-🎯 Ejecutar: python -m scripts.apply_performance_indexes
+índices de rendimiento a la base de datos
 """
 import sys
 from pathlib import Path

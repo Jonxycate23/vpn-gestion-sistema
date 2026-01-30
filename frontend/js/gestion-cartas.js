@@ -1,7 +1,4 @@
-// 📄 GESTIÓN DE CARTAS - ELIMINAR Y REGENERAR (SOLO SUPERADMIN)
-// 📂 Ubicación: frontend/js/gestion-cartas.js
-// ✅ Permite corregir errores eliminando cartas y regenerándolas con el mismo número
-
+// GESTIÓN DE CARTAS - ELIMINAR Y REGENERAR (SOLO SUPERADMIN)
 const GestionCartas = {
     
     /**

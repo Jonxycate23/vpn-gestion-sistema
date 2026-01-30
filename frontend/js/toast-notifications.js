@@ -1,7 +1,4 @@
-// 🔔 SISTEMA DE NOTIFICACIONES MODERNO
-// 📂 Ubicación: frontend/js/toast-notifications.js
-// ✅ Reemplaza los alerts antiguos con toasts elegantes
-
+// SISTEMA DE NOTIFICACIONES MODERNO
 const Toast = {
     container: null,
     
@@ -198,37 +195,5 @@ window.hideLoading = function() {
     const loadingToasts = document.querySelectorAll('.toast-loading');
     loadingToasts.forEach(toast => Toast.close(toast));
 };
-
-// ========================================
-// EJEMPLOS DE USO AVANZADO
-// ========================================
-
-/**
- * Toast con acción
- * 
- * Toast.success('Solicitud creada exitosamente', {
- *     action: {
- *         label: 'Ver Detalles',
- *         onClick: 'Solicitudes.verDetalle(123)'
- *     }
- * });
- */
-
-/**
- * Toast personalizado
- * 
- * Toast.show('Operación completada', 'success', 5000, {
- *     title: '🎉 ¡Genial!',
- *     icon: '🚀'
- * });
- */
-
-/**
- * Toast que no se auto-cierra
- * 
- * const toast = Toast.show('Requiere atención', 'warning', 0);
- * // Cerrar manualmente después
- * setTimeout(() => Toast.close(toast), 10000);
- */
 
 console.log('✅ Sistema de Toast Notifications cargado');

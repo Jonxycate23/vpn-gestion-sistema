@@ -1,5 +1,5 @@
 """
-Schemas de Auditoría
+Auditoría
 """
 from pydantic import BaseModel, Field
 from typing import Optional, Any

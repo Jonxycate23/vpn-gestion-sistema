@@ -1,7 +1,4 @@
-// Módulo de Accesos VPN - VERSIÓN CON VER DETALLES COMPLETO
-// 📂 Ubicación: frontend/js/accesos.js
-// ✅ Botón "Ver Detalles" en todos los accesos con info completa
-
+// Módulo de Accesos VPN 
 const Accesos = {
     ordenActual: 'prioridad',
     datosOriginales: [],

@@ -1,7 +1,5 @@
 """
-Servicio de Gestión de Usuarios del Sistema - VERSIÓN SIN AUDITORIA
-📍 Ubicación: backend/app/services/usuarios.py
-✅ Compatible con tu proyecto - NO usa AuditoriaAccion
+Servicio de Gestión de Usuarios del Sistema
 """
 from sqlalchemy.orm import Session
 from sqlalchemy import func

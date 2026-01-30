@@ -1,7 +1,4 @@
-// 🎨 ANIMACIÓN DE CÍRCULOS DE PROGRESO
-// 📂 Ubicación: frontend/js/dashboard-circle-animation.js
-// ✅ Anima los círculos cuando se cargan los datos
-
+// ANIMACIÓN DE CÍRCULOS DE PROGRESO
 const CircleAnimator = {
     /**
      * Animar un círculo de progreso

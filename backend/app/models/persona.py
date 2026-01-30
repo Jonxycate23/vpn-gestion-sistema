@@ -1,6 +1,6 @@
 """
-Modelo: Persona (solicitante de acceso VPN)
-ACTUALIZADO: Incluye NIP para personal policial
+Persona (solicitante de acceso VPN)
+
 """
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text
 from sqlalchemy.orm import relationship

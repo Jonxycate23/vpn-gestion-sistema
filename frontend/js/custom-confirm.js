@@ -1,7 +1,4 @@
-// 🎨 SISTEMA DE CONFIRMACIÓN PERSONALIZADO
-// 📂 Ubicación: frontend/js/custom-confirm.js
-// ✅ Reemplaza los alerts nativos con modales elegantes
-
+// SISTEMA DE CONFIRMACIÓN PERSONALIZADO
 const CustomConfirm = {
     
     /**
@@ -336,47 +333,5 @@ window.confirm = async function(message) {
         cancelText: 'Cancelar'
     });
 };
-
-// ========================================
-// EJEMPLOS DE USO
-// ========================================
-
-/**
- * Uso básico (reemplaza confirm nativo):
- * 
- * if (await confirm('¿Estás seguro?')) {
- *     // Usuario aceptó
- * }
- */
-
-/**
- * Uso avanzado con opciones personalizadas:
- * 
- * const result = await CustomConfirm.show({
- *     title: '🗑️ Eliminar Usuario',
- *     message: 'Esta acción no se puede deshacer.\n¿Estás seguro?',
- *     type: 'danger',
- *     confirmText: 'Sí, eliminar',
- *     cancelText: 'Cancelar'
- * });
- * 
- * if (result) {
- *     // Usuario confirmó
- * }
- */
-
-/**
- * Atajos rápidos:
- * 
- * await CustomConfirm.danger(
- *     '🗑️ Eliminar Usuario',
- *     'Esta acción no se puede deshacer'
- * );
- * 
- * await CustomConfirm.warning(
- *     '⚠️ Advertencia',
- *     'Los cambios no se han guardado'
- * );
- */
 
 console.log('✅ Sistema de Confirmación Personalizado cargado');

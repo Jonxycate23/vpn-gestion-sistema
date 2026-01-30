@@ -1,7 +1,4 @@
-// 🎨 MEJORAS DE MODALES - NO SE CIERRAN AL HACER CLIC AFUERA
-// 📂 Ubicación: frontend/js/modal-improvements.js
-// ✅ Mejora la experiencia de usuario con los modales
-
+// MEJORAS DE MODALES - NO SE CIERRAN AL HACER CLIC AFUERA
 const ModalManager = {
     /**
      * Mejorar la función showModal existente

@@ -26,32 +26,32 @@ class AuthService:
         Returns:
             Usuario si las credenciales son correctas, None si no
         """
-        print(f"🔍 DEBUG: Intentando autenticar usuario: {username}")
+        # print(f"🔍 DEBUG: Intentando autenticar usuario: {username}")
         
         usuario = db.query(UsuarioSistema).filter(
             UsuarioSistema.username == username.lower()
         ).first()
         
         if not usuario:
-            print(f"❌ DEBUG: Usuario {username} no encontrado")
+            # print(f"❌ DEBUG: Usuario {username} no encontrado")
             return None
         
-        print(f"✅ DEBUG: Usuario {username} encontrado")
-        print(f"🔑 DEBUG: Hash en BD: {usuario.password_hash[:50]}...")
-        print(f"🔑 DEBUG: Password recibida: {password}")
+        # print(f"✅ DEBUG: Usuario {username} encontrado")
+        # print(f"🔑 DEBUG: Hash en BD: {usuario.password_hash[:50]}...")
+        # print(f"🔑 DEBUG: Password recibida: {password}")
         
         password_valida = verify_password(password, usuario.password_hash)
-        print(f"🔍 DEBUG: Resultado verify_password: {password_valida}")
+        # print(f"🔍 DEBUG: Resultado verify_password: {password_valida}")
         
         if not password_valida:
-            print(f"❌ DEBUG: Contraseña incorrecta para {username}")
+            # print(f"❌ DEBUG: Contraseña incorrecta para {username}")
             return None
         
         if not usuario.activo:
-            print(f"❌ DEBUG: Usuario {username} está inactivo")
+            # print(f"❌ DEBUG: Usuario {username} está inactivo")
             return None
         
-        print(f"✅ DEBUG: Autenticación exitosa para {username}")
+        # print(f"✅ DEBUG: Autenticación exitosa para {username}")
         return usuario
     
     @staticmethod

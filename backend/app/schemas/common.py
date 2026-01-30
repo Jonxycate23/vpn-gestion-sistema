@@ -1,5 +1,5 @@
 """
-Schemas comunes y base
+comunes y base
 """
 from pydantic import BaseModel, Field
 from typing import Optional

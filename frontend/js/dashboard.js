@@ -1,7 +1,4 @@
-// 📊 Dashboard Estilo Asperos Geek - VERSIÓN COMPLETA CORREGIDA
-// 📍 Ubicación: frontend/js/dashboard.js
-// ✅ CORREGIDO: Contadores correctos + Variable hoy definida correctamente
-
+// Dashboard Estilo
 const DashboardAsperos = {
     _initialized: false,
     _cleanupExecuted: false,

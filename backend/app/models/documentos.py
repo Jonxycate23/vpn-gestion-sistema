@@ -1,7 +1,5 @@
 """
-Modelos: Cartas de Responsabilidad y Archivos Adjuntos
-📍 ACTUALIZADO: Incluye numero_carta, anio_carta y eliminada
-✅ Campo 'eliminada' permite mantener numeración al eliminar/regenerar
+ Cartas de Responsabilidad y Archivos Adjuntos
 """
 from sqlalchemy import (
     Column, Integer, String, Date, DateTime, Text, Boolean,

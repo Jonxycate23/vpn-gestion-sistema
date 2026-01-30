@@ -1,5 +1,5 @@
 """
-Schemas de Solicitud VPN
+Solicitud VPN
 """
 from pydantic import BaseModel, Field
 from typing import Optional

@@ -1,5 +1,5 @@
 """
-Schemas de autenticación y usuarios del sistema
+autenticación y usuarios del sistema
 """
 from pydantic import BaseModel, Field, EmailStr, field_validator
 from typing import Optional

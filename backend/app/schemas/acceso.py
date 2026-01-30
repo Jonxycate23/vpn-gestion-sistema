@@ -1,5 +1,5 @@
 """
-Schemas de Acceso VPN y Bloqueo
+Acceso VPN y Bloqueo
 """
 from pydantic import BaseModel, Field
 from typing import Optional

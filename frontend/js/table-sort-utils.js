@@ -1,7 +1,4 @@
-// 🔄 UTILIDAD DE ORDENAMIENTO DE TABLAS
-// 📂 Ubicación: frontend/js/table-sort-utils.js
-// ✅ Ordenamiento bidireccional con indicadores visuales
-
+// ORDENAMIENTO DE TABLAS
 const TableSorter = {
     // Estado actual de ordenamiento por tabla
     sortStates: {},

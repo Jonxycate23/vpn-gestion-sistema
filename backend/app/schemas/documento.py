@@ -1,5 +1,5 @@
 """
-Schemas de Documentos y Archivos
+Documentos y Archivos
 """
 from pydantic import BaseModel, Field
 from typing import Optional

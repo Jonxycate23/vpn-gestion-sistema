@@ -1,8 +1,3 @@
-"""
-Schemas de Persona (solicitantes VPN) - CON NIP
-📍 Ubicación: backend/app/schemas/persona.py
-REEMPLAZA COMPLETAMENTE EL ARCHIVO ACTUAL
-"""
 from pydantic import BaseModel, Field, EmailStr, field_validator
 from typing import Optional
 from datetime import datetime

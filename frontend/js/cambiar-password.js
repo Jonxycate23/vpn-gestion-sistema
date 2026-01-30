@@ -1,9 +1,4 @@
-// ========================================
-// VERIFICACIÓN DE CAMBIO DE CONTRASEÑA OBLIGATORIO
-// ========================================
-// 📂 Ubicación: frontend/js/primer-login-check.js
-// 🎯 Propósito: Forzar cambio de contraseña en primer login
-
+// VERIFICACIÓN DE CAMBIO DE CONTRASEÑA 
 const PrimerLoginCheck = {
     
     /**
@@ -234,35 +229,3 @@ const PrimerLoginCheck = {
         }
     }
 };
-
-
-// ========================================
-// INTEGRACIÓN CON EL LOGIN
-// ========================================
-
-// Modificar tu función de login para incluir la verificación
-// Ejemplo de cómo integrar en tu auth.js:
-
-/*
-Auth.login = async function(username, password) {
-    try {
-        const response = await API.post('/auth/login', {
-            username,
-            password
-        });
-        
-        if (response && response.access_token) {
-            TokenStorage.set(response.access_token);
-            UserStorage.set(response.usuario);
-            
-            // ✅ VERIFICAR SI DEBE CAMBIAR CONTRASEÑA
-            PrimerLoginCheck.verificarCambioObligatorio();
-            
-            // Redirigir al dashboard
-            window.location.href = '/dashboard';
-        }
-    } catch (error) {
-        showError('Credenciales inválidas');
-    }
-};
-*/

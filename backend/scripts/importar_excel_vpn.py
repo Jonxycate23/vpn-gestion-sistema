@@ -1,7 +1,5 @@
 """
-Script de Importación Masiva - VERSIÓN CORREGIDA
-✅ CORRIGE: Ahora detecta correctamente el estado CANCELADA
-✅ Estados soportados: TERMINADO, PENDIENTE, CANCELADA, BLOQUEADO
+Script de Importación Masiva DE DATOS
 """
 
 import pandas as pd

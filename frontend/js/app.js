@@ -1,7 +1,4 @@
-// Archivo principal de la aplicación - VERSIÓN CORREGIDA
-// ✅ Verifica permisos antes de cambiar de vista
-// ✅ Redirige si el usuario no tiene acceso
-
+// Archivo principal de la aplicación
 const App = {
     currentView: 'dashboard',
     

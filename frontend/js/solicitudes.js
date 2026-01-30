@@ -42,8 +42,27 @@ const Solicitudes = {
             return;
         }
 
+        // ✅ BUTTONS HTML TEMPLATE
+        const buttonsHTML = `
+            <div id="importExportButtons" style="margin-top: 1rem; display: flex; gap: 1rem; justify-content: flex-end;">
+                <input type="file" id="fileImportInput" accept=".xlsx, .xls" style="display: none;" onchange="Solicitudes.procesarImportacion(this)">
+                
+                <button class="btn btn-outline" onclick="document.getElementById('fileImportInput').click()" title="Cargar desde Excel">
+                    📥 Importar Excel
+                </button>
+                
+                <button class="btn btn-outline" onclick="Solicitudes.exportarExcel()" title="Descargar todo">
+                    📤 Exportar Datos
+                </button>
+            </div>
+        `;
+
         let tabla = contenedor.querySelector('#solicitudesTable');
         if (tabla) {
+            // ✅ FIX: Si la tabla existe pero los botones no, agregarlos
+            if (!document.getElementById('importExportButtons')) {
+                contenedor.insertAdjacentHTML('beforeend', buttonsHTML);
+            }
             return;
         }
 
@@ -51,13 +70,6 @@ const Solicitudes = {
             <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
                 <div style="display: flex; align-items: center; gap: 1rem;">
                     <h1>📄 Gestión de Solicitudes VPN</h1>
-                    
-                    <!-- ✅ BOTÓN DE ORDENAMIENTO -->
-                    <button id="btnOrdenarSolicitudes" class="btn btn-sm btn-outline" 
-                            onclick="Solicitudes.toggleOrden()" 
-                            title="Cambiar orden">
-                        🔢 <span id="labelOrden">Más Recientes Primero</span> ⬇️
-                    </button>
                 </div>
                 <button id="btnNuevaSolicitud" class="btn btn-primary">➕ Ingresar</button>
             </div>
@@ -85,6 +97,9 @@ const Solicitudes = {
                     </div>
                 </div>
             </div>
+            
+            <!-- ✅ BOTONES DE IMPORTAR/EXPORTAR (ABAJO) -->
+            ${buttonsHTML}
         `;
 
         const btnNueva = document.getElementById('btnNuevaSolicitud');
@@ -93,27 +108,100 @@ const Solicitudes = {
         }
     },
 
-    toggleOrden() {
-        // Cambiar estado
-        this.ordenActual = this.ordenActual === 'desc' ? 'asc' : 'desc';
+    // ✅ FUNCIONES DE IMPORTACIÓN/EXPORTACIÓN
+    async procesarImportacion(input) {
+        if (!input.files || input.files.length === 0) return;
 
-        // Actualizar label del botón
-        const label = document.getElementById('labelOrden');
-        const btn = document.getElementById('btnOrdenarSolicitudes');
+        const file = input.files[0];
+        const formData = new FormData();
+        formData.append('file', file);
 
-        if (this.ordenActual === 'desc') {
-            label.textContent = 'Más Recientes Primero';
-            btn.innerHTML = '🔢 <span id="labelOrden">Más Recientes Primero</span> ⬇️';
-        } else {
-            label.textContent = 'Más Antiguos Primero';
-            btn.innerHTML = '🔢 <span id="labelOrden">Más Antiguos Primero</span> ⬆️';
+        // Mostrar indicador de carga
+        const btnImportar = document.querySelector('button[title="Cargar desde Excel"]');
+        const textoOriginal = btnImportar.innerHTML;
+        btnImportar.innerHTML = '⏳ Subiendo...';
+        btnImportar.disabled = true;
+
+        try {
+            const response = await fetch(`${API.BASE_URL}/data/import/excel`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${TokenStorage.get()}`
+                },
+                body: formData
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Error en la importación');
+            }
+
+            const result = await response.json();
+
+            // Mostrar resumen
+            let mensaje = `✅ Importación completada.\n\n` +
+                `Total: ${result.estadisticas.total} \n` +
+                `Exitosos: ${result.estadisticas.exitosos} \n` +
+                `Fallidos: ${result.estadisticas.fallidos} `;
+
+            if (result.estadisticas.errores && result.estadisticas.errores.length > 0) {
+                mensaje += `\n\nErrores(ver consola para más detalle): \n` +
+                    result.estadisticas.errores.slice(0, 3).join('\n') +
+                    (result.estadisticas.errores.length > 3 ? '\n...' : '');
+            }
+
+            alert(mensaje);
+
+            // Recargar tabla
+            this.load();
+
+        } catch (error) {
+            console.error('Error importando:', error);
+            alert(`❌ Error: ${error.message} `);
+        } finally {
+            btnImportar.innerHTML = textoOriginal;
+            btnImportar.disabled = false;
+            input.value = ''; // Reset input
         }
-
-        console.log(`🔄 Orden cambiado a: ${this.ordenActual.toUpperCase()}`);
-
-        // Renderizar nuevamente con el nuevo orden
-        this.renderizarSolicitudes();
     },
+
+    async exportarExcel() {
+        const btnExportar = document.querySelector('button[title="Descargar todo"]');
+        const textoOriginal = btnExportar.innerHTML;
+        btnExportar.innerHTML = '⏳ Generando...';
+        btnExportar.disabled = true;
+
+        try {
+            const response = await fetch(`${API.BASE_URL}/data/export/excel`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${TokenStorage.get()}`
+                }
+            });
+
+            if (!response.ok) throw new Error('Error al exportar datos');
+
+            // Descargar archivo
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `reporte_vpn_${new Date().toISOString().slice(0, 10)}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+        } catch (error) {
+            console.error('Error exportando:', error);
+            alert('❌ Error al exportar datos. Intente nuevamente.');
+        } finally {
+            btnExportar.innerHTML = textoOriginal;
+            btnExportar.disabled = false;
+        }
+    },
+
+
 
     async listarSolicitudes() {
         try {
@@ -204,10 +292,10 @@ const Solicitudes = {
                         ` : ''}
                     </td>
                 </tr>
-            `;
+    `;
         }).join('');
 
-        console.log(`✅ ${solicitudesOrdenadas.length} solicitudes ordenadas (${this.ordenActual.toUpperCase()})`);
+        console.log(`✅ ${solicitudesOrdenadas.length} solicitudes ordenadas(${this.ordenActual.toUpperCase()})`);
 
         // ✅ Refrescar paginación si existe
         if (typeof Paginator !== 'undefined' && Paginator.configs['solicitudesTable']) {
@@ -217,7 +305,7 @@ const Solicitudes = {
 
     nuevaSolicitud() {
         showModal('📝 NUEVO REGISTRO', `
-            <h3> INGRESE NIP</h3>
+    <h3> INGRESE NIP</h3>
             <form id="formBuscarNIP" style="margin-bottom: 2rem;">
                 <div class="form-group">
                     <label>(Número de Identificación Policial) *</label>
@@ -226,7 +314,7 @@ const Solicitudes = {
                 <button type="submit" class="btn btn-primary btn-block">🔍 Buscar</button>
             </form>
             <div id="resultadoBusqueda"></div>
-        `);
+`);
 
         document.getElementById('formBuscarNIP').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -257,7 +345,7 @@ const Solicitudes = {
     mostrarFormularioEdicion(persona) {
         const resultadoDiv = document.getElementById('resultadoBusqueda');
         resultadoDiv.innerHTML = `
-            <div style="background: #d1fae5; padding: 1rem; margin-bottom: 1rem; border-radius: 4px;">
+    <div style="background: #d1fae5; padding: 1rem; margin-bottom: 1rem; border-radius: 4px;">
                 <strong>✅ Datos de la Persona</strong><br>
                 ${persona.nombres} ${persona.apellidos}<br>
                 NIP: ${persona.nip} | DPI: ${persona.dpi}

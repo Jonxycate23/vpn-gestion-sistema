@@ -1,7 +1,4 @@
-// ========================================
-// 🎨 MENÚ DE USUARIO - FUNCIONALIDAD
-// Archivo: user-menu.js
-// ========================================
+// MENÚ DE USUARIO - FUNCIONALIDAD
 
 const UserMenu = {
     
