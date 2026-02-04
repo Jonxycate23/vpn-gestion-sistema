@@ -305,7 +305,7 @@ const Usuarios = {
                     </div>
                 </div>
                 
-                <button class="btn btn-primary btn-block" onclick="hideModal(); Usuarios.load();">
+                <button class="btn btn-primary btn-block" onclick="hideModal(); setTimeout(() => Usuarios.load(), 100);">
                     Aceptar
                 </button>
             `);
@@ -415,7 +415,7 @@ const Usuarios = {
                     </div>
                 </div>
                 
-                <button class="btn btn-primary btn-block" onclick="hideModal();">
+                <button class="btn btn-primary btn-block" onclick="hideModal(); setTimeout(() => Usuarios.load(), 100);">
                     Aceptar
                 </button>
             `);

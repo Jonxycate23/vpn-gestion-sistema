@@ -55,7 +55,9 @@ body {
 }
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 /* Login Screen */
@@ -311,10 +313,21 @@ body {
     font-weight: 700;
 }
 
-.stat-success { border-left: 4px solid var(--success); }
-.stat-warning { border-left: 4px solid var(--warning); }
-.stat-danger { border-left: 4px solid var(--danger); }
-.stat-info { border-left: 4px solid var(--info); }
+.stat-success {
+    border-left: 4px solid var(--success);
+}
+
+.stat-warning {
+    border-left: 4px solid var(--warning);
+}
+
+.stat-danger {
+    border-left: 4px solid var(--danger);
+}
+
+.stat-info {
+    border-left: 4px solid var(--info);
+}
 
 /* Card */
 .card {
@@ -469,12 +482,35 @@ body {
     text-transform: uppercase;
 }
 
-.status-activo { background: #d1fae5; color: #065f46; }
-.status-por-vencer { background: #fef3c7; color: #92400e; }
-.status-vencido { background: #fee2e2; color: #991b1b; }
-.status-bloqueado { background: #dbeafe; color: #1e40af; }
-.status-aprobada { background: #d1fae5; color: #065f46; }
-.status-rechazada { background: #fee2e2; color: #991b1b; }
+.status-activo {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.status-por-vencer {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.status-vencido {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.status-bloqueado {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.status-aprobada {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.status-rechazada {
+    background: #fee2e2;
+    color: #991b1b;
+}
 
 /* Responsive */
 @media (max-width: 768px) {
@@ -497,8 +533,10 @@ body {
 .content {
     grid-area: content;
     padding: 1.5rem;
-    overflow-y: auto; /* ✅ Scroll solo en el contenido */
-    max-height: calc(100vh - 60px); /* ✅ Altura = pantalla completa - header */
+    overflow-y: auto;
+    /* ✅ Scroll solo en el contenido */
+    max-height: calc(100vh - 60px);
+    /* ✅ Altura = pantalla completa - header */
 }
 
 /* 2. Contenedor de la tabla con scroll interno */
@@ -506,34 +544,42 @@ body {
     background: white;
     border-radius: 8px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    overflow: hidden; /* ✅ Importante para que funcione el sticky */
+    overflow: hidden;
+    /* ✅ Importante para que funcione el sticky */
     margin-bottom: 1rem;
 }
 
 .card-body {
-    padding: 0; /* ✅ Quitar padding para mejor control */
+    padding: 0;
+    /* ✅ Quitar padding para mejor control */
     overflow: hidden;
 }
 
 /* 3. Wrapper para la tabla con scroll */
 .table-wrapper {
-    max-height: calc(100vh - 300px); /* ✅ Altura disponible para la tabla */
-    overflow-y: auto; /* ✅ Scroll vertical solo aquí */
-    overflow-x: auto; /* ✅ Scroll horizontal si es necesario */
+    max-height: calc(100vh - 300px);
+    /* ✅ Altura disponible para la tabla */
+    overflow-y: auto;
+    /* ✅ Scroll vertical solo aquí */
+    overflow-x: auto;
+    /* ✅ Scroll horizontal si es necesario */
     position: relative;
 }
 
 /* 4. Hacer que los headers sean sticky (fijos) */
 .table {
     width: 100%;
-    border-collapse: separate; /* ✅ Necesario para sticky */
+    border-collapse: separate;
+    /* ✅ Necesario para sticky */
     border-spacing: 0;
 }
 
 .table thead {
-    position: sticky; /* ✅ Headers fijos */
+    position: sticky;
+    /* ✅ Headers fijos */
     top: 0;
-    z-index: 10; /* ✅ Por encima del tbody */
+    z-index: 10;
+    /* ✅ Por encima del tbody */
     background: var(--gray-50);
 }
 
@@ -544,14 +590,16 @@ body {
     font-size: 0.875rem;
     color: var(--gray-700);
     border-bottom: 2px solid var(--gray-200);
-    background: var(--gray-50); /* ✅ Fondo sólido para cubrir el scroll */
+    background: var(--gray-50);
+    /* ✅ Fondo sólido para cubrir el scroll */
     position: sticky;
     top: 0;
 }
 
 /* 5. tbody con scroll suave */
 .table tbody {
-    display: table-row-group; /* ✅ Comportamiento normal */
+    display: table-row-group;
+    /* ✅ Comportamiento normal */
 }
 
 .table tbody tr {
@@ -598,8 +646,10 @@ body {
     grid-template-columns: 250px 1fr;
     grid-template-rows: 60px 1fr;
     min-height: 100vh;
-    max-height: 100vh; /* ✅ Limitar altura a la ventana */
-    overflow: hidden; /* ✅ Sin scroll en el layout principal */
+    max-height: 100vh;
+    /* ✅ Limitar altura a la ventana */
+    overflow: hidden;
+    /* ✅ Sin scroll en el layout principal */
 }
 
 /* 8. Sidebar sin scroll propio */
@@ -608,7 +658,8 @@ body {
     background: white;
     border-right: 1px solid var(--gray-200);
     padding: 1rem 0;
-    overflow-y: auto; /* ✅ Scroll solo si el menú es muy largo */
+    overflow-y: auto;
+    /* ✅ Scroll solo si el menú es muy largo */
     max-height: calc(100vh - 60px);
 }
 
@@ -621,7 +672,8 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    position: sticky; /* ✅ Fijo en la parte superior */
+    position: sticky;
+    /* ✅ Fijo en la parte superior */
     top: 0;
     z-index: 100;
 }
@@ -748,7 +800,8 @@ body {
 
 /* Tabla dentro de card-body */
 .card-body .table-wrapper {
-    max-height: calc(100vh - 350px); /* Ajustado para dejar espacio al buscador */
+    max-height: calc(100vh - 350px);
+    /* Ajustado para dejar espacio al buscador */
     overflow-y: auto;
     overflow-x: auto;
 }
@@ -757,7 +810,8 @@ body {
    FIX: BUSCADOR NO DEBE FLOTAR
    ======================================== */
 .search-filters-container {
-    position: relative !important; /* ❌ No sticky */
+    position: relative !important;
+    /* ❌ No sticky */
     padding: 1.5rem;
     background: white;
     border-bottom: 1px solid var(--gray-200);
@@ -774,4 +828,77 @@ body {
     padding: 1rem 1.5rem;
     background: white;
     border-bottom: 1px solid var(--gray-200);
+}
+
+/* ========================================
+   MENU SECTIONS AND SUBMENUS
+   ======================================== */
+.menu-section {
+    margin: 0.5rem 0;
+}
+
+.menu-section-header {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1.5rem;
+    color: var(--gray-900);
+    font-weight: 600;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: var(--gray-50);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.menu-section-header:hover {
+    background: var(--gray-200);
+}
+
+.menu-section-icon {
+    margin-right: 0.5rem;
+    font-size: 1.1rem;
+}
+
+.menu-section-title {
+    flex: 1;
+}
+
+.submenu {
+    list-style: none;
+    padding-left: 0;
+    background: white;
+}
+
+.submenu-item {
+    padding-left: 3rem !important;
+    font-size: 0.875rem;
+    border-left: 3px solid transparent;
+}
+
+.submenu-item:hover,
+.submenu-item.active {
+    background: var(--gray-100);
+    color: var(--primary);
+    border-left-color: var(--primary);
+}
+
+.menu-chevron {
+    margin-left: auto;
+    font-size: 0.75rem;
+    transition: transform 0.3s ease;
+}
+
+.menu-section.expanded .menu-chevron {
+    transform: rotate(180deg);
+}
+
+.submenu {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+}
+
+.submenu.show {
+    max-height: 200px;
 }

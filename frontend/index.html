@@ -136,9 +136,18 @@
         <aside class="sidebar">
             <ul class="menu">
                 <li><a href="#" data-view="dashboard" class="menu-item active">📊 Dashboard</a></li>
-                <li><a href="#" data-view="solicitudes" class="menu-item">📄 Solicitudes VPN</a></li>
-                <li><a href="#" data-view="accesos" class="menu-item">🔑 Usuarios VPN</a></li>
-                <li><a href="#" data-view="usuarios" class="menu-item">👥 User System</a></li>
+                <li class="menu-section" id="vpnMenuSection">
+                    <div class="menu-section-header" onclick="toggleVpnMenu()">
+                        <span class="menu-section-icon">🌐</span>
+                        <span class="menu-section-title">VPN</span>
+                        <span class="menu-chevron">▼</span>
+                    </div>
+                    <ul class="submenu" id="vpnSubmenu" style="display: none;">
+                        <li><a href="#" data-view="solicitudes" class="menu-item submenu-item">📄 Solicitudes</a></li>
+                        <li><a href="#" data-view="accesos" class="menu-item submenu-item">🔑 Usuarios VPN</a></li>
+                    </ul>
+                </li>
+                <li><a href="#" data-view="usuarios" class="menu-item">👥 Usuario System</a></li>
             </ul>
         </aside>
 
