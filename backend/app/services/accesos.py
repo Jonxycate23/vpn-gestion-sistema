@@ -118,6 +118,26 @@ class BloqueoService:
                 detail=f"El acceso ya está en estado {data.estado}"
             )
         
+        # ✅ NUEVO: Obtener la solicitud asociada al acceso
+        from app.models import SolicitudVPN
+        solicitud = db.query(SolicitudVPN).filter(
+            SolicitudVPN.id == acceso.solicitud_id
+        ).first()
+        
+        # ✅ NUEVO: Actualizar campos de la solicitud según la acción
+        if solicitud:
+            if data.estado == EstadoBloqueoEnum.BLOQUEADO:
+                # Al bloquear: reemplazar la justificación con el motivo del bloqueo
+                solicitud.justificacion = data.motivo
+                solicitud.estado = 'CANCELADA'
+            else:
+                # Al desbloquear: restaurar estado a PENDIENTE
+                solicitud.estado = 'PENDIENTE'
+                solicitud.justificacion = f"Desbloqueado: {data.motivo}"
+            
+            # ✅ Asegurar que los cambios se registren en la sesión
+            db.add(solicitud)
+        
         # Crear registro de bloqueo/desbloqueo
         bloqueo = BloqueoVPN(
             acceso_vpn_id=data.acceso_vpn_id,
@@ -127,6 +147,8 @@ class BloqueoService:
         )
         
         db.add(bloqueo)
+        
+        # ✅ Commit único para guardar todos los cambios (solicitud + bloqueo)
         db.commit()
         db.refresh(bloqueo)
         

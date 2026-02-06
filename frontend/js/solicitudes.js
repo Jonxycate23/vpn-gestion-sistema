@@ -656,7 +656,7 @@ const Solicitudes = {
 
             const nombreUsuarioSistema = this.usuarioActual?.nombre_completo || 'Usuario del Sistema';
 
-            // ✅ CORRECCIÓN: Mostrar fechas correctas
+            // CORRECCION: Mostrar fechas correctas
             console.log('📅 Fecha de generación:', fechaGeneracion);
             console.log('📅 Fecha de expiración:', fechaExpiracion);
 

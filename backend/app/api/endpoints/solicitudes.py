@@ -670,8 +670,11 @@ async def marcar_no_presentado(
         raise HTTPException(status_code=404, detail="Solicitud no encontrada")
     
     solicitud.estado = 'CANCELADA'
+    # ✅ FIX: Guardar el motivo en la justificación también (visible en tabla)
+    solicitud.justificacion = motivo
     solicitud.comentarios_admin = f"NO_PRESENTADO: {motivo}"
     
+    db.add(solicitud)
     db.commit()
     
     return {"success": True, "message": "Marcado como 'No se presentó'"}
@@ -692,12 +695,14 @@ async def reactivar_solicitud(
     if solicitud.estado != 'CANCELADA':
         raise HTTPException(status_code=400, detail="Solo solicitudes CANCELADAS")
     
-    solicitud.estado = 'APROBADA'
+    # ✅ FIX: Restaurar a PENDIENTE para permitir reiniciar el proceso (generar carta, etc.)
+    solicitud.estado = 'PENDIENTE'
     solicitud.comentarios_admin = f"REACTIVADA: {solicitud.comentarios_admin}"
     
+    db.add(solicitud)
     db.commit()
     
-    return {"success": True, "message": "Solicitud reactivada"}
+    return {"success": True, "message": "Solicitud reactivada a estado PENDIENTE"}
 
 
 @router.put("/{solicitud_id}", response_model=dict)
