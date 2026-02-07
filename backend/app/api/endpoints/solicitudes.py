@@ -31,16 +31,85 @@ from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfbase import pdfmetrics
 from io import BytesIO
 import os
 
 router = APIRouter()
 
 # ========================================
-# RUTAS DE IMÁGENES (OPCIONAL)
+# RUTAS DE IMÁGENES Y FUENTES (AUTO-DETECTABLE)
 # ========================================
-IMAGEN_ENCABEZADO = r"C:\Users\HP\Desktop\VPN-PROJECT\vpn-gestion-sistema\vpn-gestion-sistema\frontend\imagenes\encabezado.png"
-IMAGEN_PIE = r"C:\Users\HP\Desktop\VPN-PROJECT\vpn-gestion-sistema\vpn-gestion-sistema\frontend\imagenes\FinPagina.png"
+
+# 1. Configuración de FUENTES
+try:
+    # Definir rutas posibles (Linux Server vs Windows Local)
+    font_paths = {
+        'DejaVuSans': [
+            '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', # Linux standard
+            r'C:\Windows\Fonts\arial.ttf' # Windows fallback
+        ],
+        'DejaVuSans-Bold': [
+            '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', # Linux standard
+            r'C:\Windows\Fonts\arialbd.ttf' # Windows fallback
+        ]
+    }
+
+    # Función helper para encontrar fuente
+    def find_font(name):
+        for path in font_paths.get(name, []):
+            if os.path.exists(path):
+                return path
+        return None
+
+    regular_font = find_font('DejaVuSans')
+    bold_font = find_font('DejaVuSans-Bold')
+
+    if regular_font:
+        pdfmetrics.registerFont(TTFont('DejaVuSans', regular_font))
+        FONT_NAME = 'DejaVuSans'
+    else:
+        FONT_NAME = 'Helvetica' # Default seguro
+
+    if bold_font:
+        pdfmetrics.registerFont(TTFont('DejaVuSans-Bold', bold_font))
+        FONT_NAME_BOLD = 'DejaVuSans-Bold'
+    else:
+        FONT_NAME_BOLD = 'Helvetica-Bold'
+
+except Exception as e:
+    print(f"⚠️ Warning: No se pudieron cargar fuentes personalizadas: {e}")
+    FONT_NAME = 'Helvetica'
+    FONT_NAME_BOLD = 'Helvetica-Bold'
+
+
+# 2. Configuración de IMÁGENES
+def get_image_path(filename):
+    # Lista de rutas posibles ordenadas por prioridad
+    possible_paths = [
+        # Ruta en Servidor Ubuntu (Hardcoded por el usuario)
+        f"/opt/vpn-gestion-sistema/frontend/imagenes/{filename}",
+        
+        # Ruta Local Windows (Calculada relativa al archivo actual)
+        # backend/app/api/endpoints/solicitudes.py -> ../../../../frontend/imagenes/
+        os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))),
+            "frontend", "imagenes", filename
+        ),
+        
+        # Ruta Local Windows Hardcoded (Legacy)
+        fr"C:\Users\HP\Desktop\VPN-PROJECT\vpn-gestion-sistema\vpn-gestion-sistema\frontend\imagenes\{filename}"
+    ]
+
+    for path in possible_paths:
+        if os.path.exists(path):
+            return path
+            
+    return None
+
+IMAGEN_ENCABEZADO = get_image_path("encabezado.png")
+IMAGEN_PIE = get_image_path("FinPagina.png")
 
 
 @router.get("/buscar-nip/{nip}", response_model=dict)
@@ -458,10 +527,14 @@ def generar_carta_pdf_en_memoria(
     story.append(Spacer(1, 0.40*inch))
     
     # Firmas
+    # ✅ FIX: Usar el usuario CREADOR de la carta, no el que la descarga
+    usuario_creador = db.query(UsuarioSistema).filter(UsuarioSistema.id == carta.generada_por_usuario_id).first()
+    nombre_firmante = usuario_creador.nombre_completo if usuario_creador else "Usuario Desconocido"
+
     firmas = [
         ['f. _________________________', 'f. _________________________'],
         ['Firmo y recibo conforme', 'Firmo y entrego DOSI/SGTIC'],
-        [f'{persona.nombres} {persona.apellidos}', usuario_sistema.nombre_completo]
+        [f'{persona.nombres} {persona.apellidos}', nombre_firmante]
     ]
     
     t_firmas = Table(firmas, colWidths=[3.5*inch, 3.5*inch])

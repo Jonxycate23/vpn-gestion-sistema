@@ -1,6 +1,7 @@
 // Configuración de la aplicación
 const CONFIG = {
-    API_URL: 'http://localhost:8000/api',
+    // ✅ URL Dinámica: Funciona en localhost y en servidor (asumiendo puerto 8000)
+    API_URL: `${window.location.protocol}//${window.location.hostname}:8000/api`,
     TOKEN_KEY: 'vpn_token',
     USER_KEY: 'vpn_user'
 };
