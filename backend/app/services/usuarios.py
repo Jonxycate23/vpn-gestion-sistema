@@ -292,6 +292,29 @@ class UsuarioService:
         return True
     
     @staticmethod
+    def eliminar_usuario(db: Session, usuario_id: int):
+        """
+        Eliminar un usuario del sistema permanentemente
+        
+        Args:
+            db: Sesión de base de datos
+            usuario_id: ID del usuario a eliminar
+            
+        Raises:
+            ValueError: Si el usuario no existe
+        """
+        usuario = db.query(UsuarioSistema).filter(
+            UsuarioSistema.id == usuario_id
+        ).first()
+        
+        if not usuario:
+            raise ValueError("Usuario no encontrado")
+        
+        # Eliminar el usuario
+        db.delete(usuario)
+        db.commit()
+    
+    @staticmethod
     def resetear_password(
         db: Session,
         usuario_id: int,

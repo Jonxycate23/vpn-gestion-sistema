@@ -156,7 +156,7 @@ const Accesos = {
         }
 
         tbody.innerHTML = accesosOrdenados.map(acceso => {
-            const diasClass = acceso.dias_restantes <= 0 ? 'status-vencido' :
+            const diasClass = acceso.dias_restantes < 0 ? 'status-vencido' :
                 acceso.dias_restantes <= 7 ? 'status-por-vencer' : 'status-activo';
 
             // Generar username
@@ -259,7 +259,7 @@ const Accesos = {
                         <p style="margin-bottom: 0.5rem;"><strong>Días de Gracia:</strong> ${acceso.dias_gracia} días</p>
                         <p style="margin-bottom: 0.5rem;"><strong>Fecha Fin (con gracia):</strong> ${formatDate(acceso.fecha_fin_con_gracia)}</p>
                         <p style="margin-bottom: 0.5rem;"><strong>Estado Vigencia:</strong> ${getStatusBadge(acceso.estado_vigencia)}</p>
-                        <p style="margin-bottom: 0.5rem;"><strong>Días Restantes:</strong> <span class="status-badge ${acceso.dias_restantes <= 0 ? 'status-vencido' : acceso.dias_restantes <= 7 ? 'status-por-vencer' : 'status-activo'}">${acceso.dias_restantes} días</span></p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Días Restantes:</strong> <span class="status-badge ${acceso.dias_restantes < 0 ? 'status-vencido' : acceso.dias_restantes <= 7 ? 'status-por-vencer' : 'status-activo'}">${acceso.dias_restantes} días</span></p>
                         <p style="margin-bottom: 0.5rem;"><strong>Estado Bloqueo:</strong> ${getStatusBadge(acceso.estado_bloqueo)}</p>
                     </div>
                     

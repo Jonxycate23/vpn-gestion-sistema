@@ -552,6 +552,23 @@ const IntegratedTableSystem = {
         this.refresh(tableId);
     },
 
+    /**
+     * Reseteo completo de la tabla (para cambio de vistas)
+     */
+    reset(tableId) {
+        if (!this.configs[tableId]) return;
+
+        console.log(`🧹 Reseteando sistema de tabla para: ${tableId}`);
+        this.clearFilters(tableId);
+        this.configs[tableId].searchTerm = '';
+        this.configs[tableId].filterValues = {};
+        this.configs[tableId].currentPage = 1;
+
+        // Limpieza profunda del DOM por si acaso
+        const searchInput = document.getElementById(`${tableId}_search`);
+        if (searchInput) searchInput.value = '';
+    },
+
     // Utilidades
     getCellValue(cell) {
         const badge = cell.querySelector('.status-badge');
@@ -703,6 +720,11 @@ if (typeof Solicitudes !== 'undefined') {
     Solicitudes.load = async function () {
         await originalSolicitudesLoad.call(this);
         setTimeout(() => {
+            // Resetear búsqueda anterior al cargar
+            if (IntegratedTableSystem.configs['solicitudesTable']) {
+                IntegratedTableSystem.reset('solicitudesTable');
+            }
+
             if (document.getElementById('solicitudesTable')) {
                 initIntegratedTables();
             }
@@ -725,6 +747,11 @@ if (typeof Accesos !== 'undefined') {
     Accesos.load = async function () {
         await originalAccesosLoad.call(this);
         setTimeout(() => {
+            // Resetear búsqueda anterior al cargar
+            if (IntegratedTableSystem.configs['accesosTable']) {
+                IntegratedTableSystem.reset('accesosTable');
+            }
+
             if (document.getElementById('accesosTable')) {
                 initIntegratedTables();
             }

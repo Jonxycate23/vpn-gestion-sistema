@@ -42,19 +42,41 @@ async def obtener_dashboard_vencimientos(
         
         dias_restantes = (acceso.fecha_fin_con_gracia - hoy).days
         
+        # Lógica corregida:
+        # VENCIDOS: Solo si ya pasó la fecha (dias < 0)
+        # POR VENCER: Si vence hoy o en los próximos 30 días (0 <= dias <= 30)
+        # ACTIVOS: Si faltan más de 30 días
+        
+        es_vencido = dias_restantes < 0
+        es_por_vencer = 0 <= dias_restantes <= 30
+        es_activo = dias_restantes > 30
+
+        # Contadores principales (exclusivos para la gráfica usualmente, pero aquí permitimos superposición si está bloqueado)
+        # Prioridad de estado para contadores visuales: BLOQUEADO > VENCIDO > POR VENCER > ACTIVO
+        
         if estado_bloqueo == "BLOQUEADO":
             bloqueados += 1
-        elif dias_restantes > 30:
-            activos += 1
-        elif dias_restantes > 0:
+            # Si está bloqueado, ¿lo contamos en vencidos? 
+            # El usuario quiere ver datos reales. 
+            # Mantendremos la lógica de que si está bloqueado, suma a bloqueados.
+            # Pero internamente sabemos su estado de vigencia.
+        elif es_vencido:
+            vencidos += 1
+        elif es_por_vencer:
             por_vencer += 1
             if dias_restantes <= 7:
                 vencen_esta_semana += 1
+                if dias_restantes == 0:
+                    vencen_hoy += 1
         else:
-            vencidos += 1
-        
-        if acceso.fecha_fin_con_gracia == hoy:
-            vencen_hoy += 1
+            activos += 1
+            
+        # Contadores auxiliares (independientes del bloqueo para estadísticas globales)
+        # Si queremos que "vecen_hoy" incluya bloqueados, lo movemos fuera del if/else principal
+        if dias_restantes == 0:
+            # vencen_hoy se usaba arriba solo para no bloqueados, ajustamos si es necesario
+            # Por ahora mantenemos la consistencia con el bloque if/else anterior
+            pass
     
     return DashboardVencimientos(
         activos=activos,
@@ -87,8 +109,8 @@ async def obtener_accesos_actuales(
         .join(SolicitudVPN)\
         .join(Persona)
     
-    if estado_vigencia:
-        query = query.filter(AccesoVPN.estado_vigencia == estado_vigencia)
+    # NOTA: Filtramos por estado_vigencia en memoria porque el de la DB puede estar desactualizado
+    # Si estado_bloqueo viene, filtramos en memoria también para ser consistentes con la carga eager
     
     accesos = query.order_by(AccesoVPN.fecha_fin_con_gracia).limit(limit).all()
     
@@ -103,6 +125,17 @@ async def obtener_accesos_actuales(
         estado_bloqueo_actual = bloqueos_ordenados[0].estado if bloqueos_ordenados else "DESBLOQUEADO"
         
         if estado_bloqueo and estado_bloqueo_actual != estado_bloqueo:
+            continue
+            
+        # Calcular estado vigencia REAL
+        dias_restantes = (acceso.fecha_fin_con_gracia - hoy).days
+        estado_vigencia_real = "ACTIVO"
+        if dias_restantes < 0:
+            estado_vigencia_real = "VENCIDO"
+        elif dias_restantes <= 30:
+            estado_vigencia_real = "POR_VENCER"
+            
+        if estado_vigencia and estado_vigencia != estado_vigencia_real:
             continue
         
         accesos_list.append({
@@ -121,8 +154,8 @@ async def obtener_accesos_actuales(
             "fecha_fin": acceso.fecha_fin,
             "dias_gracia": acceso.dias_gracia,
             "fecha_fin_con_gracia": acceso.fecha_fin_con_gracia,
-            "estado_vigencia": acceso.estado_vigencia,
-            "dias_restantes": (acceso.fecha_fin_con_gracia - hoy).days,
+            "estado_vigencia": estado_vigencia_real, # Usamos el calculado
+            "dias_restantes": dias_restantes,
             "estado_bloqueo": estado_bloqueo_actual,
             "usuario_registro": acceso.solicitud.usuario_registro.nombre_completo if acceso.solicitud.usuario_registro else "N/A"
         })
@@ -218,29 +251,12 @@ async def obtener_alertas_inteligentes(
             .all()
         accesos_cartas = {acc.solicitud_id: acc for acc in accesos_por_solicitud}
     
-    # Procesar personas sin queries adicionales
-    personas_procesadas = {}
+    # Procesar accesos individualmente (sin agrupar por persona)
+    alertas = []
     
     for acceso in accesos_criticos:
         persona = acceso.solicitud.persona
         persona_id = persona.id
-        
-        # Si ya procesamos esta persona, solo actualizar si este acceso es más crítico
-        if persona_id in personas_procesadas:
-            dias_actual = (acceso.fecha_fin_con_gracia - hoy).days
-            dias_guardado = personas_procesadas[persona_id]['dias_restantes_acceso_actual']
-            
-            if dias_actual < dias_guardado:
-                # Obtener último bloqueo de la lista pre-cargada
-                bloqueos_ordenados = sorted(acceso.bloqueos, key=lambda b: b.fecha_cambio, reverse=True)
-                estado_bloqueo = bloqueos_ordenados[0].estado if bloqueos_ordenados else "DESBLOQUEADO"
-                
-                personas_procesadas[persona_id]['acceso_id'] = acceso.id
-                personas_procesadas[persona_id]['fecha_vencimiento_acceso_actual'] = acceso.fecha_fin_con_gracia
-                personas_procesadas[persona_id]['dias_restantes_acceso_actual'] = dias_actual
-                personas_procesadas[persona_id]['estado_bloqueo'] = estado_bloqueo
-            
-            continue
         
         # Obtener cartas pre-cargadas de esta persona
         cartas_persona = cartas_por_persona.get(persona_id, [])
@@ -264,7 +280,7 @@ async def obtener_alertas_inteligentes(
                     if carta_mas_reciente is None or carta.fecha_generacion > carta_mas_reciente:
                         carta_mas_reciente = carta.fecha_generacion
                         anio_carta_actual = carta.anio_carta
-                elif dias_rest > 0:
+                elif dias_rest >= 0: # Incluye 0
                     estado_carta = "POR_VENCER"
                 
                 cartas_info.append({
@@ -288,7 +304,7 @@ async def obtener_alertas_inteligentes(
         if tiene_carta_vigente:
             tipo_alerta = "CON_RENOVACION"
             prioridad = 1
-        elif dias_restantes <= 0:
+        elif dias_restantes < 0:
             tipo_alerta = "VENCIDO_SIN_RENOVACION"
             prioridad = 5
         elif dias_restantes <= 7:
@@ -301,7 +317,7 @@ async def obtener_alertas_inteligentes(
             tipo_alerta = "INFORMATIVA"
             prioridad = 2
         
-        personas_procesadas[persona_id] = {
+        alertas.append({
             "persona_id": persona.id,
             "nip": persona.nip,
             "dpi": persona.dpi,
@@ -319,9 +335,8 @@ async def obtener_alertas_inteligentes(
             "prioridad": prioridad,
             "requiere_bloqueo": not tiene_carta_vigente and dias_restantes <= 0,
             "anio_carta": anio_carta_actual
-        }
+        })
     
-    alertas = list(personas_procesadas.values())
     alertas.sort(key=lambda x: x["dias_restantes_acceso_actual"])
     
     return {
@@ -336,12 +351,12 @@ async def obtener_alertas_inteligentes(
         "pendientes_sin_carta": pendientes,
         "total_cancelados": cancelados,
         "resumen": {
-            "activos": sum(1 for a in alertas if a["estado_bloqueo"] != "BLOQUEADO" and a["dias_restantes_acceso_actual"] > 0),
-            "vencidos_hoy": sum(1 for a in alertas if a["fecha_vencimiento_acceso_actual"] == hoy and a["estado_bloqueo"] != "BLOQUEADO"),
+            "activos": sum(1 for a in alertas if a["estado_bloqueo"] != "BLOQUEADO" and a["dias_restantes_acceso_actual"] >= 0), # Incluye 0 (Vence hoy)
+            "vencidos_hoy": sum(1 for a in alertas if a["dias_restantes_acceso_actual"] == 0 and a["estado_bloqueo"] != "BLOQUEADO"),
             "bloqueados": sum(1 for a in alertas if a["estado_bloqueo"] == "BLOQUEADO"),
             "cancelados": cancelados,
-            "vencidos_sin_renovacion": sum(1 for a in alertas if a["tipo_alerta"] == "VENCIDO_SIN_RENOVACION"),
-            "por_vencer_urgente": sum(1 for a in alertas if a["tipo_alerta"] == "POR_VENCER_URGENTE"),
+            "vencidos_sin_renovacion": sum(1 for a in alertas if a["tipo_alerta"] == "VENCIDO_SIN_RENOVACION"), # < 0
+            "por_vencer_urgente": sum(1 for a in alertas if a["tipo_alerta"] == "POR_VENCER_URGENTE"), # 0-7
             "por_vencer": sum(1 for a in alertas if a["tipo_alerta"] == "POR_VENCER"),
             "con_renovacion": sum(1 for a in alertas if a["tipo_alerta"] == "CON_RENOVACION"),
             "informativa": sum(1 for a in alertas if a["tipo_alerta"] == "INFORMATIVA")
@@ -393,7 +408,7 @@ async def obtener_historial_cartas_persona(
             estado = "VENCIDA"
             if dias_restantes > 30:
                 estado = "ACTIVA"
-            elif dias_restantes > 0:
+            elif dias_restantes >= 0: # Incluye 0
                 estado = "POR_VENCER"
             
             # Obtener último bloqueo de la lista pre-cargada

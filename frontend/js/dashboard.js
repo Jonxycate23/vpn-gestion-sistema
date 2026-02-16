@@ -102,14 +102,10 @@ const DashboardAsperos = {
                 a.estado_bloqueo !== 'BLOQUEADO' && a.dias_restantes_acceso_actual > 0
             ).length;
 
-            // 2. VENCIDOS HOY: Solo los que vencen exactamente hoy
-            const todosUsuariosVencidosHoy = data.alertas.filter(a => {
-                const fechaVencimiento = new Date(a.fecha_vencimiento_acceso_actual);
-                fechaVencimiento.setHours(0, 0, 0, 0);
-
-                return fechaVencimiento.getTime() === hoy.getTime() &&
-                    a.estado_bloqueo !== 'BLOQUEADO';
-            }).length;
+            // 2. VENCIDOS HOY: Solo los que vencen exactamente hoy (0 días restantes)
+            const todosUsuariosVencidosHoy = data.alertas.filter(a =>
+                a.dias_restantes_acceso_actual === 0
+            ).length;
 
             // 3. BLOQUEADOS: Solo usuarios VPN con estado BLOQUEADO
             const todosUsuariosBloqueados = data.alertas.filter(a =>
@@ -333,14 +329,14 @@ const DashboardAsperos = {
                     '<span style="font-size: 1.5rem; color: #ef4444;">❌</span>'}
                                     </td>
                                     <td style="text-align: center;">
-                                        <strong style="font-size: 1.25rem; color: ${alerta.dias_restantes_acceso_actual <= 0 ? '#ef4444' :
+                                        <strong style="font-size: 1.25rem; color: ${alerta.dias_restantes_acceso_actual < 0 ? '#ef4444' :
                     alerta.dias_restantes_acceso_actual <= 7 ? '#f59e0b' : '#10b981'
                 };">
                                             ${alerta.dias_restantes_acceso_actual}
                                         </strong>
                                     </td>
                                     <td>
-                                        ${alerta.dias_restantes_acceso_actual <= 0 ?
+                                        ${alerta.dias_restantes_acceso_actual < 0 ?
                     '<span class="badge vencido">VENCIDO</span>' :
                     alerta.dias_restantes_acceso_actual <= 7 ?
                         '<span class="badge pendiente">POR VENCER</span>' :

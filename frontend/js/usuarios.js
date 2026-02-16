@@ -2,22 +2,22 @@
 const Usuarios = {
     async load() {
         console.log('Cargando Gestión de Usuarios...');
-        
+
         // Verificar si el usuario actual es SUPERADMIN
         const user = UserStorage.get();
         if (!user || user.rol !== 'SUPERADMIN') {
             this.mostrarAccesoDenegado();
             return;
         }
-        
+
         this.verificarEstructuraVista();
         await this.listarUsuarios();
     },
-    
+
     mostrarAccesoDenegado() {
         const contenedor = document.getElementById('usuariosView');
         if (!contenedor) return;
-        
+
         contenedor.innerHTML = `
             <div style="text-align: center; padding: 4rem;">
                 <h2 style="color: #ef4444; margin-bottom: 1rem;">🚫 Acceso Denegado</h2>
@@ -27,19 +27,19 @@ const Usuarios = {
             </div>
         `;
     },
-    
+
     verificarEstructuraVista() {
         let contenedor = document.getElementById('usuariosView');
         if (!contenedor) {
             console.error('No se encontró usuariosView');
             return;
         }
-        
+
         let tabla = contenedor.querySelector('#usuariosTable');
         if (tabla) {
             return;
         }
-        
+
         contenedor.innerHTML = `
             <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
                 <h1>👥 Gestión de Usuarios del Sistema</h1>
@@ -68,26 +68,26 @@ const Usuarios = {
                 </div>
             </div>
         `;
-        
+
         const btnNuevo = document.getElementById('btnNuevoUsuario');
         if (btnNuevo) {
             btnNuevo.onclick = () => this.mostrarFormularioCrear();
         }
     },
 
-    
+
     verificarEstructuraVista() {
         let contenedor = document.getElementById('usuariosView');
         if (!contenedor) {
             console.error('No se encontró usuariosView');
             return;
         }
-        
+
         let tabla = contenedor.querySelector('#usuariosTable');
         if (tabla) {
             return; // Ya existe la estructura
         }
-        
+
         // Crear estructura completa
         contenedor.innerHTML = `
             <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
@@ -117,37 +117,37 @@ const Usuarios = {
                 </div>
             </div>
         `;
-        
+
         // Event listener para crear usuario
         const btnNuevo = document.getElementById('btnNuevoUsuario');
         if (btnNuevo) {
             btnNuevo.onclick = () => this.mostrarFormularioCrear();
         }
     },
-    
+
     async listarUsuarios() {
         try {
             const data = await API.get('/usuarios/?limit=100');
-            
+
             const tbody = document.querySelector('#usuariosTable tbody');
             if (!tbody) {
                 console.error('No se encontró tbody de usuarios');
                 return;
             }
-            
+
             if (!data || !data.usuarios || data.usuarios.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No hay usuarios registrados</td></tr>';
                 return;
             }
-            
+
             const currentUser = UserStorage.get();
-            
+
             tbody.innerHTML = data.usuarios.map(usuario => {
                 const esUsuarioActual = usuario.id === currentUser.id;
-                const ultimoLogin = usuario.fecha_ultimo_login 
-                    ? formatDate(usuario.fecha_ultimo_login) 
+                const ultimoLogin = usuario.fecha_ultimo_login
+                    ? formatDate(usuario.fecha_ultimo_login)
                     : 'Nunca';
-                
+
                 return `
                     <tr>
                         <td><strong>#${usuario.id}</strong></td>
@@ -186,6 +186,13 @@ const Usuarios = {
                                         ✅
                                     </button>
                                 `}
+                                
+                                <button class="btn btn-sm btn-danger" 
+                                        onclick="Usuarios.eliminar(${usuario.id}, '${usuario.nombre_completo}')" 
+                                        title="Eliminar Usuario"
+                                        style="background: #7f1d1d;">
+                                    🗑️
+                                </button>
                             ` : `
                                 <span style="color: #666; font-size: 0.85rem;">
                                     (Tú)
@@ -195,14 +202,14 @@ const Usuarios = {
                     </tr>
                 `;
             }).join('');
-            
+
         } catch (error) {
             console.error('Error cargando usuarios:', error);
             showError('Error al cargar usuarios: ' + error.message);
         }
     },
 
-    
+
     mostrarFormularioCrear() {
         showModal('➕ Crear Nuevo Usuario del Sistema', `
             <form id="formCrearUsuario">
@@ -244,58 +251,71 @@ const Usuarios = {
                 </button>
             </form>
         `);
-        
+
         document.getElementById('formCrearUsuario').addEventListener('submit', async (e) => {
             e.preventDefault();
             await this.crearUsuario();
         });
     },
 
-    
+
     async crearUsuario() {
         try {
             showLoading();
-            
+
             const data = {
                 nombres: document.getElementById('nombres').value.trim(),
                 apellidos: document.getElementById('apellidos').value.trim(),
                 email: document.getElementById('email').value.trim(),
                 rol: document.getElementById('rol').value
             };
-            
+
             if (!data.nombres || !data.apellidos || !data.email || !data.rol) {
                 throw new Error('Todos los campos son obligatorios');
             }
-            
+
             if (!['ADMIN', 'SUPERADMIN'].includes(data.rol)) {
                 throw new Error('Rol inválido');
             }
-            
-            data.password = 'Usuario.2025!';
-            
+
+            // data.password no se envía para que el backend la genere aleatoriamente
+
             const response = await API.post('/usuarios/', data);
-            
+
             hideLoading();
+
+            // Definir variables para el modal ANTES de cerrar
+            const usuarioNombre = response.usuario ? response.usuario.nombre_completo : 'Usuario Creado';
+            const usuarioUsername = response.usuario ? response.usuario.username : '---';
+            const passwordMostrar = response.password_inicial || 'No disponible';
+
+            // Cerrar el modal de creación
             hideModal();
-            
+
+            // Mostrar modal de éxito con un pequeño delay
+            await new Promise(resolve => setTimeout(resolve, 300));
+
             showModal('✅ Usuario Creado Exitosamente', `
                 <div style="background: #d1fae5; padding: 1.5rem; border-radius: 4px; margin-bottom: 1rem;">
                     <h3 style="margin-bottom: 1rem; color: #065f46;">
-                        ✅ Usuario creado: ${response.usuario.nombre_completo}
+                        ✅ Usuario creado: ${usuarioNombre}
                     </h3>
                     
                     <div style="background: white; padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
                         <p style="margin-bottom: 0.5rem;"><strong>Username:</strong></p>
                         <code style="font-size: 1.1rem; background: #f3f4f6; padding: 0.5rem; display: block;">
-                            ${response.usuario.username}
+                            ${usuarioUsername}
                         </code>
                     </div>
                     
                     <div style="background: white; padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
-                        <p style="margin-bottom: 0.5rem;"><strong>Contraseña Inicial:</strong></p>
-                        <code style="font-size: 1.1rem; background: #f3f4f6; padding: 0.5rem; display: block;">
-                            Usuario.2025!
-                        </code>
+                        <p style="margin-bottom: 0.5rem;"><strong>Contraseña Inicial (Aleatoria):</strong></p>
+                        <div style="display: flex; gap: 0.5rem;">
+                             <code style="font-size: 1.1rem; background: #f3f4f6; padding: 0.5rem; display: block; flex: 1; word-break: break-all;">
+                                ${passwordMostrar}
+                            </code>
+                            <button class="btn btn-sm btn-outline" onclick="navigator.clipboard.writeText('${passwordMostrar}').then(() => showSuccess('Copiado'))" title="Copiar">📋</button>
+                        </div>
                     </div>
                     
                     <div style="background: #fef3c7; padding: 1rem; border-radius: 4px;">
@@ -309,18 +329,18 @@ const Usuarios = {
                     Aceptar
                 </button>
             `);
-            
+
         } catch (error) {
             hideLoading();
             showError('Error al crear usuario: ' + error.message);
         }
     },
-    
+
     // ========================================
     // NUEVA FUNCIÓN: CAMBIAR CONTRASEÑA (SUPERADMIN)
     // ========================================
-    
-     mostrarCambiarPassword(usuarioId, nombreCompleto) {
+
+    mostrarCambiarPassword(usuarioId, nombreCompleto) {
         showModal('🔑 Cambiar Contraseña de Usuario', `
             <form id="formCambiarPassword">
                 <div style="background: #e0f2fe; padding: 1rem; border-radius: 4px; margin-bottom: 1.5rem;">
@@ -360,37 +380,37 @@ const Usuarios = {
                 </div>
             </form>
         `);
-        
+
         document.getElementById('formCambiarPassword').addEventListener('submit', async (e) => {
             e.preventDefault();
             await this.cambiarPasswordUsuario(usuarioId, nombreCompleto);
         });
     },
-    
+
     async cambiarPasswordUsuario(usuarioId, nombreCompleto) {
         try {
             const passwordNueva = document.getElementById('password_nueva').value;
             const passwordConfirmar = document.getElementById('password_confirmar').value;
-            
+
             if (!passwordNueva || !passwordConfirmar) {
                 throw new Error('Debes completar ambos campos');
             }
-            
+
             if (passwordNueva.length < 6) {
                 throw new Error('La contraseña debe tener al menos 6 caracteres');
             }
-            
+
             if (passwordNueva !== passwordConfirmar) {
                 throw new Error('Las contraseñas no coinciden');
             }
-            
+
             showLoading();
-            
+
             await API.put(`/usuarios/${usuarioId}/resetear-password?password_nueva=${encodeURIComponent(passwordNueva)}`, {});
-            
+
             hideLoading();
             hideModal();
-            
+
             showModal('✅ Contraseña Cambiada', `
                 <div style="background: #d1fae5; padding: 1.5rem; border-radius: 4px; margin-bottom: 1rem;">
                     <h3 style="margin-bottom: 1rem; color: #065f46;">
@@ -419,13 +439,13 @@ const Usuarios = {
                     Aceptar
                 </button>
             `);
-            
+
         } catch (error) {
             hideLoading();
             showError('Error al cambiar contraseña: ' + error.message);
         }
     },
-    
+
     async activar(usuarioId) {
         // ✅ ESPERAR la respuesta del confirm
         const confirmado = await CustomConfirm.show({
@@ -435,13 +455,13 @@ const Usuarios = {
             confirmText: 'Sí, activar',
             cancelText: 'Cancelar'
         });
-        
+
         // ✅ SI NO CONFIRMÓ, SALIR
         if (!confirmado) {
             console.log('❌ Activación cancelada');
             return;
         }
-        
+
         try {
             showLoading();
             await API.put(`/usuarios/${usuarioId}/toggle-activo?activo=true`, {});
@@ -453,11 +473,11 @@ const Usuarios = {
             showError('Error al activar usuario: ' + error.message);
         }
     },
-    
+
     // ========================================
     // ✅ CORREGIDO: DESACTIVAR CON AWAIT
     // ========================================
-    
+
     async desactivar(usuarioId) {
         // ✅ ESPERAR la respuesta del confirm
         const confirmado = await CustomConfirm.show({
@@ -467,13 +487,13 @@ const Usuarios = {
             confirmText: 'Sí, desactivar',
             cancelText: 'Cancelar'
         });
-        
+
         // ✅ SI NO CONFIRMÓ, SALIR
         if (!confirmado) {
             console.log('❌ Desactivación cancelada');
             return;
         }
-        
+
         try {
             showLoading();
             await API.put(`/usuarios/${usuarioId}/toggle-activo?activo=false`, {});
@@ -483,6 +503,36 @@ const Usuarios = {
         } catch (error) {
             hideLoading();
             showError('Error al desactivar usuario: ' + error.message);
+        }
+    },
+
+    // ========================================
+    // ELIMINAR USUARIO
+    // ========================================
+
+    async eliminar(usuarioId, nombreCompleto) {
+        const confirmado = await CustomConfirm.show({
+            title: '🗑️ Eliminar Usuario',
+            message: `⚠️ ¿ELIMINAR PERMANENTEMENTE al usuario "${nombreCompleto}"?\n\nEsta acción NO se puede deshacer.\nSe eliminarán todos los datos asociados.`,
+            type: 'danger',
+            confirmText: 'Sí, eliminar',
+            cancelText: 'Cancelar'
+        });
+
+        if (!confirmado) {
+            console.log('❌ Eliminación cancelada');
+            return;
+        }
+
+        try {
+            showLoading();
+            await API.delete(`/usuarios/${usuarioId}`);
+            hideLoading();
+            showSuccess('Usuario eliminado exitosamente');
+            await this.load();
+        } catch (error) {
+            hideLoading();
+            showError('Error al eliminar usuario: ' + error.message);
         }
     }
 };
@@ -499,7 +549,7 @@ const CambiarPasswordPropia = {
             showError('No hay sesión activa');
             return;
         }
-        
+
         showModal('🔑 Cambiar Mi Contraseña', `
             <form id="formCambiarPasswordPropia">
                 <div style="background: #e0f2fe; padding: 1rem; border-radius: 4px; margin-bottom: 1.5rem;">
@@ -547,46 +597,46 @@ const CambiarPasswordPropia = {
                 </div>
             </form>
         `);
-        
+
         document.getElementById('formCambiarPasswordPropia').addEventListener('submit', async (e) => {
             e.preventDefault();
             await this.cambiar();
         });
     },
 
-    
-   async cambiar() {
+
+    async cambiar() {
         try {
             const passwordActual = document.getElementById('password_actual').value;
             const passwordNueva = document.getElementById('password_nueva').value;
             const passwordConfirmar = document.getElementById('password_confirmar').value;
-            
+
             if (!passwordActual || !passwordNueva || !passwordConfirmar) {
                 throw new Error('Debes completar todos los campos');
             }
-            
+
             if (passwordNueva.length < 6) {
                 throw new Error('La nueva contraseña debe tener al menos 6 caracteres');
             }
-            
+
             if (passwordNueva !== passwordConfirmar) {
                 throw new Error('Las contraseñas nuevas no coinciden');
             }
-            
+
             if (passwordActual === passwordNueva) {
                 throw new Error('La nueva contraseña debe ser diferente a la actual');
             }
-            
+
             showLoading();
-            
+
             const url = `/usuarios/me/cambiar-password?password_actual=${encodeURIComponent(passwordActual)}&password_nueva=${encodeURIComponent(passwordNueva)}`;
             await API.put(url, {});
-            
+
             hideLoading();
             hideModal();
-            
+
             showSuccess('✅ Contraseña cambiada exitosamente');
-            
+
         } catch (error) {
             hideLoading();
             showError('Error al cambiar contraseña: ' + error.message);

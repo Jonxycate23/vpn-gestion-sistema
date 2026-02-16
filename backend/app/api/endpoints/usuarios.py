@@ -1,9 +1,6 @@
-"""
-Endpoints de Gestión de Usuarios del Sistema - VERSIÓN FINAL
-📍 Ubicación: backend/app/api/endpoints/usuarios.py
-✅ Compatible con el servicio
-"""
-from fastapi import APIRouter, Depends, status, Request
+import secrets
+import string
+from fastapi import APIRouter, Depends, status, Request, HTTPException
 from sqlalchemy.orm import Session
 from typing import Optional
 from pydantic import BaseModel, EmailStr
@@ -29,7 +26,7 @@ class UsuarioCreateRequest(BaseModel):
     nombres: str
     apellidos: str
     email: Optional[EmailStr] = None
-    password: str
+    password: Optional[str] = None
     rol: str
 
 
@@ -58,7 +55,7 @@ async def listar_usuarios(
     )
     
     return {
-        "total": total,
+        "success": True,
         "usuarios": [
             {
                 "id": u.id,
@@ -67,11 +64,12 @@ async def listar_usuarios(
                 "email": u.email,
                 "rol": u.rol,
                 "activo": u.activo,
-                "fecha_creacion": u.fecha_creacion,
-                "fecha_ultimo_login": u.fecha_ultimo_login
+                "fecha_creacion": u.fecha_creacion.isoformat() if u.fecha_creacion else None,
+                "fecha_ultimo_login": u.fecha_ultimo_login.isoformat() if u.fecha_ultimo_login else None
             }
             for u in usuarios
-        ]
+        ],
+        "total": total
     }
 
 
@@ -87,37 +85,31 @@ async def crear_usuario(
     db: Session = Depends(get_db)
 ):
     """
-    Crear nuevo usuario del sistema
-    
-    - **nombres**: Nombres del usuario
-    - **apellidos**: Apellidos del usuario
-    - **email**: Email del usuario (opcional)
-    - **password**: Contraseña inicial
-    - **rol**: ADMIN o SUPERADMIN
-    
-    El username se genera automáticamente:
-    - Primera letra del nombre + primer apellido
-    - Ejemplo: "Juan García" → jgarcia
+    Crear un nuevo usuario del sistema
     
     **Requiere rol SUPERADMIN**
     """
-    ip_origen = get_client_ip(request)
-    
     # Validar rol
     if data.rol not in ['ADMIN', 'SUPERADMIN']:
-        from fastapi import HTTPException
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Rol inválido. Debe ser ADMIN o SUPERADMIN"
         )
     
-    # Validar contraseña
-    if len(data.password) < 6:
-        from fastapi import HTTPException
+    # Generar contraseña si no se provee
+    password_final = data.password
+    if not password_final:
+        alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
+        password_final = ''.join(secrets.choice(alphabet) for i in range(12))
+    
+    # Validar contraseña solo si fue provista manualmente
+    if data.password and len(data.password) < 6:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="La contraseña debe tener al menos 6 caracteres"
         )
+    
+    ip_origen = get_client_ip(request)
     
     try:
         usuario, username = UsuarioService.crear_usuario(
@@ -125,7 +117,7 @@ async def crear_usuario(
             nombres=data.nombres,
             apellidos=data.apellidos,
             email=data.email,
-            password=data.password,
+            password=password_final,
             rol=data.rol,
             usuario_creador_id=current_user.id,
             ip_origen=ip_origen
@@ -134,19 +126,84 @@ async def crear_usuario(
         return {
             "success": True,
             "message": "Usuario creado exitosamente",
+            "password_inicial": password_final, # Retornamos la password para mostrarla 1 vez
             "usuario": {
                 "id": usuario.id,
-                "username": username,
+                "username": usuario.username,
                 "nombre_completo": usuario.nombre_completo,
                 "email": usuario.email,
-                "rol": usuario.rol
+                "rol": usuario.rol,
+                "activo": usuario.activo
             }
         }
-    except Exception as e:
-        from fastapi import HTTPException
+        
+    except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error al crear usuario: {str(e)}"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+
+# ========================================
+# OBTENER USUARIO ACTUAL
+# ========================================
+
+@router.get("/me", response_model=dict)
+async def obtener_usuario_actual(
+    current_user: UsuarioSistema = Depends(get_current_active_user)
+):
+    """
+    Obtener información del usuario autenticado
+    """
+    return {
+        "success": True,
+        "usuario": {
+            "id": current_user.id,
+            "username": current_user.username,
+            "nombre_completo": current_user.nombre_completo,
+            "email": current_user.email,
+            "rol": current_user.rol,
+            "activo": current_user.activo,
+            "fecha_creacion": current_user.fecha_creacion.isoformat() if current_user.fecha_creacion else None,
+            "fecha_ultimo_login": current_user.fecha_ultimo_login.isoformat() if current_user.fecha_ultimo_login else None
+        }
+    }
+
+
+# ========================================
+# CAMBIAR CONTRASEÑA PROPIA
+# ========================================
+
+@router.put("/me/cambiar-password", response_model=ResponseBase)
+async def cambiar_password_propia(
+    password_actual: str,
+    password_nueva: str,
+    request: Request,
+    current_user: UsuarioSistema = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Cambiar la contraseña del usuario autenticado
+    """
+    ip_origen = get_client_ip(request)
+    
+    try:
+        UsuarioService.cambiar_password(
+            db=db,
+            usuario_id=current_user.id,
+            password_actual=password_actual,
+            password_nueva=password_nueva,
+            ip_origen=ip_origen
+        )
+        
+        return ResponseBase(
+            success=True,
+            message="Contraseña cambiada exitosamente"
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
         )
 
 
@@ -155,103 +212,29 @@ async def crear_usuario(
 # ========================================
 
 @router.put("/{usuario_id}/toggle-activo", response_model=ResponseBase)
-async def toggle_usuario_activo(
+async def toggle_activo_usuario(
     usuario_id: int,
     activo: bool,
-    request: Request,
     current_user: UsuarioSistema = Depends(require_superadmin),
     db: Session = Depends(get_db)
 ):
     """
-    Activar o desactivar usuario
+    Activar o desactivar un usuario
     
     **Requiere rol SUPERADMIN**
     """
-    ip_origen = get_client_ip(request)
-    
-    usuario = UsuarioService.activar_desactivar(
-        db=db,
-        usuario_id=usuario_id,
-        activo=activo,
-        usuario_modificador_id=current_user.id,
-        ip_origen=ip_origen
-    )
-    
-    estado = "activado" if activo else "desactivado"
-    
-    return ResponseBase(
-        success=True,
-        message=f"Usuario {estado} exitosamente"
-    )
-
-
-# ========================================
-# OBTENER USUARIO POR ID
-# ========================================
-
-@router.get("/{usuario_id}", response_model=dict)
-async def obtener_usuario(
-    usuario_id: int,
-    current_user: UsuarioSistema = Depends(require_superadmin),
-    db: Session = Depends(get_db)
-):
-    """
-    Obtener detalles de un usuario
-    
-    **Requiere rol SUPERADMIN**
-    """
-    usuario = db.query(UsuarioSistema).filter(
-        UsuarioSistema.id == usuario_id
-    ).first()
-    
-    if not usuario:
-        from fastapi import HTTPException
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Usuario no encontrado"
+    try:
+        UsuarioService.toggle_activo(db, usuario_id, activo)
+        
+        return ResponseBase(
+            success=True,
+            message=f"Usuario {'activado' if activo else 'desactivado'} exitosamente"
         )
-    
-    return {
-        "id": usuario.id,
-        "username": usuario.username,
-        "nombre_completo": usuario.nombre_completo,
-        "email": usuario.email,
-        "rol": usuario.rol,
-        "activo": usuario.activo,
-        "fecha_creacion": usuario.fecha_creacion,
-        "fecha_ultimo_login": usuario.fecha_ultimo_login
-    }
-
-
-# ========================================
-# CAMBIAR CONTRASEÑA (Usuario mismo)
-# ========================================
-
-@router.put("/me/cambiar-password", response_model=ResponseBase)
-async def cambiar_mi_password(
-    password_actual: str,
-    password_nueva: str,
-    request: Request,
-    current_user: UsuarioSistema = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Cambiar mi propia contraseña
-    """
-    ip_origen = get_client_ip(request)
-    
-    UsuarioService.cambiar_password(
-        db=db,
-        usuario_id=current_user.id,
-        password_actual=password_actual,
-        password_nueva=password_nueva,
-        ip_origen=ip_origen
-    )
-    
-    return ResponseBase(
-        success=True,
-        message="Contraseña cambiada exitosamente"
-    )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
 
 
 # ========================================
@@ -285,3 +268,41 @@ async def resetear_password_usuario(
         success=True,
         message="Contraseña reseteada exitosamente"
     )
+
+
+# ========================================
+# ELIMINAR USUARIO
+# ========================================
+
+@router.delete("/{usuario_id}", response_model=ResponseBase)
+async def eliminar_usuario(
+    usuario_id: int,
+    current_user: UsuarioSistema = Depends(require_superadmin),
+    db: Session = Depends(get_db)
+):
+    """
+    Eliminar un usuario del sistema
+    
+    **Requiere rol SUPERADMIN**
+    
+    - No se puede eliminar a sí mismo
+    - Elimina permanentemente el usuario y sus datos asociados
+    """
+    # Verificar que no intente eliminarse a sí mismo
+    if current_user.id == usuario_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No puedes eliminarte a ti mismo"
+        )
+    
+    try:
+        UsuarioService.eliminar_usuario(db, usuario_id)
+        return ResponseBase(
+            success=True,
+            message="Usuario eliminado exitosamente"
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
