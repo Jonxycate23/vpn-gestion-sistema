@@ -30,6 +30,14 @@ class UsuarioCreateRequest(BaseModel):
     rol: str
 
 
+class UsuarioUpdateRequest(BaseModel):
+    """Request para actualizar usuario"""
+    nombres: str
+    apellidos: str
+    email: Optional[EmailStr] = None
+    rol: str
+
+
 # ========================================
 # LISTAR USUARIOS
 # ========================================
@@ -199,6 +207,88 @@ async def cambiar_password_propia(
         return ResponseBase(
             success=True,
             message="Contraseña cambiada exitosamente"
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+
+# ========================================
+# OBTENER USUARIO POR ID
+# ========================================
+
+@router.get("/{usuario_id}", response_model=dict)
+async def obtener_usuario(
+    usuario_id: int,
+    current_user: UsuarioSistema = Depends(require_superadmin),
+    db: Session = Depends(get_db)
+):
+    """
+    Obtener un usuario por ID
+    
+    **Requiere rol SUPERADMIN**
+    """
+    usuario = UsuarioService.obtener_por_id(db, usuario_id)
+    
+    if not usuario:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Usuario no encontrado"
+        )
+    
+    return {
+        "success": True,
+        "usuario": {
+            "id": usuario.id,
+            "username": usuario.username,
+            "nombre_completo": usuario.nombre_completo,
+            "email": usuario.email,
+            "rol": usuario.rol,
+            "activo": usuario.activo,
+            "fecha_creacion": usuario.fecha_creacion.isoformat() if usuario.fecha_creacion else None,
+            "fecha_ultimo_login": usuario.fecha_ultimo_login.isoformat() if usuario.fecha_ultimo_login else None
+        }
+    }
+
+
+# ========================================
+# ACTUALIZAR USUARIO
+# ========================================
+
+@router.put("/{usuario_id}", response_model=ResponseBase)
+async def actualizar_usuario(
+    usuario_id: int,
+    data: UsuarioUpdateRequest,
+    current_user: UsuarioSistema = Depends(require_superadmin),
+    db: Session = Depends(get_db)
+):
+    """
+    Actualizar datos de un usuario
+    
+    **Requiere rol SUPERADMIN**
+    """
+    # Validar rol
+    if data.rol not in ['ADMIN', 'SUPERADMIN']:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Rol inválido. Debe ser ADMIN o SUPERADMIN"
+        )
+    
+    try:
+        UsuarioService.actualizar_usuario(
+            db=db,
+            usuario_id=usuario_id,
+            nombres=data.nombres,
+            apellidos=data.apellidos,
+            email=data.email,
+            rol=data.rol
+        )
+        
+        return ResponseBase(
+            success=True,
+            message="Usuario actualizado exitosamente"
         )
     except ValueError as e:
         raise HTTPException(

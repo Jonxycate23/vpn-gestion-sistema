@@ -112,6 +112,47 @@ IMAGEN_ENCABEZADO = get_image_path("encabezado.png")
 IMAGEN_PIE = get_image_path("FinPagina.png")
 
 
+# 3. Configuración de FIRMAS
+def get_firma_path(username):
+    """Obtener ruta de firma digital por username"""
+    if not username:
+        return None
+    
+    filename = f"{username}.png"
+    
+    # Lista de rutas posibles ordenadas por prioridad
+    possible_paths = [
+        # Ruta en Servidor Ubuntu (dentro de imagenes)
+        f"/opt/vpn-gestion-sistema/frontend/imagenes/firmas/{filename}",
+        
+        # Ruta Local Windows (Calculada relativa - dentro de imagenes)
+        os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))),
+            "frontend", "imagenes", "firmas", filename
+        ),
+        
+        # Ruta Local Windows Hardcoded (dentro de imagenes)
+        fr"C:\Users\HP\Desktop\VPN-PROJECT\vpn-gestion-sistema\vpn-gestion-sistema\frontend\imagenes\firmas\{filename}",
+        
+        # Fallback: directorio firmas raíz (por si acaso)
+        f"/opt/vpn-gestion-sistema/frontend/firmas/{filename}",
+        os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))),
+            "frontend", "firmas", filename
+        ),
+        fr"C:\Users\HP\Desktop\VPN-PROJECT\vpn-gestion-sistema\vpn-gestion-sistema\frontend\firmas\{filename}"
+    ]
+
+    for path in possible_paths:
+        if os.path.exists(path):
+            print(f"✅ Firma encontrada: {path}")
+            return path
+    
+    print(f"⚠️ No se encontró firma para usuario: {username}")
+    return None
+
+
+
 @router.get("/buscar-nip/{nip}", response_model=dict)
 async def buscar_persona_por_nip(
     nip: str,
@@ -530,21 +571,77 @@ def generar_carta_pdf_en_memoria(
     # ✅ FIX: Usar el usuario CREADOR de la carta, no el que la descarga
     usuario_creador = db.query(UsuarioSistema).filter(UsuarioSistema.id == carta.generada_por_usuario_id).first()
     nombre_firmante = usuario_creador.nombre_completo if usuario_creador else "Usuario Desconocido"
-
-    firmas = [
-        ['f. _________________________', 'f. _________________________'],
-        ['Firmo y recibo conforme', 'Firmo y entrego DOSI/SGTIC'],
-        [f'{persona.nombres} {persona.apellidos}', nombre_firmante]
-    ]
+    username_creador = usuario_creador.username if usuario_creador else None
     
-    t_firmas = Table(firmas, colWidths=[3.5*inch, 3.5*inch])
-    t_firmas.setStyle(TableStyle([
-        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 0), (-1, -1), 8.5),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-    ]))
-    story.append(t_firmas)
+    # Buscar firma digital del usuario creador
+    firma_path = get_firma_path(username_creador)
+    
+    # Crear tabla de firmas con o sin imagen
+    if firma_path:
+        # CON FIRMA DIGITAL: Imagen sobre la línea
+        try:
+            img_firma = Image(firma_path, width=2.5*inch, height=0.8*inch)
+            
+            # Primero agregar la imagen centrada solo del lado derecho
+            firma_table_img = Table([['', img_firma]], colWidths=[3.5*inch, 3.5*inch])
+            firma_table_img.setStyle(TableStyle([
+                ('ALIGN', (1, 0), (1, 0), 'CENTER'),
+                ('VALIGN', (1, 0), (1, 0), 'BOTTOM'),
+            ]))
+            story.append(firma_table_img)
+            
+            # Spacer negativo para acercar la línea a la imagen
+            story.append(Spacer(1, -0.3*inch))
+            
+            # Luego la tabla con las líneas y textos
+            firmas = [
+                ['f. _________________________', 'f. _________________________'],
+                ['Firmo y recibo conforme', 'Firmo y entrego DOSI/SGTIC'],
+                [f'{persona.nombres} {persona.apellidos}', nombre_firmante]
+            ]
+            
+            t_firmas = Table(firmas, colWidths=[3.5*inch, 3.5*inch])
+            t_firmas.setStyle(TableStyle([
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 0), (-1, -1), 8.5),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ]))
+            story.append(t_firmas)
+            
+        except Exception as e:
+            print(f"⚠️ Error cargando firma: {e}")
+            # Si falla cargar la imagen, usar formato sin firma
+            firmas = [
+                ['f. _________________________', 'f. _________________________'],
+                ['Firmo y recibo conforme', 'Firmo y entrego DOSI/SGTIC'],
+                [f'{persona.nombres} {persona.apellidos}', nombre_firmante]
+            ]
+            
+            t_firmas = Table(firmas, colWidths=[3.5*inch, 3.5*inch])
+            t_firmas.setStyle(TableStyle([
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 0), (-1, -1), 8.5),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ]))
+            story.append(t_firmas)
+    else:
+        # SIN FIRMA DIGITAL: Solo líneas para firmar manualmente
+        firmas = [
+            ['f. _________________________', 'f. _________________________'],
+            ['Firmo y recibo conforme', 'Firmo y entrego DOSI/SGTIC'],
+            [f'{persona.nombres} {persona.apellidos}', nombre_firmante]
+        ]
+        
+        t_firmas = Table(firmas, colWidths=[3.5*inch, 3.5*inch])
+        t_firmas.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 8.5),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ]))
+        story.append(t_firmas)
     
     # Pie de página
     if os.path.exists(IMAGEN_PIE):
@@ -786,7 +883,7 @@ async def editar_solicitud(
     current_user: UsuarioSistema = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Editar solicitud"""
+    """Editar solicitud - SUPERADMIN puede editar incluso con carta generada"""
     solicitud = db.query(SolicitudVPN).filter(SolicitudVPN.id == solicitud_id).first()
     if not solicitud:
         raise HTTPException(status_code=404, detail="Solicitud no encontrada")
@@ -795,8 +892,12 @@ async def editar_solicitud(
         CartaResponsabilidad.solicitud_id == solicitud_id
     ).first()
     
-    if carta:
-        raise HTTPException(status_code=400, detail="No se puede editar: ya tiene carta generada")
+    # ✅ Solo SUPERADMIN puede editar solicitudes con carta generada
+    if carta and current_user.rol != 'SUPERADMIN':
+        raise HTTPException(
+            status_code=403, 
+            detail="No se puede editar: ya tiene carta generada. Solo SUPERADMIN puede editar."
+        )
     
     if "numero_oficio" in data:
         solicitud.numero_oficio = data["numero_oficio"]
@@ -845,6 +946,61 @@ async def editar_solicitud(
             "tipo_solicitud": solicitud.tipo_solicitud,
             "justificacion": solicitud.justificacion
         }
+    }
+
+
+@router.put("/{solicitud_id}/actualizar-fecha-carta", response_model=dict)
+async def actualizar_fecha_carta(
+    solicitud_id: int,
+    data: dict,
+    request: Request,
+    current_user: UsuarioSistema = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Actualizar fecha de generación de carta - Solo SUPERADMIN"""
+    # Verificar que sea SUPERADMIN
+    if current_user.rol != 'SUPERADMIN':
+        raise HTTPException(
+            status_code=403,
+            detail="Solo SUPERADMIN puede actualizar fechas de carta"
+        )
+    
+    # Obtener la carta
+    carta = db.query(CartaResponsabilidad).filter(
+        CartaResponsabilidad.solicitud_id == solicitud_id
+    ).first()
+    
+    if not carta:
+        raise HTTPException(status_code=404, detail="No existe carta para esta solicitud")
+    
+    # Actualizar fecha de generación
+    if "fecha_generacion" in data:
+        carta.fecha_generacion = date.fromisoformat(data["fecha_generacion"])
+    
+    db.commit()
+    db.refresh(carta)
+    
+    # Auditoría
+    try:
+        AuditoriaService.registrar_crear(
+            db=db,
+            usuario=current_user,
+            entidad="CARTA_FECHA_EDICION",
+            entidad_id=carta.id,
+            detalle={
+                "accion": "ACTUALIZAR_FECHA",
+                "solicitud_id": solicitud_id,
+                "nueva_fecha": str(carta.fecha_generacion)
+            },
+            ip_origen=get_client_ip(request)
+        )
+    except Exception as e:
+        print(f"⚠️ Error en auditoría (no crítico): {e}")
+    
+    return {
+        "success": True,
+        "message": "Fecha de carta actualizada exitosamente",
+        "fecha_generacion": carta.fecha_generacion
     }
 
 

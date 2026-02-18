@@ -139,7 +139,7 @@ const Solicitudes = {
             const result = await response.json();
 
             // Mostrar resumen
-            let mensaje = `✅ Importación completada.\n\n` +
+            let mensaje = `Importación completada.\n\n` +
                 `Total: ${result.estadisticas.total} \n` +
                 `Exitosos: ${result.estadisticas.exitosos} \n` +
                 `Fallidos: ${result.estadisticas.fallidos} `;
@@ -150,14 +150,14 @@ const Solicitudes = {
                     (result.estadisticas.errores.length > 3 ? '\n...' : '');
             }
 
-            alert(mensaje);
+            showSuccess(mensaje);
 
             // Recargar tabla
             this.load();
 
         } catch (error) {
             console.error('Error importando:', error);
-            alert(`❌ Error: ${error.message} `);
+            showError(`Error: ${error.message}`);
         } finally {
             btnImportar.innerHTML = textoOriginal;
             btnImportar.disabled = false;
@@ -194,7 +194,7 @@ const Solicitudes = {
 
         } catch (error) {
             console.error('Error exportando:', error);
-            alert('❌ Error al exportar datos. Intente nuevamente.');
+            showError('Error al exportar datos. Intente nuevamente.');
         } finally {
             btnExportar.innerHTML = textoOriginal;
             btnExportar.disabled = false;
@@ -1158,64 +1158,128 @@ const Solicitudes = {
                 `;
             }
 
+            // Verificar si tiene carta generada
+            const tieneCarta = sol.carta_fecha_generacion !== null && sol.carta_fecha_generacion !== undefined;
+
             showModal('✏️ Editar Todos los Datos (SUPERADMIN)', `
                 ${advertencia}
                 
-                <form id="formEditarPersonaCompleta">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                        <div class="form-group">
-                            <label>Nombres *</label>
-                            <input type="text" id="nombres" required 
-                                   value="${persona.nombres}">
+                <form id="formEditarPersonaCompleta" style="max-height: 70vh; overflow-y: auto;">
+                    
+                    <!-- ✅ SECCIÓN 1: DATOS DE LA SOLICITUD -->
+                    <div style="background: #e3f2fd; padding: 1rem; border-radius: 4px; margin-bottom: 1.5rem;">
+                        <h4 style="margin-bottom: 1rem;">📋 Datos de la Solicitud</h4>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                            <div class="form-group">
+                                <label>Número de Oficio</label>
+                                <input type="text" id="numeroOficio" value="${sol.numero_oficio || ''}" 
+                                       placeholder="Ej: 5698-2028">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Número de Providencia</label>
+                                <input type="text" id="numeroProvidencia" value="${sol.numero_providencia || ''}" 
+                                       placeholder="Ej: 16754-2028">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label>Fecha de Recepción</label>
+                            <input type="date" id="fechaRecepcion" value="${sol.fecha_recepcion || ''}">
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label>Tipo de Solicitud *</label>
+                            <select id="tipoSolicitud" required style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                <option value="NUEVA" ${sol.tipo_solicitud === 'NUEVA' ? 'selected' : ''}>CREACION</option>
+                                <option value="RENOVACION" ${sol.tipo_solicitud === 'RENOVACION' ? 'selected' : ''}>RENOVACION</option>
+                            </select>
                         </div>
                         
                         <div class="form-group">
-                            <label>Apellidos *</label>
-                            <input type="text" id="apellidos" required 
-                                   value="${persona.apellidos}">
+                            <label>Justificación *</label>
+                            <textarea id="justificacion" required rows="3" 
+                                      style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-family: inherit;"
+                                      placeholder="Describe el motivo de la solicitud...">${sol.justificacion || ''}</textarea>
                         </div>
                     </div>
                     
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                        <div class="form-group">
-                            <label>DPI * (13 dígitos)</label>
-                            <input type="text" id="dpi" required 
-                                   pattern="[0-9]{13}" maxlength="13" 
-                                   value="${persona.dpi}">
-                        </div>
+                    ${tieneCarta ? `
+                    <!-- ✅ SECCIÓN 2: FECHAS DE LA CARTA (si existe) -->
+                    <div style="background: #fef3c7; padding: 1rem; border-radius: 4px; margin-bottom: 1.5rem;">
+                        <h4 style="margin-bottom: 1rem;">📄 Fechas de la Carta</h4>
+                        <p style="font-size: 0.85rem; color: #92400e; margin-bottom: 1rem;">
+                            ⚠️ Solo modifica estas fechas si necesitas corregir errores de importación
+                        </p>
                         
                         <div class="form-group">
-                            <label>NIP</label>
-                            <input type="text" id="nip" 
-                                   value="${persona.nip || ''}">
+                            <label>Fecha de Generación de Carta</label>
+                            <input type="date" id="fechaGeneracionCarta" value="${sol.carta_fecha_generacion || ''}">
+                            <small style="color: #666; font-size: 0.85rem;">Esta es la fecha de creación de la carta</small>
                         </div>
                     </div>
+                    ` : ''}
                     
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                        <div class="form-group">
-                            <label>Email</label>
-                            <input type="email" id="email" 
-                                   value="${persona.email || ''}">
+                    <!-- ✅ SECCIÓN 3: DATOS DE LA PERSONA -->
+                    <div style="background: #f3f4f6; padding: 1rem; border-radius: 4px; margin-bottom: 1.5rem;">
+                        <h4 style="margin-bottom: 1rem;">👤 Datos de la Persona</h4>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div class="form-group">
+                                <label>Nombres *</label>
+                                <input type="text" id="nombres" required 
+                                       value="${persona.nombres}">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Apellidos *</label>
+                                <input type="text" id="apellidos" required 
+                                       value="${persona.apellidos}">
+                            </div>
                         </div>
                         
-                        <div class="form-group">
-                            <label>Teléfono</label>
-                            <input type="text" id="telefono" 
-                                   value="${persona.telefono || ''}">
-                        </div>
-                    </div>
-                    
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                        <div class="form-group">
-                            <label>Cargo/Grado</label>
-                            <input type="text" id="cargo" 
-                                   value="${persona.cargo || ''}">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div class="form-group">
+                                <label>DPI * (13 dígitos)</label>
+                                <input type="text" id="dpi" required 
+                                       pattern="[0-9]{13}" maxlength="13" 
+                                       value="${persona.dpi}">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>NIP</label>
+                                <input type="text" id="nip" 
+                                       value="${persona.nip || ''}">
+                            </div>
                         </div>
                         
-                        <div class="form-group">
-                            <label>Institución</label>
-                            <input type="text" id="institucion" 
-                                   value="${persona.institucion || ''}">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div class="form-group">
+                                <label>Email</label>
+                                <input type="email" id="email" 
+                                       value="${persona.email || ''}">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Teléfono</label>
+                                <input type="text" id="telefono" 
+                                       value="${persona.telefono || ''}">
+                            </div>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div class="form-group">
+                                <label>Cargo/Grado</label>
+                                <input type="text" id="cargo" 
+                                       value="${persona.cargo || ''}">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Institución</label>
+                                <input type="text" id="institucion" 
+                                       value="${persona.institucion || ''}">
+                            </div>
                         </div>
                     </div>
                     
@@ -1227,7 +1291,7 @@ const Solicitudes = {
 
             document.getElementById('formEditarPersonaCompleta').addEventListener('submit', async (e) => {
                 e.preventDefault();
-                await this.guardarEdicionCompletaPersona(personaId, solicitudId);
+                await this.guardarEdicionCompletaPersona(personaId, solicitudId, tieneCarta);
             });
 
         } catch (error) {
@@ -1236,37 +1300,105 @@ const Solicitudes = {
         }
     },
 
-    async guardarEdicionCompletaPersona(personaId, solicitudId) {
+    async guardarEdicionCompletaPersona(personaId, solicitudId, tieneCarta) {
         try {
             showLoading();
 
-            const data = {
-                nombres: document.getElementById('nombres').value.trim(),
-                apellidos: document.getElementById('apellidos').value.trim(),
-                dpi: document.getElementById('dpi').value.trim(),
-                nip: document.getElementById('nip').value.trim() || null,
-                email: document.getElementById('email').value.trim() || null,
-                cargo: document.getElementById('cargo').value.trim() || null,
-                telefono: document.getElementById('telefono').value.trim() || null,
-                institucion: document.getElementById('institucion').value.trim() || null
-            };
+            let personaActualizada = false;
+            let solicitudActualizada = false;
+            let cartaActualizada = false;
 
-            // Validar DPI
-            if (!/^\d{13}$/.test(data.dpi)) {
-                throw new Error('El DPI debe tener exactamente 13 dígitos');
+            // ✅ 1. ACTUALIZAR DATOS DE LA PERSONA (si hay cambios)
+            try {
+                const dataPersona = {
+                    nombres: document.getElementById('nombres').value.trim(),
+                    apellidos: document.getElementById('apellidos').value.trim(),
+                    dpi: document.getElementById('dpi').value.trim(),
+                    nip: document.getElementById('nip').value.trim() || null,
+                    email: document.getElementById('email').value.trim() || null,
+                    cargo: document.getElementById('cargo').value.trim() || null,
+                    telefono: document.getElementById('telefono').value.trim() || null,
+                    institucion: document.getElementById('institucion').value.trim() || null
+                };
+
+                // Validar DPI
+                if (!/^\d{13}$/.test(dataPersona.dpi)) {
+                    throw new Error('El DPI debe tener exactamente 13 dígitos');
+                }
+
+                await API.put(`/personas/editar-completa/${personaId}`, dataPersona);
+                personaActualizada = true;
+            } catch (error) {
+                // Si el error es "No hay cambios", continuar silenciosamente
+                if (!error.message.includes('No hay cambios')) {
+                    throw error; // Re-lanzar si es otro tipo de error
+                }
             }
 
-            await API.put(`/personas/editar-completa/${personaId}`, data);
+            // ✅ 2. ACTUALIZAR DATOS DE LA SOLICITUD
+            try {
+                const dataSolicitud = {
+                    numero_oficio: document.getElementById('numeroOficio').value.trim() || null,
+                    numero_providencia: document.getElementById('numeroProvidencia').value.trim() || null,
+                    fecha_recepcion: document.getElementById('fechaRecepcion').value || null,
+                    tipo_solicitud: document.getElementById('tipoSolicitud').value,
+                    justificacion: document.getElementById('justificacion').value.trim()
+                };
+
+                await API.put(`/solicitudes/${solicitudId}`, dataSolicitud);
+                solicitudActualizada = true;
+            } catch (error) {
+                // Silenciosamente continuar con carta si falla solicitud
+                if (!error.message.includes('No hay cambios')) {
+                    throw error;
+                }
+            }
+
+            // ✅ 3. ACTUALIZAR FECHAS DE LA CARTA (si existe)
+            if (tieneCarta) {
+                try {
+                    const fechaGeneracionCarta = document.getElementById('fechaGeneracionCarta').value;
+                    if (fechaGeneracionCarta) {
+                        await API.put(`/solicitudes/${solicitudId}/actualizar-fecha-carta`, {
+                            fecha_generacion: fechaGeneracionCarta
+                        });
+                        cartaActualizada = true;
+                    }
+                } catch (error) {
+                    // Silenciosamente manejar error de carta
+                    if (!error.message.includes('No hay cambios')) {
+                        throw error;
+                    }
+                }
+            }
 
             hideLoading();
-            hideModal();
 
-            showSuccess('✅ Datos actualizados correctamente');
-            await this.load();
+            // Mostrar mensaje según lo que se actualizó
+            if (personaActualizada || solicitudActualizada || cartaActualizada) {
+                const partes = [];
+                if (personaActualizada) partes.push('persona');
+                if (solicitudActualizada) partes.push('solicitud');
+                if (cartaActualizada) partes.push('carta');
+
+                showSuccess(`✅ Datos actualizados: ${partes.join(', ')}`);
+
+                // Recargar la tabla
+                await this.load();
+
+                // Cerrar modal de edición
+                hideModal();
+            } else {
+                hideModal();
+                showSuccess('ℹ️ No se detectaron cambios');
+            }
 
         } catch (error) {
             hideLoading();
-            showError('Error al guardar: ' + error.message);
+            // Solo mostrar error si no es "No hay cambios"
+            if (!error.message.includes('No hay cambios')) {
+                showError('Error al guardar: ' + error.message);
+            }
         }
     }
 

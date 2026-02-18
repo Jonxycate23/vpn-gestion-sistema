@@ -129,7 +129,6 @@ const DashboardAsperos = {
                     <!-- Header Principal -->
                     <div class="dashboard-header-main">
                         <h1>📊 DASHBOARD</h1>
-                        <p>SISTEMA | ${new Date().getFullYear()}</p>
                     </div>
 
                     <!-- Grid de Cards de Cartas -->

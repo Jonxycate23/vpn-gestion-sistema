@@ -99,7 +99,7 @@
 }
 
 .form-group input {
-    background: var(--input-bg) !important;
+    background: #c7c7c752 !important;
     border: 2px solid transparent !important;
     border-radius: 8px !important;
     padding: 0.85rem 1rem !important;

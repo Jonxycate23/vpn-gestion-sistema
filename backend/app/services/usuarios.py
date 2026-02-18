@@ -226,6 +226,68 @@ class UsuarioService:
         return usuario
     
     @staticmethod
+    def toggle_activo(
+        db: Session,
+        usuario_id: int,
+        activo: bool
+    ) -> UsuarioSistema:
+        """
+        Activar o desactivar usuario (versión simplificada sin auditoría)
+        """
+        usuario = UsuarioService.obtener_por_id(db, usuario_id)
+        
+        if not usuario:
+            raise ValueError("Usuario no encontrado")
+        
+        # Actualizar estado
+        usuario.activo = activo
+        db.commit()
+        db.refresh(usuario)
+        
+        return usuario
+    
+    @staticmethod
+    def actualizar_usuario(
+        db: Session,
+        usuario_id: int,
+        nombres: str,
+        apellidos: str,
+        email: Optional[str],
+        rol: str
+    ) -> UsuarioSistema:
+        """
+        Actualizar datos de un usuario
+        """
+        usuario = UsuarioService.obtener_por_id(db, usuario_id)
+        
+        if not usuario:
+            raise ValueError("Usuario no encontrado")
+        
+        # Validar rol
+        if rol not in ['ADMIN', 'SUPERADMIN']:
+            raise ValueError("Rol inválido. Debe ser ADMIN o SUPERADMIN")
+        
+        # Validar email único (si cambió y no es None)
+        if email and email != usuario.email:
+            email_existe = db.query(UsuarioSistema).filter(
+                UsuarioSistema.email == email,
+                UsuarioSistema.id != usuario_id
+            ).first()
+            
+            if email_existe:
+                raise ValueError(f"El email {email} ya está en uso")
+        
+        # Actualizar datos
+        usuario.nombre_completo = f"{nombres} {apellidos}"
+        usuario.email = email
+        usuario.rol = rol
+        
+        db.commit()
+        db.refresh(usuario)
+        
+        return usuario
+    
+    @staticmethod
     def actualizar_ultimo_login(db: Session, usuario_id: int):
         """Actualizar fecha de último login"""
         usuario = UsuarioService.obtener_por_id(db, usuario_id)

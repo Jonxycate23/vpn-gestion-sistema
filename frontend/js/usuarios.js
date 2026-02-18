@@ -167,6 +167,12 @@ const Usuarios = {
                         <td>${ultimoLogin}</td>
                         <td style="white-space: nowrap;">
                             ${!esUsuarioActual ? `
+                                <button class="btn btn-sm btn-primary" 
+                                        onclick="Usuarios.mostrarEditarUsuario(${usuario.id})" 
+                                        title="Editar Usuario">
+                                    ✏️
+                                </button>
+                                
                                 <button class="btn btn-sm btn-warning" 
                                         onclick="Usuarios.mostrarCambiarPassword(${usuario.id}, '${usuario.nombre_completo}')" 
                                         title="Cambiar Contraseña">
@@ -320,8 +326,8 @@ const Usuarios = {
                     
                     <div style="background: #fef3c7; padding: 1rem; border-radius: 4px;">
                         <strong>⚠️ IMPORTANTE:</strong><br>
-                        Guarda estas credenciales y entrégalas al usuario.<br>
-                        Debe cambiar su contraseña en el primer login.
+                        Debe cambiar su contraseña en el primer login.<br>
+                        ingrese una contraseña segura y única.
                     </div>
                 </div>
                 
@@ -349,9 +355,26 @@ const Usuarios = {
                 
                 <div class="form-group">
                     <label>Nueva Contraseña *</label>
-                    <input type="password" id="password_nueva" required 
-                           minlength="6"
-                           placeholder="Mínimo 6 caracteres">
+                    <div class="password-wrapper">
+                        <input type="password" id="password_nueva" required 
+                               minlength="6"
+                               placeholder="Mínimo 6 caracteres">
+                        <button type="button" class="toggle-password" onclick="togglePasswordVisibility('password_nueva', this)"
+                                aria-label="Mostrar contraseña">
+                            <svg class="eye-icon eye-open" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            <svg class="eye-icon eye-closed" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a10.05 10.05 0 011.574-2.59M5.21 5.21a17.29 17.29 0 0113.58 13.58M1.05 1s14.2 14.2 21.9 21.9" />
+                            </svg>
+                        </button>
+                    </div>
                     <small class="form-text">
                         La contraseña debe tener al menos 6 caracteres
                     </small>
@@ -359,9 +382,26 @@ const Usuarios = {
                 
                 <div class="form-group">
                     <label>Confirmar Contraseña *</label>
-                    <input type="password" id="password_confirmar" required 
-                           minlength="6"
-                           placeholder="Repite la contraseña">
+                    <div class="password-wrapper">
+                        <input type="password" id="password_confirmar" required 
+                               minlength="6"
+                               placeholder="Repite la contraseña">
+                        <button type="button" class="toggle-password" onclick="togglePasswordVisibility('password_confirmar', this)"
+                                aria-label="Mostrar contraseña">
+                            <svg class="eye-icon eye-open" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            <svg class="eye-icon eye-closed" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a10.05 10.05 0 011.574-2.59M5.21 5.21a17.29 17.29 0 0113.58 13.58M1.05 1s14.2 14.2 21.9 21.9" />
+                            </svg>
+                        </button>
+                    </div>
                 </div>
                 
                 <div style="background: #fef3c7; padding: 1rem; border-radius: 4px; margin: 1rem 0;">
@@ -411,40 +451,152 @@ const Usuarios = {
             hideLoading();
             hideModal();
 
-            showModal('✅ Contraseña Cambiada', `
-                <div style="background: #d1fae5; padding: 1.5rem; border-radius: 4px; margin-bottom: 1rem;">
-                    <h3 style="margin-bottom: 1rem; color: #065f46;">
-                        ✅ Contraseña actualizada exitosamente
-                    </h3>
-                    
-                    <div style="background: white; padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
-                        <p style="margin-bottom: 0.5rem;"><strong>Usuario:</strong></p>
-                        <p style="margin: 0;">${nombreCompleto}</p>
-                    </div>
-                    
-                    <div style="background: white; padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
-                        <p style="margin-bottom: 0.5rem;"><strong>Nueva Contraseña:</strong></p>
-                        <code style="font-size: 1.1rem; background: #f3f4f6; padding: 0.5rem; display: block;">
-                            ${passwordNueva}
-                        </code>
-                    </div>
-                    
-                    <div style="background: #fef3c7; padding: 1rem; border-radius: 4px;">
-                        <strong>📝 Recuerda:</strong><br>
-                        Entrega esta contraseña al usuario de forma segura.
-                    </div>
-                </div>
-                
-                <button class="btn btn-primary btn-block" onclick="hideModal(); setTimeout(() => Usuarios.load(), 100);">
-                    Aceptar
-                </button>
-            `);
+            // Mostrar mensaje de éxito con la nueva contraseña
+            showSuccess(`✅ Contraseña actualizada exitosamente para ${nombreCompleto}.\n\nNueva contraseña: ${passwordNueva}\n\n📝 Recuerda entregar esta contraseña al usuario de forma segura.`);
+
+            // Recargar la lista de usuarios
+            setTimeout(() => this.load(), 500);
 
         } catch (error) {
             hideLoading();
             showError('Error al cambiar contraseña: ' + error.message);
         }
     },
+
+    // ========================================
+    // EDITAR USUARIO
+    // ========================================
+
+    async mostrarEditarUsuario(usuarioId) {
+        try {
+            showLoading();
+            const response = await API.get(`/usuarios/${usuarioId}`);
+            hideLoading();
+
+            if (!response.success) {
+                showError('Error al cargar datos del usuario');
+                return;
+            }
+
+            const usuario = response.usuario;
+
+            // Extraer nombres y apellidos del nombre_completo
+            const nombreCompleto = usuario.nombre_completo || '';
+            const partes = nombreCompleto.trim().split(' ');
+            const mitad = Math.ceil(partes.length / 2);
+            const nombres = partes.slice(0, mitad).join(' ');
+            const apellidos = partes.slice(mitad).join(' ');
+
+            showModal('✏️ Editar Usuario', `
+                <form id="formEditarUsuario">
+                    <input type="hidden" id="edit_usuario_id" value="${usuario.id}">
+                    
+                    <div style="background: #e0f2fe; padding: 1rem; border-radius: 4px; margin-bottom: 1.5rem;">
+                        <strong>Usuario:</strong> <code>${usuario.username}</code>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Nombres *</label>
+                        <input type="text" id="edit_nombres" value="${nombres}" required 
+                               placeholder="Nombres del usuario">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Apellidos *</label>
+                        <input type="text" id="edit_apellidos" value="${apellidos}" required 
+                               placeholder="Apellidos del usuario">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="edit_email" value="${usuario.email || ''}" 
+                               placeholder="correo@ejemplo.com">
+                        <small class="form-text">Opcional</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Rol *</label>
+                        <select id="edit_rol" required class="form-control">
+                            <option value="ADMIN" ${usuario.rol === 'ADMIN' ? 'selected' : ''}>ADMIN</option>
+                            <option value="SUPERADMIN" ${usuario.rol === 'SUPERADMIN' ? 'selected' : ''}>SUPERADMIN</option>
+                        </select>
+                        <small class="form-text">
+                            <strong>ADMIN:</strong> Gestión de solicitudes y accesos<br>
+                            <strong>SUPERADMIN:</strong> Control total del sistema
+                        </small>
+                    </div>
+                    
+                    <div style="background: #fef3c7; padding: 1rem; border-radius: 4px; margin: 1rem 0;">
+                        <strong>⚠️ Nota:</strong><br>
+                        El username no se puede modificar. Si necesitas cambiar el rol, asegúrate de que sea el correcto.
+                    </div>
+                    
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button type="button" class="btn btn-secondary" onclick="hideModal()">
+                            Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-primary" style="flex: 1;">
+                            💾 Guardar Cambios
+                        </button>
+                    </div>
+                </form>
+            `);
+
+            document.getElementById('formEditarUsuario').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await this.actualizarUsuario(usuario.id);
+            });
+
+        } catch (error) {
+            hideLoading();
+            showError('Error al cargar usuario: ' + error.message);
+        }
+    },
+
+    async actualizarUsuario(usuarioId) {
+        const nombres = document.getElementById('edit_nombres').value.trim();
+        const apellidos = document.getElementById('edit_apellidos').value.trim();
+        const email = document.getElementById('edit_email').value.trim();
+        const rol = document.getElementById('edit_rol').value;
+
+        if (!nombres || !apellidos) {
+            showError('Nombres y apellidos son obligatorios');
+            return;
+        }
+
+        const confirmado = await CustomConfirm.show({
+            title: '💾 Guardar Cambios',
+            message: '¿Confirmar la actualización de este usuario?',
+            type: 'info',
+            confirmText: 'Sí, guardar',
+            cancelText: 'Cancelar'
+        });
+
+        if (!confirmado) {
+            return;
+        }
+
+        try {
+            showLoading();
+            await API.put(`/usuarios/${usuarioId}`, {
+                nombres,
+                apellidos,
+                email: email || null,
+                rol
+            });
+            hideLoading();
+            hideModal();
+            showSuccess('Usuario actualizado exitosamente');
+            await this.load();
+        } catch (error) {
+            hideLoading();
+            showError('Error al actualizar usuario: ' + error.message);
+        }
+    },
+
+    // ========================================
+    // ACTIVAR/DESACTIVAR USUARIO
+    // ========================================
 
     async activar(usuarioId) {
         // ✅ ESPERAR la respuesta del confirm
@@ -559,15 +711,49 @@ const CambiarPasswordPropia = {
                 
                 <div class="form-group">
                     <label>Contraseña Actual *</label>
-                    <input type="password" id="password_actual" required 
-                           placeholder="Tu contraseña actual">
+                    <div class="password-wrapper">
+                        <input type="password" id="password_actual" required 
+                               placeholder="Tu contraseña actual">
+                        <button type="button" class="toggle-password" onclick="togglePasswordVisibility('password_actual', this)"
+                                aria-label="Mostrar contraseña">
+                            <svg class="eye-icon eye-open" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            <svg class="eye-icon eye-closed" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a10.05 10.05 0 011.574-2.59M5.21 5.21a17.29 17.29 0 0113.58 13.58M1.05 1s14.2 14.2 21.9 21.9" />
+                            </svg>
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="form-group">
                     <label>Nueva Contraseña *</label>
-                    <input type="password" id="password_nueva" required 
-                           minlength="6"
-                           placeholder="Mínimo 6 caracteres">
+                    <div class="password-wrapper">
+                        <input type="password" id="password_nueva" required 
+                               minlength="6"
+                               placeholder="Mínimo 6 caracteres">
+                        <button type="button" class="toggle-password" onclick="togglePasswordVisibility('password_nueva', this)"
+                                aria-label="Mostrar contraseña">
+                            <svg class="eye-icon eye-open" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            <svg class="eye-icon eye-closed" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a10.05 10.05 0 011.574-2.59M5.21 5.21a17.29 17.29 0 0113.58 13.58M1.05 1s14.2 14.2 21.9 21.9" />
+                            </svg>
+                        </button>
+                    </div>
                     <small class="form-text">
                         La contraseña debe tener al menos 6 caracteres
                     </small>
@@ -575,16 +761,32 @@ const CambiarPasswordPropia = {
                 
                 <div class="form-group">
                     <label>Confirmar Nueva Contraseña *</label>
-                    <input type="password" id="password_confirmar" required 
-                           minlength="6"
-                           placeholder="Repite la nueva contraseña">
+                    <div class="password-wrapper">
+                        <input type="password" id="password_confirmar" required 
+                               minlength="6"
+                               placeholder="Repite la nueva contraseña">
+                        <button type="button" class="toggle-password" onclick="togglePasswordVisibility('password_confirmar', this)"
+                                aria-label="Mostrar contraseña">
+                            <svg class="eye-icon eye-open" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            <svg class="eye-icon eye-closed" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a10.05 10.05 0 011.574-2.59M5.21 5.21a17.29 17.29 0 0113.58 13.58M1.05 1s14.2 14.2 21.9 21.9" />
+                            </svg>
+                        </button>
+                    </div>
                 </div>
                 
                 <div style="background: #dbeafe; padding: 1rem; border-radius: 4px; margin: 1rem 0;">
                     <strong>💡 Recomendaciones:</strong><br>
                     • Usa una combinación de letras, números y símbolos<br>
-                    • No uses contraseñas fáciles de adivinar<br>
-                    • No compartas tu contraseña con nadie
+                    • No uses contraseñas fáciles de adivinar
                 </div>
                 
                 <div style="display: flex; gap: 0.5rem;">

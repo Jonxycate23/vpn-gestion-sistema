@@ -902,3 +902,91 @@ body {
 .submenu.show {
     max-height: 200px;
 }
+
+/* ========================================
+   CONVERTIR TODO A MAYÚSCULAS
+   ======================================== */
+
+/* Tablas - todas las celdas en mayúsculas */
+.table td,
+.table th {
+    text-transform: uppercase;
+}
+
+/* Inputs y selects en mayúsculas */
+input[type="text"],
+input[type="email"],
+input[type="tel"],
+input[type="number"],
+input[type="search"],
+select,
+textarea {
+    text-transform: uppercase;
+}
+
+/* ⚠️ EXCEPCIÓN: Campos de autenticación NO deben convertirse a mayúsculas */
+/* Esto permite que las contraseñas y usuarios mantengan mayúsculas/minúsculas */
+input[type="password"],
+input[name="username"],
+input[name="password"],
+input[id="username"],
+input[id="password"],
+input[id="new-password"],
+input[id="confirm-password"],
+input[name="new-password"],
+input[name="confirm-password"],
+input[id="password_nueva"],
+input[id="password_confirmar"],
+input[id="password_actual"],
+input[id="password_actual_obligatorio"],
+input[id="password_nueva_obligatorio"],
+input[id="password_confirmar_obligatorio"] {
+    text-transform: none !important;
+}
+
+/* ⚠️ EXCEPCIÓN: Elementos <code> para mostrar credenciales */
+/* Permite que usernames y contraseñas se muestren correctamente en modales */
+code {
+    text-transform: none !important;
+}
+
+/* Labels en mayúsculas */
+label {
+    text-transform: uppercase;
+}
+
+/* Badges y status en mayúsculas */
+.badge,
+.status-badge {
+    text-transform: uppercase;
+}
+
+/* Botones en mayúsculas */
+.btn {
+    text-transform: uppercase;
+}
+
+/* Títulos y headers en mayúsculas */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    text-transform: uppercase;
+}
+
+/* Párrafos en mayúsculas */
+p {
+    text-transform: uppercase;
+}
+
+/* Spans en mayúsculas */
+span {
+    text-transform: uppercase;
+}
+
+/* Divs con texto en mayúsculas */
+div {
+    text-transform: uppercase;
+}

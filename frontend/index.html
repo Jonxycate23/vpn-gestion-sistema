@@ -317,6 +317,25 @@
                 btn.classList.remove('showing-password');
             }
         }
+
+        // Función global para toggle de contraseñas en modales
+        function togglePasswordVisibility(inputId, btn) {
+            const input = document.getElementById(inputId);
+            if (!input) {
+                console.error('Input no encontrado:', inputId);
+                return;
+            }
+
+            const isPassword = input.type === 'password';
+            input.type = isPassword ? 'text' : 'password';
+
+            // Toggle icons class
+            if (isPassword) {
+                btn.classList.add('showing-password');
+            } else {
+                btn.classList.remove('showing-password');
+            }
+        }
     </script>
 </body>
 
