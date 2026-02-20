@@ -331,11 +331,20 @@ async def listar_solicitudes(
     """Listar solicitudes"""
     solicitudes, total = SolicitudService.listar(db=db, skip=skip, limit=limit)
     
+    # ✅ Optimización: Obtener todas las cartas de una vez para evitar N+1
+    solicitud_ids = [sol.id for sol in solicitudes]
+    cartas_map = {}
+    if solicitud_ids:
+        cartas_batch = db.query(CartaResponsabilidad).filter(
+            CartaResponsabilidad.solicitud_id.in_(solicitud_ids),
+            CartaResponsabilidad.eliminada == False
+        ).all()
+        for c in cartas_batch:
+            cartas_map[c.solicitud_id] = c
+    
     result = []
     for sol in solicitudes:
-        carta = db.query(CartaResponsabilidad).filter(
-            CartaResponsabilidad.solicitud_id == sol.id
-        ).first()
+        carta = cartas_map.get(sol.id)
         
         result.append({
             "id": sol.id,
@@ -682,8 +691,12 @@ async def crear_carta_responsabilidad(
     if not solicitud:
         raise HTTPException(status_code=404, detail="Solicitud no encontrada")
     
-    if solicitud.estado != 'PENDIENTE':
-        raise HTTPException(status_code=400, detail="Solo solicitudes PENDIENTES")
+    # ✅ FIX: Permitir también APROBADA sin carta (importadas de Excel)
+    if solicitud.estado not in ('PENDIENTE', 'APROBADA'):
+        raise HTTPException(
+            status_code=400,
+            detail="Solo solicitudes PENDIENTES o APROBADAS sin carta"
+        )
     
     carta_existente = db.query(CartaResponsabilidad).filter(
         CartaResponsabilidad.solicitud_id == solicitud_id

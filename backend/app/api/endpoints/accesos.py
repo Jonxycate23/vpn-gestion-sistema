@@ -27,7 +27,7 @@ async def obtener_acceso(
     """
     Obtener detalles COMPLETOS de un acceso VPN
     """
-    from datetime import date
+    from app.utils.fecha_local import hoy_gt
     from app.models import CartaResponsabilidad
     
     acceso = AccesoService.obtener_por_id(db=db, acceso_id=acceso_id)
@@ -51,7 +51,7 @@ async def obtener_acceso(
         "dias_gracia": acceso.dias_gracia,
         "fecha_fin_con_gracia": acceso.fecha_fin_con_gracia,
         "estado_vigencia": acceso.estado_vigencia,
-        "dias_restantes": (acceso.fecha_fin_con_gracia - date.today()).days,
+        "dias_restantes": (acceso.fecha_fin_con_gracia - hoy_gt()).days,
         "estado_bloqueo": estado_bloqueo,
         "carta_id": carta.id if carta else None,
         "carta_fecha_generacion": carta.fecha_generacion if carta else None,

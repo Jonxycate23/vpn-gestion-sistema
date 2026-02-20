@@ -25,7 +25,7 @@ const App = {
                 // ✅ VERIFICAR PERMISOS ANTES DE CAMBIAR DE VISTA
                 if (!Auth.tienePermisoParaVista(viewName)) {
                     showError('⛔ No tienes permiso para acceder a esta sección');
-                    console.log(`🚫 Acceso denegado a vista: ${viewName}`);
+
                     return;
                 }
 
@@ -61,7 +61,7 @@ const App = {
     showView(viewName) {
         // ✅ VERIFICAR PERMISOS
         if (!Auth.tienePermisoParaVista(viewName)) {
-            console.log(`🚫 Redirigiendo a dashboard (sin permiso para ${viewName})`);
+
             viewName = 'dashboard';
         }
 
@@ -83,7 +83,7 @@ const App = {
         }
 
         // ✅ MANEJAR SUBMENU VPN
-        const vpnViews = ['solicitudes', 'accesos'];
+        const vpnViews = ['solicitudes', 'accesos', 'controlCartas'];
         const vpnSubmenu = document.getElementById('vpnSubmenu');
         const vpnSection = document.getElementById('vpnMenuSection');
 
@@ -133,6 +133,11 @@ const App = {
                         Accesos.load();
                     }
                     break;
+                case 'controlCartas':
+                    if (typeof ControlCartas !== 'undefined' && ControlCartas.load) {
+                        ControlCartas.load();
+                    }
+                    break;
                 case 'usuarios':
                     // ✅ VERIFICACIÓN ADICIONAL para usuarios
                     const user = UserStorage.get();
@@ -141,7 +146,7 @@ const App = {
                             Usuarios.load();
                         }
                     } else {
-                        console.log('🚫 Acceso denegado a módulo de usuarios');
+
                         this.showView('dashboard');
                     }
                     break;

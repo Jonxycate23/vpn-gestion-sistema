@@ -1,7 +1,10 @@
 // Configuración de la aplicación
 const CONFIG = {
-    // ✅ URL Dinámica: Funciona en localhost y en servidor (asumiendo puerto 8000)
-    API_URL: `${window.location.protocol}//${window.location.hostname}:8000/api`,
+    // Si estamos en el servidor Ubuntu, usamos '/api' para que pase por el proxy de Nginx.
+    // Si estamos en localhost, usamos el puerto 8000 directamente.
+    API_URL: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? 'http://localhost:8000/api'
+        : '/api',
     TOKEN_KEY: 'vpn_token',
     USER_KEY: 'vpn_user'
 };

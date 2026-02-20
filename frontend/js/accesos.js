@@ -5,13 +5,11 @@ const Accesos = {
 
 
     async load() {
-        console.log('Cargando Accesos...');
         this.verificarEstructuraTabla();
         await this.loadAccesos();
 
         // ✅ SOLO REFRESCAR SI YA ESTÁ INICIALIZADA
         if (typeof tablesInitialized !== 'undefined' && tablesInitialized.accesosTable) {
-            console.log('🔄 Refrescando tabla de accesos...');
             IntegratedTableSystem.refresh('accesosTable');
         }
     },
@@ -30,20 +28,7 @@ const Accesos = {
 
         contenedor.innerHTML = `
             <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-                <div style="display: flex; align-items: center; gap: 1rem;">
-                    <h1>🔐 Gestión de Accesos VPN</h1>
-                    
-                    <!-- ✅ SELECTOR DE ORDENAMIENTO -->
-                    <select id="selectOrdenAccesos" class="btn btn-sm btn-outline" 
-                            onchange="Accesos.cambiarOrden(this.value)"
-                            style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
-                        <option value="prioridad">⚡ Por Prioridad (Vencen Pronto)</option>
-                        <option value="dias_asc">📅 Días Restantes (Menor a Mayor)</option>
-                        <option value="dias_desc">📅 Días Restantes (Mayor a Menor)</option>
-                        <option value="nombre_asc">👤 Nombre (A-Z)</option>
-                        <option value="nombre_desc">👤 Nombre (Z-A)</option>
-                    </select>
-                </div>
+                <h1>🔐 Gestión de Accesos VPN</h1>
             </div>
             
             <div class="card">
@@ -73,89 +58,35 @@ const Accesos = {
         `;
     },
 
-    cambiarOrden(nuevoOrden) {
-        this.ordenActual = nuevoOrden;
-        console.log(`🔄 Orden cambiado a: ${nuevoOrden}`);
-        this.renderizarAccesos();
-    },
-
     async loadAccesos() {
         try {
-            const data = await API.get('/dashboard/accesos-actuales?limit=5000');
+            const data = await API.get('/dashboard/accesos-actuales?limit=2000');
+            this.datosOriginales = data.accesos || [];
+
             const tbody = document.querySelector('#accesosTable tbody');
+            if (!tbody) return;
 
-            if (!tbody) {
-                console.error('No se encontró la tabla de accesos');
-                return;
-            }
-
-            const accesos = data.accesos || [];
-
-            if (accesos.length === 0) {
+            if (this.datosOriginales.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="9" style="text-align: center;">No hay accesos VPN registrados</td></tr>';
                 return;
             }
 
-            // ✅ Guardar datos originales
-            this.datosOriginales = accesos;
-
-            // ✅ Renderizar con el orden actual
             this.renderizarAccesos();
-
         } catch (error) {
             console.error('Error loading accesos:', error);
             showError('Error al cargar accesos: ' + error.message);
         }
     },
 
-    // ✅ NUEVA FUNCIÓN: Renderizar con orden actual
+    // ✅ NUEVA FUNCIÓN: Renderizar tabla base
     renderizarAccesos() {
         const tbody = document.querySelector('#accesosTable tbody');
         if (!tbody) return;
 
-        // ✅ Ordenar según la opción seleccionada
-        let accesosOrdenados = [...this.datosOriginales];
+        // Renderizar datos directos (el sistema integrado se encarga de ordenar/paginar después)
+        const lista = this.datosOriginales || [];
 
-        switch (this.ordenActual) {
-            case 'prioridad':
-                // Prioridad: Vencidos y por vencer primero
-                accesosOrdenados.sort((a, b) => {
-                    if (a.dias_restantes <= 30 && b.dias_restantes > 30) return -1;
-                    if (a.dias_restantes > 30 && b.dias_restantes <= 30) return 1;
-                    return a.dias_restantes - b.dias_restantes;
-                });
-                break;
-
-            case 'dias_asc':
-                // Días restantes: menor a mayor
-                accesosOrdenados.sort((a, b) => a.dias_restantes - b.dias_restantes);
-                break;
-
-            case 'dias_desc':
-                // Días restantes: mayor a menor
-                accesosOrdenados.sort((a, b) => b.dias_restantes - a.dias_restantes);
-                break;
-
-            case 'nombre_asc':
-                // Nombre: A-Z
-                accesosOrdenados.sort((a, b) => {
-                    const nombreA = `${a.nombres} ${a.apellidos}`.toLowerCase();
-                    const nombreB = `${b.nombres} ${b.apellidos}`.toLowerCase();
-                    return nombreA.localeCompare(nombreB);
-                });
-                break;
-
-            case 'nombre_desc':
-                // Nombre: Z-A
-                accesosOrdenados.sort((a, b) => {
-                    const nombreA = `${a.nombres} ${a.apellidos}`.toLowerCase();
-                    const nombreB = `${b.nombres} ${b.apellidos}`.toLowerCase();
-                    return nombreB.localeCompare(nombreA);
-                });
-                break;
-        }
-
-        tbody.innerHTML = accesosOrdenados.map(acceso => {
+        tbody.innerHTML = lista.map(acceso => {
             const diasClass = acceso.dias_restantes < 0 ? 'status-vencido' :
                 acceso.dias_restantes <= 7 ? 'status-por-vencer' : 'status-activo';
 
@@ -179,7 +110,7 @@ const Accesos = {
                             👁️
                         </button>
                         
-                        ${acceso.dias_restantes > 0 && acceso.dias_restantes <= 30 ? `
+                        ${acceso.dias_restantes <= 30 ? `
                             <button class="btn btn-sm btn-warning" onclick="Accesos.prorrogar(${acceso.acceso_id})" title="Prorrogar">
                                 ⏰
                             </button>
@@ -199,11 +130,9 @@ const Accesos = {
             `;
         }).join('');
 
-        console.log(`✅ ${accesosOrdenados.length} accesos ordenados (${this.ordenActual})`);
-
-        // ✅ Refrescar paginación si existe
-        if (typeof Paginator !== 'undefined' && Paginator.configs['accesosTable']) {
-            Paginator.refresh('accesosTable');
+        // Disparar evento para que el sistema integrado se actualice si ya existe
+        if (typeof IntegratedTableSystem !== 'undefined' && typeof tablesInitialized !== 'undefined' && tablesInitialized.accesosTable) {
+            IntegratedTableSystem.refresh('accesosTable');
         }
     },
 
@@ -297,7 +226,7 @@ const Accesos = {
                         </button>
                     `}
                     
-                    ${acceso.dias_restantes > 0 && acceso.dias_restantes <= 30 ? `
+                    ${acceso.dias_restantes <= 30 ? `
                         <button class="btn btn-warning" onclick="Accesos.prorrogar(${accesoId}); hideModal();" style="margin-right: 0.5rem;">
                             ⏰ Prorrogar
                         </button>

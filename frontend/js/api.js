@@ -158,7 +158,7 @@ function showError(message) {
 }
 
 function showSuccess(message) {
-    console.log('Success:', message);
+
     // No usar alert() - será reemplazado por Toast
 }
 

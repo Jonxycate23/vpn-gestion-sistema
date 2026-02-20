@@ -43,9 +43,19 @@ class AccesoService:
         dias_gracia_anterior = acceso.dias_gracia
         fecha_anterior = acceso.fecha_fin_con_gracia
         
-        # Actualizar días de gracia
+        # Actualizar días de gracia del acceso
         acceso.dias_gracia += data.dias_adicionales
         acceso.fecha_fin_con_gracia = acceso.fecha_fin + timedelta(days=acceso.dias_gracia)
+        
+        # ✅ Actualizar solicitud asociada: estado APROBADA + justificacion con el motivo
+        from app.models import SolicitudVPN
+        solicitud = db.query(SolicitudVPN).filter(
+            SolicitudVPN.id == acceso.solicitud_id
+        ).first()
+        if solicitud:
+            solicitud.estado = 'APROBADA'
+            solicitud.justificacion = f"Prórroga +{data.dias_adicionales} días: {data.motivo}"
+            db.add(solicitud)
         
         db.commit()
         db.refresh(acceso)
@@ -131,8 +141,8 @@ class BloqueoService:
                 solicitud.justificacion = data.motivo
                 solicitud.estado = 'CANCELADA'
             else:
-                # Al desbloquear: restaurar estado a PENDIENTE
-                solicitud.estado = 'PENDIENTE'
+                # Al desbloquear: restaurar estado a APROBADA (con acceso y carta activa)
+                solicitud.estado = 'APROBADA'
                 solicitud.justificacion = f"Desbloqueado: {data.motivo}"
             
             # ✅ Asegurar que los cambios se registren en la sesión

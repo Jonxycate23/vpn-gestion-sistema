@@ -19,6 +19,7 @@ const Auth = {
     logout() {
         TokenStorage.remove();
         UserStorage.remove();
+        if (typeof NotifVPN !== 'undefined') NotifVPN.destroy();
         this.showLoginScreen();
     },
 
@@ -46,6 +47,9 @@ const Auth = {
 
             // ✅ REDIRIGIR AL DASHBOARD SIEMPRE DESPUÉS DEL LOGIN
             App.showView('dashboard');
+
+            // ✅ INICIAR CAMPANA DE NOTIFICACIONES
+            if (typeof NotifVPN !== 'undefined') NotifVPN.init();
         }
     },
 
@@ -65,13 +69,13 @@ const Auth = {
             if (liUsuarios) {
                 liUsuarios.style.display = '';
             }
-            console.log('✅ Menú de Usuarios VISIBLE para SUPERADMIN');
+
         } else {
             // ADMIN no puede ver "Usuarios del Sistema"
             if (liUsuarios) {
                 liUsuarios.style.display = 'none';
             }
-            console.log('🚫 Menú de Usuarios OCULTO para ADMIN');
+
         }
     },
 

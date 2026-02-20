@@ -1,6 +1,6 @@
 // SISTEMA DE CONFIRMACIÓN PERSONALIZADO
 const CustomConfirm = {
-    
+
     /**
      * Mostrar confirmación personalizada
      * @param {object} options - Opciones de configuración
@@ -16,7 +16,7 @@ const CustomConfirm = {
                 type = 'warning', // 'warning', 'danger', 'info', 'success'
                 icon = this.getIcon(type)
             } = options;
-            
+
             // Crear overlay
             const overlay = document.createElement('div');
             overlay.className = 'custom-confirm-overlay';
@@ -34,7 +34,7 @@ const CustomConfirm = {
                 backdrop-filter: blur(4px);
                 animation: fadeIn 0.2s ease;
             `;
-            
+
             // Crear modal
             const modal = document.createElement('div');
             modal.className = `custom-confirm-modal custom-confirm-${type}`;
@@ -48,7 +48,7 @@ const CustomConfirm = {
                 animation: slideDown 0.3s ease;
                 position: relative;
             `;
-            
+
             // Contenido del modal
             modal.innerHTML = `
                 <div style="text-align: center;">
@@ -117,7 +117,7 @@ const CustomConfirm = {
                     </div>
                 </div>
             `;
-            
+
             // Agregar animaciones CSS
             const style = document.createElement('style');
             style.textContent = `
@@ -175,16 +175,16 @@ const CustomConfirm = {
                 }
             `;
             document.head.appendChild(style);
-            
+
             // Agregar al DOM
             overlay.appendChild(modal);
             document.body.appendChild(overlay);
-            
+
             // Función para cerrar con animación
             const closeModal = (result) => {
                 overlay.style.animation = 'fadeOut 0.2s ease';
                 modal.style.animation = 'slideUp 0.3s ease';
-                
+
                 setTimeout(() => {
                     if (overlay.parentNode) {
                         overlay.parentNode.removeChild(overlay);
@@ -195,21 +195,21 @@ const CustomConfirm = {
                     resolve(result);
                 }, 200);
             };
-            
+
             // Event listeners
             const btnCancel = modal.querySelector('#customConfirmCancel');
             const btnAccept = modal.querySelector('#customConfirmAccept');
-            
+
             btnCancel.addEventListener('click', () => closeModal(false));
             btnAccept.addEventListener('click', () => closeModal(true));
-            
+
             // Cerrar al hacer clic en el overlay
             overlay.addEventListener('click', (e) => {
                 if (e.target === overlay) {
                     closeModal(false);
                 }
             });
-            
+
             // Cerrar con ESC
             const handleEscape = (e) => {
                 if (e.key === 'Escape') {
@@ -218,12 +218,13 @@ const CustomConfirm = {
                 }
             };
             document.addEventListener('keydown', handleEscape);
-            
-            // Enfocar botón de aceptar por defecto
-            setTimeout(() => btnAccept.focus(), 100);
+
+            // ✅ IMPORTANTE: Enfocar CANCELAR (no Aceptar) para evitar confirmaciones accidentales
+            // 300ms de delay para que el evento click del botón original no llegue al diálogo
+            setTimeout(() => btnCancel.focus(), 300);
         });
     },
-    
+
     /**
      * Obtener icono según el tipo
      */
@@ -237,7 +238,7 @@ const CustomConfirm = {
         };
         return icons[type] || '⚠️';
     },
-    
+
     /**
      * Obtener color según el tipo
      */
@@ -251,11 +252,11 @@ const CustomConfirm = {
         };
         return colors[type] || '#f59e0b';
     },
-    
+
     // ========================================
     // ATAJOS RÁPIDOS
     // ========================================
-    
+
     /**
      * Confirmación de peligro (rojo)
      */
@@ -268,7 +269,7 @@ const CustomConfirm = {
             cancelText: 'Cancelar'
         });
     },
-    
+
     /**
      * Confirmación de advertencia (amarillo)
      */
@@ -281,7 +282,7 @@ const CustomConfirm = {
             cancelText: 'Cancelar'
         });
     },
-    
+
     /**
      * Confirmación de información (azul)
      */
@@ -294,7 +295,7 @@ const CustomConfirm = {
             cancelText: 'Cerrar'
         });
     },
-    
+
     /**
      * Confirmación de éxito (verde)
      */
@@ -317,14 +318,14 @@ const CustomConfirm = {
 window.nativeConfirm = window.confirm;
 
 // Reemplazar confirm global con versión async
-window.confirm = async function(message) {
+window.confirm = async function (message) {
     // Si el mensaje contiene "eliminar" o "desactivar", usar tipo danger
-    const isDanger = message.toLowerCase().includes('eliminar') || 
-                     message.toLowerCase().includes('desactivar') ||
-                     message.toLowerCase().includes('borrar');
-    
+    const isDanger = message.toLowerCase().includes('eliminar') ||
+        message.toLowerCase().includes('desactivar') ||
+        message.toLowerCase().includes('borrar');
+
     const type = isDanger ? 'danger' : 'warning';
-    
+
     return await CustomConfirm.show({
         title: isDanger ? '🚨 Acción Irreversible' : '⚠️ Confirmación',
         message: message,
@@ -334,4 +335,4 @@ window.confirm = async function(message) {
     });
 };
 
-console.log('✅ Sistema de Confirmación Personalizado cargado');
+

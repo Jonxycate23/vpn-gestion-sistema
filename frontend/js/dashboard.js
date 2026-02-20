@@ -4,7 +4,6 @@ const DashboardAsperos = {
     _cleanupExecuted: false,
 
     async load() {
-        console.log('🚀 Cargando Dashboard Asperos Style...');
 
         if (!this._cleanupExecuted) {
             this.limpiarIndicadoresDuplicados();
@@ -30,9 +29,6 @@ const DashboardAsperos = {
             });
         });
 
-        if (totalLimpiados > 0) {
-            console.log(`✅ Limpiados ${totalLimpiados} indicadores duplicados`);
-        }
     },
 
     async loadStats() {
@@ -44,7 +40,6 @@ const DashboardAsperos = {
             document.getElementById('statVencidos').textContent = data.vencidos || 0;
             document.getElementById('statBloqueados').textContent = data.bloqueados || 0;
 
-            console.log('✅ Estadísticas cargadas:', data);
         } catch (error) {
             console.error('❌ Error loading stats:', error);
         }
@@ -54,7 +49,6 @@ const DashboardAsperos = {
         try {
             const data = await API.get('/dashboard/alertas-vencimientos-inteligentes');
 
-            console.log('📊 Datos recibidos del backend:', data);
 
             // ✅ DEFINIR HOY AL INICIO
             const hoy = new Date();
@@ -88,12 +82,6 @@ const DashboardAsperos = {
             // ✅ OBTENER PENDIENTES DESDE EL BACKEND
             const pendientes = data.pendientes_sin_carta || 0;
 
-            console.log(`📊 Cartas por año:`);
-            console.log(`   2026: ${cartas2026} cartas`);
-            console.log(`   2025: ${cartas2025} cartas`);
-            console.log(`   2024: ${cartas2024} cartas`);
-            console.log(`   2023: ${cartas2023} cartas`);
-            console.log(`   Pendientes: ${pendientes} solicitudes sin carta`);
 
             // ✅ CONTADORES CORRECTOS Y SEPARADOS
 
@@ -115,11 +103,6 @@ const DashboardAsperos = {
             // 4. CANCELADOS: Solicitudes con estado CANCELADA (viene del backend)
             const todosUsuariosCancelados = data.total_cancelados || 0;
 
-            console.log(`📊 CONTADORES CORREGIDOS:`);
-            console.log(`   Activos (VPN desbloqueados con días > 0): ${todosUsuariosActivos}`);
-            console.log(`   Vencidos HOY: ${todosUsuariosVencidosHoy}`);
-            console.log(`   Bloqueados (VPN): ${todosUsuariosBloqueados}`);
-            console.log(`   Cancelados (Solicitudes): ${todosUsuariosCancelados}`);
 
             // ========================================
             // 🎨 DISEÑO ESTILO ASPEROS GEEK
@@ -369,7 +352,6 @@ const DashboardAsperos = {
         `;
 
         container.innerHTML = html;
-        console.log(`✅ Tabla renderizada con ${alertas.length} registros`);
     },
 
     async verHistorialCartas(personaId) {
@@ -466,12 +448,23 @@ const DashboardAsperos = {
     },
 
     async bloquearDesdeAlerta(accesoId, nombrePersona) {
-        if (!confirm(`🚫 ¿Bloquear acceso de ${nombrePersona}?\n\nEsta persona NO tiene carta vigente.`)) {
-            return;
-        }
+        // Mostrar confirm y obtener motivo en un solo modal
+        const confirmado = await CustomConfirm.show({
+            title: '🚫 Bloquear Acceso',
+            message: `¿Bloquear acceso de ${nombrePersona}?\n\nEsta persona NO tiene carta vigente.`,
+            type: 'danger',
+            confirmText: 'Sí, bloquear',
+            cancelText: 'Cancelar'
+        });
+        if (!confirmado) return;
 
-        const motivo = prompt('Motivo del bloqueo:', 'Carta vencida sin renovación');
-        if (!motivo) return;
+        // Pedir motivo con un input sencillo usando el confirm nativo (no sobreescrito)
+        const motivo = window.nativeConfirm
+            ? (() => {
+                const m = window.prompt('Motivo del bloqueo:', 'Carta vencida sin renovación');
+                return m && m.trim() ? m.trim() : 'Carta vencida sin renovación';
+            })()
+            : 'Carta vencida sin renovación';
 
         try {
             showLoading();

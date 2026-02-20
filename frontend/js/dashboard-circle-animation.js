@@ -141,4 +141,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-console.log('✅ Circle Animator cargado');
+

@@ -311,4 +311,4 @@ const GestionCartas = {
 // Hacer disponible globalmente
 window.GestionCartas = GestionCartas;
 
-console.log('✅ Gestión de Cartas cargado (SUPERADMIN)');
+

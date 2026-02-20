@@ -196,4 +196,4 @@ window.hideLoading = function() {
     loadingToasts.forEach(toast => Toast.close(toast));
 };
 
-console.log('✅ Sistema de Toast Notifications cargado');
+

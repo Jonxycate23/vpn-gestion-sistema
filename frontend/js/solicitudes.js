@@ -5,7 +5,6 @@ const Solicitudes = {
     datosOriginales: [],
 
     async load() {
-        console.log('Cargando Solicitudes...');
 
         this.usuarioActual = await this.obtenerUsuarioActual();
 
@@ -19,7 +18,6 @@ const Solicitudes = {
 
         // ✅ SOLO REFRESCAR SI YA ESTÁ INICIALIZADA
         if (typeof tablesInitialized !== 'undefined' && tablesInitialized.solicitudesTable) {
-            console.log('🔄 Refrescando tabla de solicitudes...');
             IntegratedTableSystem.refresh('solicitudesTable');
         }
     },
@@ -205,7 +203,7 @@ const Solicitudes = {
 
     async listarSolicitudes() {
         try {
-            const data = await API.get('/solicitudes/?limit=3000');
+            const data = await API.get('/solicitudes/?limit=1000');
 
             const tbody = document.querySelector('#solicitudesTable tbody');
             if (!tbody) {
@@ -246,11 +244,14 @@ const Solicitudes = {
 
         tbody.innerHTML = solicitudesOrdenadas.map(sol => {
             const tieneCarta = sol.carta_generada === true;
-            const puedeEditar = !tieneCarta && !sol.acceso_id;
-            const esNoPresentado = sol.estado === 'CANCELADA' && sol.comentarios_admin && sol.comentarios_admin.includes('NO_PRESENTADO');
+            const puedeEliminar = !tieneCarta && !sol.acceso_id;
 
             const esPendiente = sol.estado === 'PENDIENTE';
             const esAprobada = sol.estado === 'APROBADA';
+            const esCancelada = sol.estado === 'CANCELADA';
+
+            // APROBADA importada de Excel: tiene estado APROBADA pero SIN carta generada
+            const esAprobadaSinCarta = esAprobada && !tieneCarta;
 
             return `
                 <tr>
@@ -262,12 +263,18 @@ const Solicitudes = {
                     <td>${sol.persona_nombres} ${sol.persona_apellidos}</td>
                     <td>${getStatusBadge(sol.estado)}</td>
                     <td style="white-space: nowrap;">
-                        <button class="btn btn-sm btn-info" onclick="Solicitudes.verDetalle(${sol.id})" title="Ver">
+                        <button class="btn btn-sm btn-info" onclick="Solicitudes.verDetalle(${sol.id})" title="Ver detalle">
                             👁️
                         </button>
                         
                         ${esPendiente && !tieneCarta ? `
                             <button class="btn btn-sm btn-success" onclick="Solicitudes.crearCarta(${sol.id})" title="Crear carta">
+                                📄 Carta
+                            </button>
+                        ` : ''}
+
+                        ${esAprobadaSinCarta ? `
+                            <button class="btn btn-sm btn-success" onclick="Solicitudes.crearCarta(${sol.id})" title="Crear carta retroactiva">
                                 📄 Carta
                             </button>
                         ` : ''}
@@ -279,13 +286,13 @@ const Solicitudes = {
                             </button>
                         ` : ''}
                         
-                        ${esNoPresentado ? `
-                            <button class="btn btn-sm btn-primary" onclick="Solicitudes.reactivar(${sol.id})" title="Reactivar">
+                        ${esCancelada ? `
+                            <button class="btn btn-sm btn-primary" onclick="Solicitudes.reactivar(${sol.id})" title="Reactivar solicitud">
                                 🔄
                             </button>
                         ` : ''}
                         
-                        ${esPendiente && !tieneCarta && !esNoPresentado ? `
+                        ${esPendiente && !tieneCarta ? `
                             <button class="btn btn-sm btn-danger" onclick="Solicitudes.marcarNoPresentado(${sol.id})" title="No presentado">
                                 🚫
                             </button>
@@ -295,7 +302,6 @@ const Solicitudes = {
     `;
         }).join('');
 
-        console.log(`✅ ${solicitudesOrdenadas.length} solicitudes ordenadas(${this.ordenActual.toUpperCase()})`);
 
         // ✅ Refrescar paginación si existe
         if (typeof Paginator !== 'undefined' && Paginator.configs['solicitudesTable']) {
@@ -614,7 +620,11 @@ const Solicitudes = {
     },
 
     async crearCarta(solicitudId) {
-        if (!confirm('¿Crear carta de responsabilidad?\n\nEsto generará el PDF y creará el acceso VPN automáticamente.')) return;
+        const confirmado = await CustomConfirm.warning(
+            '📄 Crear Carta de Responsabilidad',
+            '¿Desea crear la carta de responsabilidad?\n\nEsto generará el acceso VPN automáticamente.'
+        );
+        if (!confirmado) return;
 
         try {
             showLoading();
@@ -656,9 +666,6 @@ const Solicitudes = {
 
             const nombreUsuarioSistema = this.usuarioActual?.nombre_completo || 'Usuario del Sistema';
 
-            // CORRECCION: Mostrar fechas correctas
-            console.log('📅 Fecha de generación:', fechaGeneracion);
-            console.log('📅 Fecha de expiración:', fechaExpiracion);
 
             showModal('📄 Carta de Responsabilidad', `
                 <div style="max-height: 70vh; overflow-y: auto; padding: 2rem; background: white; border: 1px solid #ccc;">
@@ -788,7 +795,11 @@ const Solicitudes = {
     },
 
     async reactivar(solicitudId) {
-        if (!confirm('¿Reactivar esta solicitud?')) return;
+        const confirmado = await CustomConfirm.warning(
+            '🔄 Reactivar Solicitud',
+            '¿Desea reactivar esta solicitud?\n\nCambiará el estado a PENDIENTE.'
+        );
+        if (!confirmado) return;
 
         try {
             showLoading();
@@ -803,8 +814,11 @@ const Solicitudes = {
     },
 
     async eliminar(solicitudId) {
-        if (!confirm('⚠️ ¿ELIMINAR ESTA SOLICITUD?\n\nEsta acción no se puede deshacer.')) return;
-        if (!confirm('¿Está completamente SEGURO?')) return;
+        const confirmado = await CustomConfirm.danger(
+            '🗑️ Eliminar Solicitud',
+            `¿Está seguro de eliminar la solicitud #${solicitudId}?\n\nEsta acción NO se puede deshacer.`
+        );
+        if (!confirmado) return;
 
         try {
             showLoading();
@@ -818,6 +832,7 @@ const Solicitudes = {
             showError('Error: ' + error.message);
         }
     },
+
 
     async editar(solicitudId) {
         try {
@@ -954,7 +969,7 @@ const Solicitudes = {
                 justificacion: document.getElementById('justificacion').value
             };
 
-            console.log('📤 Enviando datos de solicitud:', dataSolicitud);
+
             await API.put(`/solicitudes/${solicitudId}`, dataSolicitud);
 
             // ✅ 2. ACTUALIZAR DATOS DE LA PERSONA
@@ -969,7 +984,7 @@ const Solicitudes = {
                 institucion: document.getElementById('institucion').value || null
             };
 
-            console.log('📤 Enviando datos de persona:', dataPersonaCompleta);
+
             await API.post('/solicitudes/persona', dataPersonaCompleta);
 
             hideLoading();
@@ -1088,6 +1103,12 @@ const Solicitudes = {
                     ${tieneCarta ? `
                         <button class="btn btn-primary" onclick="Solicitudes.verCarta(${sol.id}); hideModal();">
                             📄 Ver Carta
+                        </button>
+                    ` : ''}
+
+                    ${!tieneCarta && !tieneAcceso ? `
+                        <button class="btn btn-danger" onclick="Solicitudes.eliminar(${sol.id})">
+                            🗑️ Eliminar
                         </button>
                     ` : ''}
                     

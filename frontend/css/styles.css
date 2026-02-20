@@ -990,3 +990,25 @@ span {
 div {
     text-transform: uppercase;
 }
+
+/* ======================================
+   FIX: Inputs nunca deben ser uppercase
+   (el usuario escribe lo que escribe)
+   ====================================== */
+input,
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="number"],
+input[type="search"],
+textarea,
+select,
+code,
+pre,
+.modal-body input,
+.modal-body textarea,
+.form-group input,
+.form-group textarea,
+.form-group select {
+    text-transform: none !important;
+}

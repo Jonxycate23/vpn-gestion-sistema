@@ -145,6 +145,8 @@
                     <ul class="submenu" id="vpnSubmenu" style="display: none;">
                         <li><a href="#" data-view="solicitudes" class="menu-item submenu-item">📄 Solicitudes</a></li>
                         <li><a href="#" data-view="accesos" class="menu-item submenu-item">🔑 Usuarios VPN</a></li>
+                        <li><a href="#" data-view="controlCartas" class="menu-item submenu-item">📋 Control Cartas</a>
+                        </li>
                     </ul>
                 </li>
                 <li><a href="#" data-view="usuarios" class="menu-item">👥 Usuario System</a></li>
@@ -263,13 +265,16 @@
                 </div>
             </div>
 
+            <!-- Control Cartas View -->
+            <div id="controlCartasView" class="view"></div>
+
         </main>
     </div>
 
     <!-- Modal Container -->
     <div id="modalContainer"></div>
 
-    
+
     <script src="js/custom-confirm.js"></script>
     <script src="js/config.js"></script>
     <script src="js/api.js"></script>
@@ -278,17 +283,19 @@
     <script src="js/solicitudes.js"></script>
     <script src="js/accesos.js"></script>
     <script src="js/integrated-table-system.js"></script>
+    <script src="js/notifications.js"></script>
     <script src="js/app.js"></script>
     <script src="js/usuarios.js"></script>
     <script src="js/cambiar-password.js"></script>
     <script src="js/user-menu.js"></script>
     <script src="js/responsive.js"></script>
     <script src="js/gestion-cartas.js"></script>
+    <script src="js/control-cartas.js"></script>
 
 
     <!-- MEJORAS VISUALES -->
-    <script src="js/toast-notifications.js"></script>
-    <script src="js/modal-improvements.js"></script>
+    <script src="js/toast-notifications.js?v=3"></script>
+    <script src="js/modal-improvements.js?v=3"></script>
 
     <!-- Modal HTML -->
     <div id="modal" class="modal">

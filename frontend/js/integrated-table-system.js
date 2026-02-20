@@ -319,7 +319,10 @@ const IntegratedTableSystem = {
                 const cellIndex = filter.columnIndex;
                 const cellValue = row.cells[cellIndex]?.textContent.trim().toUpperCase() || '';
 
-                if (!cellValue.includes(filterValue.toUpperCase())) {
+                // Filtro de bloqueo: comparación exacta para evitar que DESBLOQUEADO matchee BLOQUEADO
+                if (filterValue === 'BLOQUEADO_EXACT') {
+                    if (cellValue !== 'BLOQUEADO') return false;
+                } else if (!cellValue.includes(filterValue.toUpperCase())) {
                     return false;
                 }
             }
@@ -346,14 +349,17 @@ const IntegratedTableSystem = {
 
                     let comparison = 0;
 
-                    // Numérico
-                    if (!isNaN(valueA) && !isNaN(valueB)) {
-                        comparison = parseFloat(valueA) - parseFloat(valueB);
+                    // Intentar extraer números si parece ser un campo numérico con texto (e.g. "-7 días")
+                    let numA = this._extractNumber(valueA);
+                    let numB = this._extractNumber(valueB);
+
+                    if (numA !== null && numB !== null) {
+                        comparison = numA - numB;
                     }
                     // Fecha
                     else if (this.isDate(valueA) && this.isDate(valueB)) {
-                        const dateA = new Date(valueA);
-                        const dateB = new Date(valueB);
+                        const dateA = new Date(valueA.split('/').reverse().join('-')); // DD/MM/YYYY -> YYYY-MM-DD
+                        const dateB = new Date(valueB.split('/').reverse().join('-'));
                         comparison = dateA - dateB;
                     }
                     // Texto
@@ -558,7 +564,6 @@ const IntegratedTableSystem = {
     reset(tableId) {
         if (!this.configs[tableId]) return;
 
-        console.log(`🧹 Reseteando sistema de tabla para: ${tableId}`);
         this.clearFilters(tableId);
         this.configs[tableId].searchTerm = '';
         this.configs[tableId].filterValues = {};
@@ -581,6 +586,17 @@ const IntegratedTableSystem = {
         if (code) return code.textContent.trim();
 
         return cell.textContent.trim();
+    },
+
+    /**
+     * Extraer número de una cadena (soporta negativos)
+     * Útil para "10 días", "-5 días", etc.
+     */
+    _extractNumber(str) {
+        if (!str) return null;
+        // Buscar el primer número (puede empezar con -)
+        const match = str.match(/-?\d+/);
+        return match ? parseInt(match[0], 10) : null;
     },
 
     isDate(value) {
@@ -616,13 +632,11 @@ const tablesInitialized = {
 
 
 function initIntegratedTables() {
-    console.log('🔥 Inicializando sistema integrado...');
 
     // Solicitudes
     if (document.getElementById('solicitudesTable')) {
         // ✅ SOLO INICIALIZAR SI NO ESTÁ INICIALIZADO
         if (!tablesInitialized.solicitudesTable) {
-            console.log('📄 Configurando tabla de solicitudes');
 
             const solHeaders = document.querySelectorAll('#solicitudesTable thead th');
             const solColumns = ['id', 'nip', 'oficio', 'providencia', 'fecha', 'nombre', 'estado', 'actions'];
@@ -634,7 +648,7 @@ function initIntegratedTables() {
             });
 
             IntegratedTableSystem.init('solicitudesTable', {
-                itemsPerPage: 100,
+                itemsPerPage: 50,
                 searchable: true,
                 sortable: true,
                 defaultSort: { column: 'id', order: 'desc' },
@@ -655,9 +669,7 @@ function initIntegratedTables() {
             });
 
             tablesInitialized.solicitudesTable = true;
-            console.log('✅ Tabla solicitudesTable inicializada');
         } else {
-            console.log('⏭️ Tabla solicitudesTable ya estaba inicializada, saltando...');
             IntegratedTableSystem.refresh('solicitudesTable');
         }
     }
@@ -665,7 +677,6 @@ function initIntegratedTables() {
     // Accesos
     if (document.getElementById('accesosTable')) {
         if (!tablesInitialized.accesosTable) {
-            console.log('🔑 Configurando tabla de accesos');
 
             const accHeaders = document.querySelectorAll('#accesosTable thead th');
             const accColumns = ['nip', 'nombre', 'usuario', 'fecha_inicio', 'fecha_fin', 'estado', 'dias', 'bloqueo', 'actions'];
@@ -677,7 +688,7 @@ function initIntegratedTables() {
             });
 
             IntegratedTableSystem.init('accesosTable', {
-                itemsPerPage: 100,
+                itemsPerPage: 50,
                 searchable: true,
                 sortable: true,
                 defaultSort: { column: 'dias', order: 'asc' },
@@ -688,8 +699,8 @@ function initIntegratedTables() {
                         label: 'Todos los estados',
                         columnIndex: 5,
                         options: [
-                            { value: 'ACTIVO', label: '✅ Activos' },
-                            { value: 'POR_VENCER', label: '⚠️ Por vencer' },
+                            { value: 'ACTIVO', label: '✅ Activos/Vigentes' },
+                            { value: 'POR VENCER', label: '⚠️ Por vencer' },
                             { value: 'VENCIDO', label: '❌ Vencidos' }
                         ]
                     },
@@ -699,16 +710,14 @@ function initIntegratedTables() {
                         columnIndex: 7,
                         options: [
                             { value: 'DESBLOQUEADO', label: '🔓 Desbloqueados' },
-                            { value: 'BLOQUEADO', label: '🔒 Bloqueados' }
+                            { value: 'BLOQUEADO_EXACT', label: '🔒 Bloqueados' }
                         ]
                     }
                 ]
             });
 
             tablesInitialized.accesosTable = true;
-            console.log('✅ Tabla accesosTable inicializada');
         } else {
-            console.log('⏭️ Tabla accesosTable ya estaba inicializada, saltando...');
             IntegratedTableSystem.refresh('accesosTable');
         }
     }
@@ -759,4 +768,4 @@ if (typeof Accesos !== 'undefined') {
     };
 }
 
-console.log('✅ Sistema Integrado de Tablas cargado correctamente');
+

@@ -6,7 +6,7 @@ const UserMenu = {
      * Inicializar el menú de usuario
      */
     init() {
-        console.log('Inicializando menú de usuario...');
+
         
         // Setup event listeners
         this.setupEventListeners();
@@ -61,13 +61,13 @@ const UserMenu = {
         const dropdown = document.getElementById('userDropdown');
         
         if (!btnMenu || !dropdown) {
-            console.log('⚠️ Elementos del menú aún no disponibles, reintentando...');
+
             // Reintentar después de un pequeño delay
             setTimeout(() => this.setupEventListeners(), 100);
             return;
         }
         
-        console.log('✅ Elementos del menú encontrados, configurando listeners...');
+
         
         // Toggle del menú
         btnMenu.addEventListener('click', (e) => {
@@ -104,7 +104,7 @@ const UserMenu = {
             });
         });
         
-        console.log('✅ Menú de usuario configurado correctamente');
+
     }
 };
 

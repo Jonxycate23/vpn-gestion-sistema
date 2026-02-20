@@ -9,6 +9,7 @@ from app.models import (
 )
 from app.schemas import DashboardVencimientos
 from datetime import date, timedelta
+from app.utils.fecha_local import hoy_gt  # ✅ Fecha en zona horaria local Guatemala UTC-6
 
 router = APIRouter()
 
@@ -21,7 +22,7 @@ async def obtener_dashboard_vencimientos(
     """Obtener dashboard de vencimientos con eager loading de bloqueos"""
     from sqlalchemy.orm import selectinload
     
-    hoy = date.today()
+    hoy = hoy_gt()
     
     # Obtener accesos con bloqueos pre-cargados
     accesos = db.query(AccesoVPN)\
@@ -115,7 +116,7 @@ async def obtener_accesos_actuales(
     accesos = query.order_by(AccesoVPN.fecha_fin_con_gracia).limit(limit).all()
     
     accesos_list = []
-    hoy = date.today()
+    hoy = hoy_gt()
     
     for acceso in accesos:
         persona = acceso.solicitud.persona
@@ -178,7 +179,7 @@ async def obtener_alertas_inteligentes(
     """Obtener alertas de vencimientos con eager loading para evitar N+1 queries"""
     from sqlalchemy.orm import joinedload, selectinload
     
-    hoy = date.today()
+    hoy = hoy_gt()
     
     # Contar cartas por año en una sola query
     cartas_por_anio = db.query(
@@ -385,7 +386,7 @@ async def obtener_historial_cartas_persona(
         .order_by(CartaResponsabilidad.fecha_generacion.desc())\
         .all()
     
-    hoy = date.today()
+    hoy = hoy_gt()
     
     # Pre-cargar todos los accesos relacionados en una query
     solicitud_ids = [carta.solicitud_id for carta in cartas]
@@ -463,3 +464,117 @@ async def actualizar_estados_vigencia(
             "success": False,
             "message": f"Error al actualizar estados: {str(e)}"
         }
+
+
+# ========================================
+# NOTIFICACIONES DE VENCIMIENTO (CAMPANA)
+# ========================================
+
+@router.get("/notificaciones")
+async def obtener_notificaciones_vencimiento(
+    current_user: UsuarioSistema = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Retorna accesos que vencen hoy (no bloqueados) con indicador de carta vigente.
+    Usado por la campana de notificaciones en tiempo real.
+    """
+    from sqlalchemy.orm import joinedload, selectinload
+
+    hoy = hoy_gt()
+
+    # Cargar TODOS los accesos (necesitamos verificar cartas vigentes de cada persona)
+    accesos = db.query(AccesoVPN)\
+        .options(
+            joinedload(AccesoVPN.solicitud).joinedload(SolicitudVPN.persona),
+            selectinload(AccesoVPN.bloqueos)
+        )\
+        .join(SolicitudVPN)\
+        .join(Persona)\
+        .all()
+
+    solicitud_ids = [a.solicitud_id for a in accesos]
+    cartas_map = {}
+    if solicitud_ids:
+        cartas_q = db.query(CartaResponsabilidad)\
+            .filter(CartaResponsabilidad.solicitud_id.in_(solicitud_ids),
+                    CartaResponsabilidad.eliminada == False)\
+            .all()
+        for c in cartas_q:
+            cartas_map[c.solicitud_id] = c
+
+    # Construir mapa persona_id → lista de (acceso, estado_bloqueo, dias)
+    # para detectar cartas vigentes de cada persona
+    persona_accesos: dict = {}
+    for a in accesos:
+        pid = a.solicitud.persona.id
+        blq = sorted(a.bloqueos, key=lambda b: b.fecha_cambio, reverse=True)
+        eb  = blq[0].estado if blq else "DESBLOQUEADO"
+        d   = (a.fecha_fin_con_gracia - hoy).days
+        if pid not in persona_accesos:
+            persona_accesos[pid] = []
+        persona_accesos[pid].append({"acceso": a, "estado_bloqueo": eb, "dias": d})
+
+    notifs_pendientes = []   # aún no bloqueados → cuentan en el badge
+    notifs_bloqueados  = []  # ya bloqueados hoy → sección informativa
+
+    for acceso in accesos:
+        persona = acceso.solicitud.persona
+        dias = (acceso.fecha_fin_con_gracia - hoy).days
+
+        if dias != 0:
+            continue  # solo los que vencen HOY exactamente
+
+        bloqueos_ord = sorted(acceso.bloqueos, key=lambda b: b.fecha_cambio, reverse=True)
+        estado_bloqueo = bloqueos_ord[0].estado if bloqueos_ord else "DESBLOQUEADO"
+
+        carta = cartas_map.get(acceso.solicitud_id)
+        numero_carta = f"{carta.numero_carta}-{carta.anio_carta}" if carta else "SIN CARTA"
+
+        # ✅ Detectar carta vigente de otra solicitud de esta persona
+        tiene_carta_vigente = False
+        carta_vigente_numero = ""
+        for otro in persona_accesos.get(persona.id, []):
+            if otro["acceso"].id != acceso.id \
+               and otro["dias"] > 0 \
+               and otro["estado_bloqueo"] != "BLOQUEADO":
+                otra_carta = cartas_map.get(otro["acceso"].solicitud_id)
+                if otra_carta:
+                    tiene_carta_vigente = True
+                    carta_vigente_numero = f"{otra_carta.numero_carta}-{otra_carta.anio_carta}"
+                    break
+
+        entrada = {
+            "acceso_id": acceso.id,
+            "solicitud_id": acceso.solicitud_id,
+            "nip": persona.nip or "—",
+            "nombre": f"{persona.nombres} {persona.apellidos}",
+            "numero_carta": numero_carta,
+            "fecha_fin_original": str(acceso.fecha_fin),
+            "fecha_fin_con_gracia": str(acceso.fecha_fin_con_gracia),
+            "dias_gracia": acceso.dias_gracia,
+            "dias": dias,
+            "justificacion": acceso.solicitud.justificacion or "",
+            "tiene_carta_vigente": tiene_carta_vigente,
+            "carta_vigente_numero": carta_vigente_numero,
+        }
+
+        if estado_bloqueo == "BLOQUEADO" and bloqueos_ord:
+            # Obtener nombre del usuario que bloqueó
+            ub = bloqueos_ord[0]
+            usuario_bloqueo = db.query(UsuarioSistema).filter(
+                UsuarioSistema.id == ub.usuario_id
+            ).first()
+            entrada["bloqueado_por"] = usuario_bloqueo.username if usuario_bloqueo else "—"
+            entrada["fecha_bloqueo"] = str(ub.fecha_cambio)[:16]  # "YYYY-MM-DD HH:MM"
+            entrada["motivo_bloqueo"] = ub.motivo or ""
+            notifs_bloqueados.append(entrada)
+        else:
+            notifs_pendientes.append(entrada)
+
+    return {
+        "total": len(notifs_pendientes),   # badge = solo pendientes
+        "vencen_hoy": len(notifs_pendientes),
+        "notificaciones": notifs_pendientes,
+        "bloqueados_hoy": notifs_bloqueados,
+    }

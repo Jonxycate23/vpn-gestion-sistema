@@ -6,13 +6,13 @@
 const ResponsiveMenu = {
 
     init() {
-        console.log('Inicializando menú responsive...');
+
 
         this.createMobileMenuButton();
         this.createOverlay();
         this.setupEventListeners();
 
-        console.log('Menú responsive inicializado');
+
     },
 
     createMobileMenuButton() {

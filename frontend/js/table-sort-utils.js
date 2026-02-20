@@ -342,4 +342,4 @@ function addQuickSortButtons(tableId, containerId) {
     container.insertAdjacentHTML('afterbegin', buttonsHTML);
 }
 
-console.log('✅ TableSorter cargado correctamente');
+

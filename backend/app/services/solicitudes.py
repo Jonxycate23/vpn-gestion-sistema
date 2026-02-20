@@ -197,7 +197,11 @@ class SolicitudService:
         persona_id: Optional[int] = None
     ) -> Tuple[List[SolicitudVPN], int]:
         """Listar solicitudes con filtros"""
-        query = db.query(SolicitudVPN)
+        from sqlalchemy.orm import joinedload
+        query = db.query(SolicitudVPN).options(
+            joinedload(SolicitudVPN.persona),
+            joinedload(SolicitudVPN.acceso)
+        )
         
         if estado:
             query = query.filter(SolicitudVPN.estado == estado)

@@ -1,7 +1,7 @@
 // Módulo de Gestión de Usuarios del Sistema
 const Usuarios = {
     async load() {
-        console.log('Cargando Gestión de Usuarios...');
+
 
         // Verificar si el usuario actual es SUPERADMIN
         const user = UserStorage.get();
@@ -47,7 +47,7 @@ const Usuarios = {
             </div>
             
             <div class="card">
-                <div class="card-body">
+                <div style="overflow-x:auto;">
                     <table class="table" id="usuariosTable">
                         <thead>
                             <tr>
@@ -57,12 +57,13 @@ const Usuarios = {
                                 <th>Email</th>
                                 <th>Rol</th>
                                 <th>Estado</th>
+                                <th style="text-align:center">Firma</th>
                                 <th>Último Login</th>
                                 <th>Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr><td colspan="8" style="text-align: center;">Cargando...</td></tr>
+                            <tr><td colspan="9" style="text-align: center;">Cargando...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -96,7 +97,7 @@ const Usuarios = {
             </div>
             
             <div class="card">
-                <div class="card-body">
+                <div style="overflow-x:auto;">
                     <table class="table" id="usuariosTable">
                         <thead>
                             <tr>
@@ -106,12 +107,13 @@ const Usuarios = {
                                 <th>Email</th>
                                 <th>Rol</th>
                                 <th>Estado</th>
+                                <th style="text-align:center">Firma</th>
                                 <th>Último Login</th>
                                 <th>Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr><td colspan="8" style="text-align: center;">Cargando...</td></tr>
+                            <tr><td colspan="9" style="text-align: center;">Cargando...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -164,45 +166,22 @@ const Usuarios = {
                                 ${usuario.activo ? '✅ Activo' : '❌ Inactivo'}
                             </span>
                         </td>
+                        <td style="text-align:center">
+                            ${usuario.tiene_firma
+                        ? '<span title="Tiene firma" style="font-size:1.3rem;">✍️</span>'
+                        : '<span title="Sin firma" style="color:#d1d5db;font-size:1.1rem;">—</span>'
+                    }
+                        </td>
                         <td>${ultimoLogin}</td>
                         <td style="white-space: nowrap;">
                             ${!esUsuarioActual ? `
-                                <button class="btn btn-sm btn-primary" 
-                                        onclick="Usuarios.mostrarEditarUsuario(${usuario.id})" 
+                                <button class="btn btn-sm btn-primary"
+                                        onclick="Usuarios.mostrarEditarUsuario(${usuario.id})"
                                         title="Editar Usuario">
-                                    ✏️
-                                </button>
-                                
-                                <button class="btn btn-sm btn-warning" 
-                                        onclick="Usuarios.mostrarCambiarPassword(${usuario.id}, '${usuario.nombre_completo}')" 
-                                        title="Cambiar Contraseña">
-                                    🔑
-                                </button>
-                                
-                                ${usuario.activo ? `
-                                    <button class="btn btn-sm btn-danger" 
-                                            onclick="Usuarios.desactivar(${usuario.id})" 
-                                            title="Desactivar">
-                                        🚫
-                                    </button>
-                                ` : `
-                                    <button class="btn btn-sm btn-success" 
-                                            onclick="Usuarios.activar(${usuario.id})" 
-                                            title="Activar">
-                                        ✅
-                                    </button>
-                                `}
-                                
-                                <button class="btn btn-sm btn-danger" 
-                                        onclick="Usuarios.eliminar(${usuario.id}, '${usuario.nombre_completo}')" 
-                                        title="Eliminar Usuario"
-                                        style="background: #7f1d1d;">
-                                    🗑️
+                                    ✏️ Editar
                                 </button>
                             ` : `
-                                <span style="color: #666; font-size: 0.85rem;">
-                                    (Tú)
-                                </span>
+                                <span style="color: #666; font-size: 0.85rem;">(Tú)</span>
                             `}
                         </td>
                     </tr>
@@ -470,15 +449,21 @@ const Usuarios = {
     async mostrarEditarUsuario(usuarioId) {
         try {
             showLoading();
-            const response = await API.get(`/usuarios/${usuarioId}`);
+            // Cargar usuario y estado de firma en paralelo
+            const [respUsuario, respFirma] = await Promise.all([
+                API.get(`/usuarios/${usuarioId}`),
+                API.get(`/usuarios/${usuarioId}/firma-status`)
+            ]);
             hideLoading();
 
-            if (!response.success) {
+            if (!respUsuario.success) {
                 showError('Error al cargar datos del usuario');
                 return;
             }
 
-            const usuario = response.usuario;
+            const usuario = respUsuario.usuario;
+            const tieneFirma = respFirma.tiene_firma;
+            const username = usuario.username;
 
             // Extraer nombres y apellidos del nombre_completo
             const nombreCompleto = usuario.nombre_completo || '';
@@ -487,12 +472,18 @@ const Usuarios = {
             const nombres = partes.slice(0, mitad).join(' ');
             const apellidos = partes.slice(mitad).join(' ');
 
+            // URL de la firma con cache busting
+            const firmaUrl = `imagenes/firmas/${username}.png?t=${Date.now()}`;
+
             showModal('✏️ Editar Usuario', `
                 <form id="formEditarUsuario">
                     <input type="hidden" id="edit_usuario_id" value="${usuario.id}">
-                    
-                    <div style="background: #e0f2fe; padding: 1rem; border-radius: 4px; margin-bottom: 1.5rem;">
-                        <strong>Usuario:</strong> <code>${usuario.username}</code>
+
+                    <div class="form-group">
+                        <label>Username *</label>
+                        <input type="text" id="edit_username" value="${usuario.username}" required
+                               placeholder="username" style="font-family:monospace;">
+                        <small class="form-text">Solo letras, números y guiones. Se guarda en minúsculas.</small>
                     </div>
                     
                     <div class="form-group">
@@ -525,12 +516,84 @@ const Usuarios = {
                             <strong>SUPERADMIN:</strong> Control total del sistema
                         </small>
                     </div>
-                    
-                    <div style="background: #fef3c7; padding: 1rem; border-radius: 4px; margin: 1rem 0;">
-                        <strong>⚠️ Nota:</strong><br>
-                        El username no se puede modificar. Si necesitas cambiar el rol, asegúrate de que sea el correcto.
+
+                    <!-- ✍️ SECCIÓN DE FIRMA DIGITAL -->
+                    <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 1rem; margin: 1rem 0;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                            <strong>✍️ Firma Digital</strong>
+                            ${tieneFirma
+                    ? '<span style="background:#d1fae5;color:#065f46;padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">✅ Registrada</span>'
+                    : '<span style="background:#fee2e2;color:#991b1b;padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">❌ Sin firma</span>'
+                }
+                        </div>
+
+                        ${tieneFirma ? `
+                            <div style="text-align:center; margin-bottom:0.75rem; background:#f9fafb; border-radius:6px; padding:0.5rem;">
+                                <img id="firmaPreview"
+                                     src="${firmaUrl}"
+                                     alt="Firma de ${username}"
+                                     style="max-height:80px; max-width:100%; object-fit:contain;"
+                                     onerror="document.getElementById('firmaPreview').style.display='none'; document.getElementById('firmaError').style.display='block';">
+                                <p id="firmaError" style="display:none; color:#ef4444; font-size:0.85rem;">No se pudo cargar la imagen</p>
+                            </div>
+                        ` : `
+                            <div style="text-align:center; padding:1rem; background:#f9fafb; border-radius:6px; margin-bottom:0.75rem; color:#9ca3af;">
+                                <div style="font-size:2rem;">✍️</div>
+                                <p style="font-size:0.85rem; margin:0;">Este usuario no tiene firma registrada</p>
+                            </div>
+                        `}
+
+                        <div>
+                            <label style="font-size:0.9rem; font-weight:600; margin-bottom:0.4rem; display:block;">
+                                ${tieneFirma ? '🔄 Reemplazar firma (PNG)' : '📤 Subir firma (PNG/JPG)'}
+                            </label>
+                            <div style="display:flex; gap:0.5rem; align-items:center;">
+                                <input type="file" id="firmaFile" accept="image/png,image/jpeg"
+                                       style="flex:1; font-size:0.85rem;"
+                                       onchange="document.getElementById('btnSubirFirma').disabled = !this.files.length;">
+                                <button type="button" id="btnSubirFirma" 
+                                        class="btn btn-sm btn-primary" disabled
+                                        onclick="Usuarios.subirFirma(${usuario.id}, '${username}')">
+                                    💾 Guardar
+                                </button>
+                            </div>
+                            <small style="color:#6b7280;">La imagen se guardará como <code>${username}.png</code></small>
+                        </div>
                     </div>
                     
+                    <div style="background: #fef3c7; padding: 0.75rem 1rem; border-radius: 4px; margin: 0.5rem 0;">
+                        <strong>⚠️ Nota:</strong> Asegúrate que la firma sea la del Usuario (PNG sin fondo).
+                    </div>
+
+                    <!-- Acciones del usuario dentro del modal -->
+                    <div style="border:1px solid #e5e7eb;border-radius:8px;padding:1rem;margin:1rem 0;background:#f9fafb;">
+                        <p style="margin:0 0 0.75rem;font-size:0.85rem;font-weight:700;color:#374151;">⚡ Acciones rápidas</p>
+                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;">
+                            <button type="button"
+                                    style="padding:0.6rem 0.5rem;border:none;border-radius:8px;background:#f59e0b;color:white;font-weight:700;font-size:0.82rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:0.3rem;"
+                                    onclick="Usuarios.mostrarCambiarPasswordDesdeModal(${usuario.id}, '${usuario.nombre_completo}')">
+                                🔑 Cambiar Contraseña
+                            </button>
+                            ${usuario.activo
+                    ? `<button type="button"
+                                          style="padding:0.6rem 0.5rem;border:none;border-radius:8px;background:#ef4444;color:white;font-weight:700;font-size:0.82rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:0.3rem;"
+                                          onclick="Usuarios.desactivar(${usuario.id}).then(r => { if(r !== undefined) hideModal(); })">
+                                    🚫 Bloquear
+                                   </button>`
+                    : `<button type="button"
+                                          style="padding:0.6rem 0.5rem;border:none;border-radius:8px;background:#10b981;color:white;font-weight:700;font-size:0.82rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:0.3rem;"
+                                          onclick="Usuarios.activar(${usuario.id}).then(r => { if(r !== undefined) hideModal(); })">
+                                    ✅ Activar
+                                   </button>`
+                }
+                            <button type="button"
+                                    style="padding:0.6rem 0.5rem;border:none;border-radius:8px;background:#7f1d1d;color:white;font-weight:700;font-size:0.82rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:0.3rem;"
+                                    onclick="Usuarios.eliminar(${usuario.id}, '${usuario.nombre_completo}').then(r => { if(r !== undefined) hideModal(); })">
+                                🗑️ Eliminar
+                            </button>
+                        </div>
+                    </div>
+
                     <div style="display: flex; gap: 0.5rem;">
                         <button type="button" class="btn btn-secondary" onclick="hideModal()">
                             Cancelar
@@ -553,14 +616,66 @@ const Usuarios = {
         }
     },
 
+    async subirFirma(usuarioId, username) {
+        const fileInput = document.getElementById('firmaFile');
+        if (!fileInput || !fileInput.files.length) {
+            showError('Selecciona un archivo primero');
+            return;
+        }
+
+        const file = fileInput.files[0];
+        const formData = new FormData();
+        formData.append('firma', file);
+
+        try {
+            const btn = document.getElementById('btnSubirFirma');
+            if (btn) btn.disabled = true;
+            showLoading();
+
+            const token = TokenStorage.get();
+            const response = await fetch(`${CONFIG.API_URL}/usuarios/${usuarioId}/firma`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: formData
+            });
+
+            hideLoading();
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.detail || 'Error al subir la firma');
+            }
+
+            showSuccess(`✅ Firma guardada como ${username}.png`);
+
+            // Actualizar la vista de firma en el modal sin cerrarlo
+            const preview = document.getElementById('firmaPreview');
+            if (preview) {
+                preview.src = `imagenes/firmas/${username}.png?t=${Date.now()}`;
+                preview.style.display = 'block';
+            }
+
+            // Reabrir el modal con los datos actualizados
+            await this.mostrarEditarUsuario(usuarioId);
+
+        } catch (error) {
+            hideLoading();
+            showError('Error: ' + error.message);
+            const btn = document.getElementById('btnSubirFirma');
+            if (btn) btn.disabled = false;
+        }
+    },
+
+
     async actualizarUsuario(usuarioId) {
+        const username = document.getElementById('edit_username').value.trim().toLowerCase();
         const nombres = document.getElementById('edit_nombres').value.trim();
         const apellidos = document.getElementById('edit_apellidos').value.trim();
         const email = document.getElementById('edit_email').value.trim();
         const rol = document.getElementById('edit_rol').value;
 
-        if (!nombres || !apellidos) {
-            showError('Nombres y apellidos son obligatorios');
+        if (!username || !nombres || !apellidos) {
+            showError('Username, nombres y apellidos son obligatorios');
             return;
         }
 
@@ -579,6 +694,7 @@ const Usuarios = {
         try {
             showLoading();
             await API.put(`/usuarios/${usuarioId}`, {
+                username,
                 nombres,
                 apellidos,
                 email: email || null,
@@ -610,7 +726,7 @@ const Usuarios = {
 
         // ✅ SI NO CONFIRMÓ, SALIR
         if (!confirmado) {
-            console.log('❌ Activación cancelada');
+
             return;
         }
 
@@ -642,7 +758,7 @@ const Usuarios = {
 
         // ✅ SI NO CONFIRMÓ, SALIR
         if (!confirmado) {
-            console.log('❌ Desactivación cancelada');
+
             return;
         }
 
@@ -672,7 +788,7 @@ const Usuarios = {
         });
 
         if (!confirmado) {
-            console.log('❌ Eliminación cancelada');
+
             return;
         }
 
@@ -686,6 +802,99 @@ const Usuarios = {
             hideLoading();
             showError('Error al eliminar usuario: ' + error.message);
         }
+    },
+
+    // ========================================
+    // CAMBIAR CONTRASEÑA DESDE MODAL EDITAR
+    // ========================================
+
+    async mostrarCambiarPasswordDesdeModal(usuarioId, nombreCompleto) {
+        // Helper de toggle ojo — inline, sin dependencias externas
+        const _eyeSvg = (id) => `
+            <button type="button"
+                    style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:0;color:#6b7280;"
+                    onclick="(function(){
+                        var f=document.getElementById('${id}');
+                        var isText=f.type==='text';
+                        f.type=isText?'password':'text';
+                        this.querySelector('.ojo-open').style.display=isText?'block':'none';
+                        this.querySelector('.ojo-cerr').style.display=isText?'none':'block';
+                    }).call(this)">
+                <svg class="ojo-open" xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                </svg>
+                <svg class="ojo-cerr" xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="display:none">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M3 3l18 18"/>
+                </svg>
+            </button>`;
+
+        showModal('🔑 Cambiar Contraseña', `
+            <form id="formCambiarPwdAdmin">
+                <div style="background:#e0f2fe;padding:0.8rem 1rem;border-radius:6px;margin-bottom:1rem;">
+                    <strong>Usuario:</strong> ${nombreCompleto}
+                </div>
+
+                <div class="form-group">
+                    <label>Nueva Contraseña *</label>
+                    <div style="position:relative;">
+                        <input type="password" id="admin_pwd1" required minlength="6"
+                               placeholder="Mínimo 6 caracteres"
+                               style="width:100%;padding-right:40px;">
+                        ${_eyeSvg('admin_pwd1')}
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Confirmar Contraseña *</label>
+                    <div style="position:relative;">
+                        <input type="password" id="admin_pwd2" required minlength="6"
+                               placeholder="Repite la nueva contraseña"
+                               style="width:100%;padding-right:40px;">
+                        ${_eyeSvg('admin_pwd2')}
+                    </div>
+                </div>
+
+                <div style="display:flex;gap:0.5rem;margin-top:1.2rem;">
+                    <button type="button" class="btn btn-secondary"
+                            onclick="Usuarios.mostrarEditarUsuario(${usuarioId})">
+                        &larr; Volver
+                    </button>
+                    <button type="submit" class="btn btn-primary" style="flex:1;">
+                        🔑 Cambiar Contraseña
+                    </button>
+                </div>
+            </form>
+        `);
+
+        document.getElementById('formCambiarPwdAdmin').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const nuevaPwd = document.getElementById('admin_pwd1').value;
+            const confirmarPwd = document.getElementById('admin_pwd2').value;
+
+            if (nuevaPwd.length < 6) { showError('Mínimo 6 caracteres'); return; }
+            if (nuevaPwd !== confirmarPwd) { showError('Las contraseñas no coinciden'); return; }
+
+            const confirmado = await CustomConfirm.show({
+                title: '🔑 Cambiar contraseña',
+                message: `¿Cambiar la contraseña de ${nombreCompleto}?`,
+                type: 'danger',
+                confirmText: 'Sí, cambiar',
+                cancelText: 'Cancelar'
+            });
+            if (!confirmado) return;
+
+            try {
+                showLoading();
+                await API.put(`/usuarios/${usuarioId}/reset-password?nueva_password=${encodeURIComponent(nuevaPwd)}`, {});
+                hideLoading();
+                hideModal();
+                showSuccess('✅ Contraseña cambiada exitosamente');
+            } catch (error) {
+                hideLoading();
+                showError('Error: ' + error.message);
+            }
+        });
     }
 };
 

@@ -75,7 +75,7 @@ const ModalManager = {
             }, 300);
         };
         
-        console.log('✅ Modales mejorados - NO se cierran al hacer clic afuera');
+
     },
     
     /**
@@ -188,4 +188,4 @@ window.confirmModal = function(message, title, onConfirm, onCancel) {
     ModalManager.confirm(message, title, onConfirm, onCancel);
 };
 
-console.log('✅ Modal Improvements cargado');
+

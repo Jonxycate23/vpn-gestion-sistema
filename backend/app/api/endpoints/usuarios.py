@@ -1,6 +1,8 @@
 import secrets
 import string
-from fastapi import APIRouter, Depends, status, Request, HTTPException
+import os
+from pathlib import Path
+from fastapi import APIRouter, Depends, status, Request, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import Optional
 from pydantic import BaseModel, EmailStr
@@ -15,6 +17,11 @@ from app.api.dependencies.auth import (
 from app.models import UsuarioSistema
 
 router = APIRouter()
+
+# Ruta base donde se guardan las firmas
+# Sube dos niveles desde backend/ para llegar a la raíz del proyecto,
+# luego entra a frontend/imagenes/firmas
+FIRMAS_DIR = Path(__file__).resolve().parents[4] / "frontend" / "imagenes" / "firmas"
 
 
 # ========================================
@@ -36,6 +43,7 @@ class UsuarioUpdateRequest(BaseModel):
     apellidos: str
     email: Optional[EmailStr] = None
     rol: str
+    username: Optional[str] = None   # Permite cambiar el username
 
 
 # ========================================
@@ -72,6 +80,7 @@ async def listar_usuarios(
                 "email": u.email,
                 "rol": u.rol,
                 "activo": u.activo,
+                "tiene_firma": (FIRMAS_DIR / f"{u.username}.png").exists(),
                 "fecha_creacion": u.fecha_creacion.isoformat() if u.fecha_creacion else None,
                 "fecha_ultimo_login": u.fecha_ultimo_login.isoformat() if u.fecha_ultimo_login else None
             }
@@ -275,7 +284,25 @@ async def actualizar_usuario(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Rol inválido. Debe ser ADMIN o SUPERADMIN"
         )
-    
+
+    # Cambio de username (opcional)
+    if data.username:
+        nuevo_username = data.username.strip().lower()
+        existente = db.query(UsuarioSistema).filter(
+            UsuarioSistema.username == nuevo_username,
+            UsuarioSistema.id != usuario_id
+        ).first()
+        if existente:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"El username '{nuevo_username}' ya está en uso"
+            )
+        # Actualizar username directamente
+        usuario_obj = db.query(UsuarioSistema).filter(UsuarioSistema.id == usuario_id).first()
+        if usuario_obj:
+            usuario_obj.username = nuevo_username
+            db.flush()
+
     try:
         UsuarioService.actualizar_usuario(
             db=db,
@@ -285,7 +312,7 @@ async def actualizar_usuario(
             email=data.email,
             rol=data.rol
         )
-        
+
         return ResponseBase(
             success=True,
             message="Usuario actualizado exitosamente"
@@ -295,6 +322,40 @@ async def actualizar_usuario(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
+
+
+
+# ========================================
+# RESET CONTRASEÑA (SUPERADMIN)
+# ========================================
+
+@router.put("/{usuario_id}/reset-password", response_model=ResponseBase)
+async def reset_password_usuario(
+    usuario_id: int,
+    nueva_password: str,
+    current_user: UsuarioSistema = Depends(require_superadmin),
+    db: Session = Depends(get_db)
+):
+    """
+    Cambiar la contraseña de cualquier usuario (sin pedir la contraseña actual).
+    Solo SUPERADMIN.
+    """
+    if len(nueva_password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La contraseña debe tener al menos 6 caracteres"
+        )
+    try:
+        UsuarioService.resetear_password(
+            db=db,
+            usuario_id=usuario_id,
+            password_nueva=nueva_password,
+            usuario_admin_id=current_user.id,
+            ip_origen="admin-reset"
+        )
+        return ResponseBase(success=True, message="Contraseña actualizada exitosamente")
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 # ========================================
@@ -396,3 +457,75 @@ async def eliminar_usuario(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
+
+
+# ========================================
+# FIRMA DIGITAL: VER ESTADO
+# ========================================
+
+@router.get("/{usuario_id}/firma-status", response_model=dict)
+async def obtener_firma_status(
+    usuario_id: int,
+    current_user: UsuarioSistema = Depends(require_superadmin),
+    db: Session = Depends(get_db)
+):
+    """
+    Verificar si un usuario tiene firma digital registrada
+    """
+    usuario = UsuarioService.obtener_por_id(db, usuario_id)
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    firma_path = FIRMAS_DIR / f"{usuario.username}.png"
+    tiene_firma = firma_path.exists()
+
+    return {
+        "success": True,
+        "tiene_firma": tiene_firma,
+        "username": usuario.username,
+        "firma_filename": f"{usuario.username}.png" if tiene_firma else None
+    }
+
+
+# ========================================
+# FIRMA DIGITAL: SUBIR / ACTUALIZAR
+# ========================================
+
+@router.post("/{usuario_id}/firma", response_model=dict)
+async def subir_firma(
+    usuario_id: int,
+    firma: UploadFile = File(...),
+    current_user: UsuarioSistema = Depends(require_superadmin),
+    db: Session = Depends(get_db)
+):
+    """
+    Subir o reemplazar la firma digital de un usuario.
+    Guarda el archivo como {username}.png en frontend/imagenes/firmas/
+    """
+    usuario = UsuarioService.obtener_por_id(db, usuario_id)
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    # Validar que sea imagen PNG
+    if firma.content_type not in ("image/png", "image/jpeg", "image/jpg"):
+        raise HTTPException(
+            status_code=400,
+            detail="Solo se aceptan imágenes PNG o JPG"
+        )
+
+    # Asegurar que el directorio existe
+    FIRMAS_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Guardar siempre con el nombre del username + .png
+    firma_path = FIRMAS_DIR / f"{usuario.username}.png"
+
+    contenido = await firma.read()
+    with open(firma_path, "wb") as f:
+        f.write(contenido)
+
+    return {
+        "success": True,
+        "message": f"Firma guardada correctamente para {usuario.nombre_completo}",
+        "username": usuario.username,
+        "firma_filename": f"{usuario.username}.png"
+    }
