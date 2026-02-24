@@ -279,7 +279,9 @@ sudo systemctl restart nginx
 ### Backup de base de datos
 
 ```bash
-pg_dump -h <host_bd> -U <usuario_bd> vpn_gestion > backup_$(date +%Y%m%d).sql
+# Usar variables de entorno para no exponer credenciales en el historial
+source /ruta/al/proyecto/backend/.env
+pg_dump -h $DB_HOST -U $DB_USER $DB_NAME > backup_$(date +%Y%m%d).sql
 gzip backup_$(date +%Y%m%d).sql
 ```
 
@@ -294,7 +296,11 @@ Con el backend corriendo, acceder a:
 
 ---
 
-## 📄 Licencia
+## 📄 Licencia y Clasificación
+
+> ⚠️ **CLASIFICACIÓN: DOCUMENTO TÉCNICO DE CIRCULACIÓN RESTRINGIDA**
+>
+> El acceso, uso o divulgación no autorizada de este sistema o su documentación está sujeto a sanciones administrativas y legales conforme a la legislación vigente.
 
 Sistema de uso institucional interno. Acceso restringido a personal autorizado.
 

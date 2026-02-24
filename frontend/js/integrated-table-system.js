@@ -727,15 +727,41 @@ function initIntegratedTables() {
 if (typeof Solicitudes !== 'undefined') {
     const originalSolicitudesLoad = Solicitudes.load;
     Solicitudes.load = async function () {
-        await originalSolicitudesLoad.call(this);
-        setTimeout(() => {
-            // Resetear búsqueda anterior al cargar
-            if (IntegratedTableSystem.configs['solicitudesTable']) {
-                IntegratedTableSystem.reset('solicitudesTable');
-            }
+        // ✅ GUARDAR filtro activo antes de recargar
+        const cfg = IntegratedTableSystem.configs['solicitudesTable'];
+        const savedSearch = cfg?.searchTerm || '';
+        const savedFilters = cfg ? { ...cfg.filterValues } : {};
 
+        await originalSolicitudesLoad.call(this);
+
+        setTimeout(() => {
             if (document.getElementById('solicitudesTable')) {
                 initIntegratedTables();
+            }
+
+            if (IntegratedTableSystem.configs['solicitudesTable']) {
+                if (savedSearch || Object.keys(savedFilters).length > 0) {
+                    // ✅ RESTAURAR el filtro que tenía el usuario
+                    IntegratedTableSystem.configs['solicitudesTable'].searchTerm = savedSearch;
+                    IntegratedTableSystem.configs['solicitudesTable'].filterValues = savedFilters;
+                    IntegratedTableSystem.configs['solicitudesTable'].currentPage = 1;
+
+                    // Restaurar el valor visible en el input de búsqueda
+                    const searchInput = document.getElementById('solicitudesTable_search');
+                    if (searchInput) searchInput.value = savedSearch;
+
+                    // Restaurar selects de filtro
+                    for (const filterId in savedFilters) {
+                        const filterEl = document.getElementById(`solicitudesTable_filter_${filterId}`);
+                        if (filterEl) filterEl.value = savedFilters[filterId];
+                    }
+
+                    IntegratedTableSystem.refresh('solicitudesTable');
+                } else {
+                    // Sin filtro activo: reset normal
+                    IntegratedTableSystem.reset('solicitudesTable');
+                    IntegratedTableSystem.refresh('solicitudesTable');
+                }
             }
         }, 500);
     };
@@ -754,15 +780,41 @@ if (typeof Solicitudes !== 'undefined') {
 if (typeof Accesos !== 'undefined') {
     const originalAccesosLoad = Accesos.load;
     Accesos.load = async function () {
-        await originalAccesosLoad.call(this);
-        setTimeout(() => {
-            // Resetear búsqueda anterior al cargar
-            if (IntegratedTableSystem.configs['accesosTable']) {
-                IntegratedTableSystem.reset('accesosTable');
-            }
+        // ✅ GUARDAR filtro activo antes de recargar
+        const cfg = IntegratedTableSystem.configs['accesosTable'];
+        const savedSearch = cfg?.searchTerm || '';
+        const savedFilters = cfg ? { ...cfg.filterValues } : {};
 
+        await originalAccesosLoad.call(this);
+
+        setTimeout(() => {
             if (document.getElementById('accesosTable')) {
                 initIntegratedTables();
+            }
+
+            if (IntegratedTableSystem.configs['accesosTable']) {
+                if (savedSearch || Object.keys(savedFilters).length > 0) {
+                    // ✅ RESTAURAR el filtro que tenía el usuario
+                    IntegratedTableSystem.configs['accesosTable'].searchTerm = savedSearch;
+                    IntegratedTableSystem.configs['accesosTable'].filterValues = savedFilters;
+                    IntegratedTableSystem.configs['accesosTable'].currentPage = 1;
+
+                    // Restaurar el valor visible en el input de búsqueda
+                    const searchInput = document.getElementById('accesosTable_search');
+                    if (searchInput) searchInput.value = savedSearch;
+
+                    // Restaurar selects de filtro
+                    for (const filterId in savedFilters) {
+                        const filterEl = document.getElementById(`accesosTable_filter_${filterId}`);
+                        if (filterEl) filterEl.value = savedFilters[filterId];
+                    }
+
+                    IntegratedTableSystem.refresh('accesosTable');
+                } else {
+                    // Sin filtro activo: reset normal
+                    IntegratedTableSystem.reset('accesosTable');
+                    IntegratedTableSystem.refresh('accesosTable');
+                }
             }
         }, 500);
     };

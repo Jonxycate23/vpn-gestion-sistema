@@ -530,27 +530,58 @@ def generar_carta_pdf_en_memoria(
     nombres_split = persona.nombres.lower().split()
     apellidos_split = persona.apellidos.lower().split()
     username = f"{nombres_split[0]}.{apellidos_split[0]}" if nombres_split and apellidos_split else "usuario"
-    
+
+    # ✅ Estilo para celdas con texto que puede ser largo (permite word-wrap)
+    cell_style = ParagraphStyle(
+        'CellStyle',
+        parent=styles['Normal'],
+        fontSize=8.5,
+        fontName='Helvetica',
+        leading=10,
+        wordWrap='CJK',
+    )
+    cell_bold_style = ParagraphStyle(
+        'CellBoldStyle',
+        parent=styles['Normal'],
+        fontSize=8.5,
+        fontName='Helvetica-Bold',
+        leading=10,
+    )
+
+    def P(text, bold=False):
+        """Envuelve texto en Paragraph para que haga word-wrap dentro de la celda."""
+        st = cell_bold_style if bold else cell_style
+        return Paragraph(str(text or ''), st)
+
+    # ✅ Email en minúsculas; nombre de institución truncado si es muy largo
+    email_display = (persona.email or '').lower()
+    nombre_completo = f"{persona.nombres} {persona.apellidos}"
+    institucion = persona.institucion or ''
+
     tabla_datos = [
-        ['Responsable:', f"{persona.nombres} {persona.apellidos}", 'Usuario:', username],
-        ['DPI:', persona.dpi, 'Correo:', persona.email or ''],
-        ['NIP:', persona.nip or 'N/A', 'Teléfono:', persona.telefono or ''],
-        ['Subdirección General de Investigación Criminal SGIC', '', 'Fecha de Expiración:', fecha_expiracion.strftime("%d/%m/%Y")],
-        [persona.institucion, '', 'Privilegios de red:', ''],
-        ['', '', 'Escritorio Policial:', '172.21.68.154']
+        [P('Responsable:', bold=True), P(nombre_completo), P('Usuario:', bold=True), P(username)],
+        [P('DPI:', bold=True),         P(persona.dpi),       P('Correo:', bold=True),  P(email_display)],
+        [P('NIP:', bold=True),         P(persona.nip or 'N/A'), P('Teléfono:', bold=True), P(persona.telefono or '')],
+        [P('Subdirección General de Investigación Criminal SGIC', bold=True), '', P('Fecha de Expiración:', bold=True), P(fecha_expiracion.strftime("%d/%m/%Y"))],
+        [P(institucion),               '', P('Privilegios de red:', bold=True), ''],
+        ['',                           '', P('Escritorio Policial:', bold=True), P('172.21.68.154')],
     ]
-    
-    t = Table(tabla_datos, colWidths=[1.5*inch, 2*inch, 1.5*inch, 2*inch])
+ 
+    # ✅ Anchos: col0=1.6", col1=2.4", col2=1.5", col3=1.5" → total 7"
+    # Col1 es más ancha para absorber nombres y emails largos
+    t = Table(tabla_datos, colWidths=[1.6*inch, 2.4*inch, 1.5*inch, 1.5*inch])
     t.setStyle(TableStyle([
-        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 0), (-1, -1), 8.5),
-        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-        ('FONTNAME', (2, 0), (2, -1), 'Helvetica-Bold'),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-        ('SPAN', (0, 3), (1, 3)),
-        ('SPAN', (0, 4), (1, 4)),
-        ('SPAN', (0, 5), (1, 5)),
+        ('VALIGN',    (0, 0), (-1, -1), 'TOP'),
+        ('GRID',      (0, 0), (-1, -1), 0.5, colors.black),
+        ('SPAN',      (0, 3), (1, 3)),   # Fila 4: cols 0–1 unidas
+        ('SPAN',      (0, 4), (1, 4)),   # Fila 5: cols 0–1 unidas
+        ('SPAN',      (0, 5), (1, 5)),   # Fila 6: cols 0–1 unidas
+        ('SPAN',      (2, 4), (3, 4)),   # Fila 5: cols 2–3 unidas
+        ('ALIGN', (2, 4), (3, 4), 'CENTER'),
+        ('TOPPADDING',    (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING',  (0, 0), (-1, -1), 4),
     ]))
     story.append(t)
     story.append(Spacer(1, 0.12*inch))
@@ -574,84 +605,88 @@ def generar_carta_pdf_en_memoria(
     fecha_texto = f"Ciudad de Guatemala, {dias_semana[fecha_gen.weekday()]}, {fecha_gen.day} de {meses[fecha_gen.month-1]} de {fecha_gen.year}"
     
     story.append(Paragraph(fecha_texto, body_style))
-    story.append(Spacer(1, 0.40*inch))
-    
-    # Firmas
-    # ✅ FIX: Usar el usuario CREADOR de la carta, no el que la descarga
+    story.append(Spacer(1, 0.8*inch))   # ~2 cm de espacio antes de las firmas
+    # ========================================
+    # FIRMAS + SELLO — tabla plana 4 filas × 3 cols
+    # ========================================
+    #  Col 0 (2.5")    | Col 1 (2")  | Col 2 (2.5")
+    #  [spacer]        | [SELLO      | [firma_digital]
+    #  [f. _______]    |  SPAN       | [f. _______]
+    #  [Firmo recibo]  |  todas      | [Firmo entrego]
+    #  [Nombre]        |  filas]     | [Nombre]
+
+    sello_path = get_image_path("Sello.png")
+
+    # ✅ Usuario CREADOR de la carta (no quien la descarga)
     usuario_creador = db.query(UsuarioSistema).filter(UsuarioSistema.id == carta.generada_por_usuario_id).first()
     nombre_firmante = usuario_creador.nombre_completo if usuario_creador else "Usuario Desconocido"
     username_creador = usuario_creador.username if usuario_creador else None
-    
+
     # Buscar firma digital del usuario creador
     firma_path = get_firma_path(username_creador)
-    
-    # Crear tabla de firmas con o sin imagen
-    if firma_path:
-        # CON FIRMA DIGITAL: Imagen sobre la línea
+
+    SELLO_SIZE = 1.4 * inch
+    FIRMA_H    = 0.8  * inch
+    FIRMA_W    = 2.1  * inch
+
+    # Sello (centro)
+    celda_sello = ''
+    if sello_path:
         try:
-            img_firma = Image(firma_path, width=2.5*inch, height=0.8*inch)
-            
-            # Primero agregar la imagen centrada solo del lado derecho
-            firma_table_img = Table([['', img_firma]], colWidths=[3.5*inch, 3.5*inch])
-            firma_table_img.setStyle(TableStyle([
-                ('ALIGN', (1, 0), (1, 0), 'CENTER'),
-                ('VALIGN', (1, 0), (1, 0), 'BOTTOM'),
-            ]))
-            story.append(firma_table_img)
-            
-            # Spacer negativo para acercar la línea a la imagen
-            story.append(Spacer(1, -0.3*inch))
-            
-            # Luego la tabla con las líneas y textos
-            firmas = [
-                ['f. _________________________', 'f. _________________________'],
-                ['Firmo y recibo conforme', 'Firmo y entrego DOSI/SGTIC'],
-                [f'{persona.nombres} {persona.apellidos}', nombre_firmante]
-            ]
-            
-            t_firmas = Table(firmas, colWidths=[3.5*inch, 3.5*inch])
-            t_firmas.setStyle(TableStyle([
-                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-                ('FONTSIZE', (0, 0), (-1, -1), 8.5),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ]))
-            story.append(t_firmas)
-            
-        except Exception as e:
-            print(f"⚠️ Error cargando firma: {e}")
-            # Si falla cargar la imagen, usar formato sin firma
-            firmas = [
-                ['f. _________________________', 'f. _________________________'],
-                ['Firmo y recibo conforme', 'Firmo y entrego DOSI/SGTIC'],
-                [f'{persona.nombres} {persona.apellidos}', nombre_firmante]
-            ]
-            
-            t_firmas = Table(firmas, colWidths=[3.5*inch, 3.5*inch])
-            t_firmas.setStyle(TableStyle([
-                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-                ('FONTSIZE', (0, 0), (-1, -1), 8.5),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ]))
-            story.append(t_firmas)
-    else:
-        # SIN FIRMA DIGITAL: Solo líneas para firmar manualmente
-        firmas = [
-            ['f. _________________________', 'f. _________________________'],
-            ['Firmo y recibo conforme', 'Firmo y entrego DOSI/SGTIC'],
-            [f'{persona.nombres} {persona.apellidos}', nombre_firmante]
-        ]
-        
-        t_firmas = Table(firmas, colWidths=[3.5*inch, 3.5*inch])
-        t_firmas.setStyle(TableStyle([
-            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 0), (-1, -1), 8.5),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ]))
-        story.append(t_firmas)
-    
+            celda_sello = Image(sello_path, width=SELLO_SIZE, height=SELLO_SIZE)
+        except Exception:
+            pass
+
+    # Firma digital (derecha, fila 0)
+    celda_firma_img = Spacer(FIRMA_W, FIRMA_H)   # spacer simétrico por defecto
+    if firma_path:
+        try:
+            celda_firma_img = Image(firma_path, width=FIRMA_W, height=FIRMA_H)
+        except Exception:
+            pass
+
+    # Construcción de la tabla plana
+    p_nombre   = f'{persona.nombres} {persona.apellidos}'
+    firma_data = [
+        # fila 0: espacio izq (simétrico) | sello (span) | firma digital
+        [Spacer(FIRMA_W, FIRMA_H),    celda_sello, celda_firma_img],
+        # fila 1: líneas de firma
+        ['f. _________________________', '', 'f. _________________________'],
+        # fila 2: textos
+        ['Firmo y recibo conforme',     '', 'Firmo y entrego DOSI/SGTIC'],
+        # fila 3: nombres
+        [p_nombre,                      '', nombre_firmante],
+    ]
+
+    COL_LADO  = 2.9 * inch
+    COL_SELLO = 1.2 * inch
+
+    t_firmas = Table(firma_data, colWidths=[COL_LADO, COL_SELLO, COL_LADO])
+    t_firmas.setStyle(TableStyle([
+        # Sello abarca las 4 filas de la col central
+        ('SPAN',         (1, 0), (1, 3)),
+        # Alineación general
+        ('ALIGN',        (0, 0), (-1, -1), 'CENTER'),
+        # Sello: centrado vertical dentro de su span
+        ('VALIGN',       (1, 0), (1, 3), 'MIDDLE'),
+        # Firma digital (fila 0, col 2): pegada abajo para tocar la línea
+        ('VALIGN',       (2, 0), (2, 0), 'BOTTOM'),
+        # Resto: arriba
+        ('VALIGN',       (0, 0), (0, 0), 'BOTTOM'),   # spacer iz → mismo fondo
+        ('VALIGN',       (0, 1), (-1, -1), 'TOP'),
+        # Tipografía filas 1-3
+        ('FONTNAME',     (0, 1), (0, 3), 'Helvetica'),
+        ('FONTNAME',     (2, 1), (2, 3), 'Helvetica'),
+        ('FONTSIZE',     (0, 1), (-1, 3), 8.5),
+        # Padding mínimo
+        ('TOPPADDING',    (0, 0), (-1, -1), 1),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 2),
+        ('RIGHTPADDING',  (0, 0), (-1, -1), 2),
+    ]))
+    story.append(t_firmas)
+
+
     # Pie de página
     if os.path.exists(IMAGEN_PIE):
         try:
